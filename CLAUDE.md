@@ -145,6 +145,7 @@ Each agent is defined in /agents/. Read the relevant agent file before performin
 | Financial | agents/financial.md | P&L, runway, portfolio view |
 | Calendar | agents/calendar.md | Google Cal sync, conflict detection |
 | Performance | agents/performance.md | Dashboards, weekly summaries |
+| Developer | agents/developer.md | Architecture, build sequencing, technical decisions |
 | Trickle-down | agents/trickle-down.md | Cross-project proposal routing |
 
 ---
