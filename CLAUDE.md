@@ -74,7 +74,7 @@ Based on the idea, propose:
 Get approval before creating the repo.
 
 ### Phase 5: Spin up
-- Create project repo (venture-os-[project-name])
+- Create project repo using only the project name — never prefix with "venture-os-" (e.g., `lool-ai`, not `venture-os-lool-ai`)
 - Copy only the declared modules from /modules/ as starting templates
 - Create project entry in PROJECTS.md
 - Backfill any learnings from the master database that are relevant

@@ -22,7 +22,7 @@ This is the heartbeat of Venture OS. Every project is registered here. The maste
 ---
 
 ### lool-ai
-- **Repo:** not yet created
+- **Repo:** github.com/salasoliva27/lool-ai
 - **Type:** B2B SaaS — virtual try-on widget for Mexican optical SMEs
 - **Interaction model:** Spec-fed — Jano defines product parameters; field notes fed manually or via Gmail after store visits
 - **Stage:** Validated — ready for build
@@ -30,7 +30,7 @@ This is the heartbeat of Venture OS. Every project is registered here. The maste
 - **Target market:** Independent optical stores in Roma, Condesa, Polanco, Lomas, other CDMX SME-dense neighborhoods
 - **Validated version:** B2B SaaS widget — white-label virtual try-on embedded on store website or WhatsApp catalog. Priced in MXN (~800–1,500 MXN/month). Onboarded in Spanish. Simple catalog upload (product photos, no 3D modeling required). B2C layer comes after 20+ stores have live catalogs.
 - **Key legal flag:** Handles facial image data → LFPDPPP compliance required before any real user data is collected
-- **Status:** ⬜ Not yet spun up as repo
+- **Status:** ⬜ Repo live. Module structure initialized. Build not started.
 
 ---
 
@@ -64,5 +64,5 @@ None yet.
 | Project | Stage | On schedule | Financial | Needs attention |
 |---|---|---|---|---|
 | freelance-system | Operational | ✅ | No revenue yet | Get first lead |
-| lool-ai | Pre-build | ⬜ Not started | No spend yet | Spin up repo |
+| lool-ai | Pre-build | ⬜ Not started | No spend yet | Define stack, start build |
 | espacio-bosques | Deploy pending | ⬜ Blocked | No spend yet | Alchemy setup |
