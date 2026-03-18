@@ -1,5 +1,5 @@
 # PROJECTS REGISTRY
-## Last updated: 2026-03-16
+## Last updated: 2026-03-18
 
 This is the heartbeat of Venture OS. Every project is registered here. The master agent reads this at the start of every session.
 
@@ -25,12 +25,24 @@ This is the heartbeat of Venture OS. Every project is registered here. The maste
 - **Repo:** github.com/salasoliva27/lool-ai
 - **Type:** B2B SaaS — virtual try-on widget for Mexican optical SMEs
 - **Interaction model:** Spec-fed — Jano defines product parameters; field notes fed manually or via Gmail after store visits
-- **Stage:** Validated — ready for build
-- **Modules:** validation ✅, build ⬜, gtm ⬜, campaigns ⬜ (later), performance ⬜, learnings ⬜, financial ⬜, legal ⬜ (LFPDPPP — image data)
+- **Stage:** Build in progress — core widget functional
+- **Modules:** validation ✅, build 🔄, gtm ⬜, campaigns ⬜ (later), performance ⬜, learnings ⬜, financial ⬜, legal ⬜ (LFPDPPP — image data)
 - **Target market:** Independent optical stores in Roma, Condesa, Polanco, Lomas, other CDMX SME-dense neighborhoods
 - **Validated version:** B2B SaaS widget — white-label virtual try-on embedded on store website or WhatsApp catalog. Priced in MXN (~800–1,500 MXN/month). Onboarded in Spanish. Simple catalog upload (product photos, no 3D modeling required). B2C layer comes after 20+ stores have live catalogs.
 - **Key legal flag:** Handles facial image data → LFPDPPP compliance required before any real user data is collected
-- **Status:** ⬜ Repo live. Module structure initialized. Build not started.
+- **Build status (2026-03-18):**
+  - ✅ Camera + MediaPipe face mesh tracking (iris landmarks 468/473)
+  - ✅ Real-time glasses overlay with rotation + scale from IPD
+  - ✅ EMA smoothing — no shrink on blinks
+  - ✅ High-DPI canvas (devicePixelRatio aware)
+  - ✅ Catalog bar with 5 demo frames (Zenni placeholder catalog)
+  - ✅ "Agregar al carrito" button → store product URL
+  - ⬜ UTM attribution tracking on cart button clicks
+  - ⬜ Embeddable widget format (currently standalone app)
+  - ⬜ Real client catalog upload flow
+  - ⬜ Pricing model decision: flat fee vs. performance % (pending)
+- **Business model open question:** Flat monthly fee (~800–1,500 MXN) vs. % of sales attributed to widget. Revenue share requires UTM attribution on cart clicks — already architected, not yet implemented.
+- **Status:** 🔄 Core try-on working. Next: attribution tracking → embeddable widget → first store pilot.
 
 ---
 
@@ -64,5 +76,5 @@ None yet.
 | Project | Stage | On schedule | Financial | Needs attention |
 |---|---|---|---|---|
 | freelance-system | Operational | ✅ | No revenue yet | Get first lead |
-| lool-ai | Pre-build | ⬜ Not started | No spend yet | Define stack, start build |
+| lool-ai | Build in progress | 🔄 Core widget done | No spend yet | Attribution tracking → embeddable widget |
 | espacio-bosques | Deploy pending | ⬜ Blocked | No spend yet | Alchemy setup |
