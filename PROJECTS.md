@@ -8,7 +8,7 @@ This is the heartbeat of Venture OS. Every project is registered here. The maste
 ## ACTIVE PROJECTS
 
 ### freelance-system
-- **Repo:** github.com/salasoliva27/freelance-system
+- **Repo:** github.com/salasoliva27/freelance-system ⚠️ repo not yet created on GitHub
 - **Type:** Automation pipeline (existing, operational)
 - **Interaction model:** Gate-driven — pauses at every client decision point
 - **Stage:** Operational — ready for first real leads
@@ -46,8 +46,8 @@ This is the heartbeat of Venture OS. Every project is registered here. The maste
 
 ---
 
-### espacio-bosques (bosques-poc)
-- **Repo:** github.com/salasoliva27/bosques-poc
+### espacio-bosques
+- **Repo:** github.com/salasoliva27/espacio_bosques
 - **Type:** Blockchain community investment platform
 - **Interaction model:** Event-driven — blockchain contract events drive state; Jano handles community relationships
 - **Stage:** Smart contract complete (22/22 tests passing) → Sepolia deployment pending
