@@ -61,10 +61,29 @@ When a project needs client communication context:
 
 ---
 
+## CREDENTIAL MANAGEMENT
+
+All API keys and secrets live in `salasoliva27/dotfiles` and load automatically into every Codespace.
+
+**To check which credentials are active right now, and to fix any missing ones → see [`CREDENTIALS.md`](./CREDENTIALS.md)**
+
+Never store secrets in any project repo. Never ask Jano for a key in conversation.
+
+### How project repos reference credentials
+
+Each project (lool-ai, espacio-bosques, freelance-system, etc.) declares which tools it uses in its own TOOLS.md. For credential setup, it references `venture-os/CREDENTIALS.md` — it does **not** duplicate setup instructions.
+
+**Rationale:** All projects share the same dotfiles. One place to update when a key rotates, one place to look when something breaks. If a project is ever handed off to an external collaborator, copy the relevant rows from CREDENTIALS.md into that project at handoff time.
+
+---
+
 ## ADDING NEW TOOLS
 
 When a new tool is needed:
 1. Add it to this file with server URL, use case, and which projects need it
 2. Add to .mcp.json
-3. Update any project TOOLS.md files that should use it
-4. Log in CHANGELOG.md
+3. Add env var to `salasoliva27/dotfiles/.env`
+4. Add row to the status table and "where to find" section in CREDENTIALS.md
+5. Update any project TOOLS.md files that should use it
+6. Log in CHANGELOG.md
+7. Restart Claude Code (MCP servers load at startup)
