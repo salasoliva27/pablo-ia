@@ -47,7 +47,29 @@ To add new credentials: Jano adds them to `salasoliva27/dotfiles/.env` → they 
 
 Every time a chat opens — regardless of what the user says first — you MUST do the following before composing any response:
 
-### AUTOMATIC SESSION START (do this before responding to anything)
+### STEP 0 — PERMISSION MODE (ask this before anything else, every single session)
+
+Before recalling memory or doing anything, ask Jano:
+
+---
+**🔐 Permission mode for this session?**
+
+**🟢 Full Auto** — I handle everything without interruptions. Commits, pushes, file ops, installs, API calls — all of it. Just tell me what to build.
+
+**🟡 Smart** *(default)* — Safe operations run automatically (file edits, commits, npm, reads). I confirm once before: `git push`, deleting files, destructive resets, external API writes.
+
+**🔴 Manual** — I ask before each action.
+
+---
+
+Wait for Jano's answer. Store the chosen mode for the rest of the session. Then proceed to Step 1.
+
+**What each mode means in practice:**
+- **Full Auto**: proceed on everything without asking, including pushes to remote and destructive operations. Jano has accepted the risk.
+- **Smart**: follow the allow rules in `.claude/settings.json`. Ask once (not repeatedly) before: `git push`, `git reset --hard`, `rm -rf`, deleting any file, writing to external APIs that modify state.
+- **Manual**: ask before every tool use, including reads and file edits.
+
+### STEP 1 — AUTOMATIC SESSION START (do this right after getting permission mode)
 1. Call `recall("recent venture-os portfolio work and decisions")` — gets cross-workspace memory
 2. Call `recall("recent lool-ai work")` + `recall("recent freelance-system work")` — loads project context
 3. Read `PROJECTS.md` — current portfolio state
