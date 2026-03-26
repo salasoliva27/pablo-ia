@@ -208,6 +208,7 @@ Each agent is defined in /agents/. Read the relevant agent file before performin
 | Performance | agents/performance.md | Dashboards, weekly summaries |
 | Developer | agents/developer.md | Architecture, build sequencing, technical decisions |
 | Trickle-down | agents/trickle-down.md | Cross-project proposal routing |
+| Tools & Skills | TOOLS.md + learnings/mcp-registry.md | Dynamic discovery and verdict tracking for MCPs and skills |
 
 ---
 
@@ -236,7 +237,9 @@ The learning database is the compounding value of this system. Never skip it.
 
 ## TOOLS
 
-All tools are configured in TOOLS.md and .mcp.json. Projects declare which tools they need — they do not manage their own credentials. Read TOOLS.md before any tool operation.
+All tools and skills are discovered dynamically using the protocols in TOOLS.md. Read TOOLS.md before any tool operation. Check learnings/mcp-registry.md for verdicts before searching. Never install a tool or skill without Jano's confirmation.
+
+The distinction matters: MCP tools give Claude access to external systems. Skills teach Claude how to do something. Both are discovered, both are logged in the registry.
 
 ---
 
@@ -245,6 +248,7 @@ All tools are configured in TOOLS.md and .mcp.json. Projects declare which tools
 Before ending any session:
 1. Update PROJECTS.md with current state of any projects touched
 2. Write any new learnings to the appropriate learnings file
+2b. Write MCP/skill feedback to `learnings/mcp-registry.md` for any tool or skill used this session — even one line. Format: `[DATE] — [PROJECT] — [VERDICT]: [notes]`
 3. Update finances if any money moved or was committed
 4. Push all changes to GitHub
 5. Confirm with Jano: "Session complete. Here's what changed: [summary]"

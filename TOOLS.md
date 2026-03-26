@@ -1,41 +1,148 @@
 # TOOLS REGISTRY
-## Venture OS — Central Tool Configuration
-
-All tools are configured once here. Projects declare which tools they need in their own TOOLS.md — they never manage credentials or configurations themselves.
-
----
-
-## AVAILABLE TOOLS
-
-| Tool | MCP Server | Status | Used for | Projects using it |
-|---|---|---|---|---|
-| GitHub | github | ✅ Installed | Repo management, code push, auto-create repos | All |
-| Google Workspace | google-workspace | ✅ Installed (needs GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET + one-time `gws auth setup`) | Gmail, Calendar, Drive, Sheets, Slides, Docs, Forms, Tasks, Chat — single auth covers all | All |
-| Brave Search | brave-search | ✅ Installed (needs BRAVE_API_KEY) | Market research, competitor analysis, lead sourcing | All |
-| Playwright | playwright | ✅ Installed | Browser automation, screenshot websites for portfolio | freelance-system |
-| Filesystem | filesystem | ✅ Installed | Read/write files across /workspaces | All |
-| Fetch | fetch | ✅ Installed | HTTP requests, web scraping | All |
-| Sequential Thinking | sequential-thinking | ✅ Installed | Multi-step reasoning chains | All |
-| Memory (basic) | memory | ✅ Installed | In-session key-value memory | All |
-| n8n | n8n | ⏸️ Deferred — activate only when a client project specifically requires n8n | Build and deploy automation workflows | freelance-system (conditional) |
-| Cloudflare | cloudflare | ⏸️ Deferred — needed at lool-ai pilot stage when clients upload real product catalogs | R2 media storage, Workers, KV | lool-ai (when ready for pilot) |
-| Notion | notion | ✅ Active (via Claude.ai integration) | Documentation, structured notes | Optional |
-| Supabase Memory | supabase-memory | ⬜ Planned — cross-workspace semantic memory | Conversation history, learning database, RAG across all projects | All |
-| Playwright CLI | CLI — `@playwright/cli` | ✅ Installed globally (`npm i -g @playwright/cli`) | Token-efficient browser automation for agents; better than MCP Playwright for coding agents | freelance-system, lool-ai |
-| UI/UX Pro Max | CLI — `uipro-cli` | ✅ Installed globally (`npm i -g uipro-cli`) | 67 UI styles, 161 palettes, 57 font pairings, industry-specific design system generator. Run: `uipro init --ai claude` in any project. Auto-activates on frontend work. | All frontend projects |
-| shadcn/ui | Component library — `npx shadcn@latest init` | ✅ Available (init per project) | Copy-own component model built on Radix UI + Tailwind. Run `npx shadcn@latest add [component]` to add individual components. Default choice for any React/Next.js UI. Pairs with uipro-cli for style decisions. | All React/Next.js projects |
+## Venture OS — Dynamic Discovery
+## Last updated: 2026-03-25
 
 ---
 
-## STORAGE ROUTING RULES
+## PHILOSOPHY
 
-Apply these automatically — never ask Jano where to store something:
+The tool and skill ecosystems grow by thousands per month. No static list stays current. This system discovers both on demand and learns from real use. **`learnings/mcp-registry.md` is the single source of truth for what actually works.**
+
+---
+
+## THE DIFFERENCE: MCP TOOLS vs SKILLS
+
+**MCP Tools** give Claude access to external systems at runtime — GitHub, Gmail, databases, APIs. Claude uses them to *act on the world*.
+
+**Skills (SKILL.md)** teach Claude *how to do something* before a task starts — domain expertise, workflows, design systems, security patterns. Like a recipe Claude reads before cooking.
+
+They compose: Sentry's code review skill defines the PR analysis workflow; the Sentry MCP fetches the live error data. MCP is the kitchen. The skill is the recipe.
+
+---
+
+## MCP TOOL DISCOVERY PROTOCOL
+
+When a project or session requires a capability not currently in `.mcp.json`:
+
+### Step 1 — Check the registry
+Read `learnings/mcp-registry.md` → MCP TOOLS section:
+- **GOOD** → propose immediately with install command
+- **BAD** → explain why, search for alternatives
+- **UNTESTED** → proceed to Step 2
+
+### Step 2 — Use Claude Code's built-in MCP Tool Search
+```bash
+claude mcp search "[capability]"
+```
+This searches the MCP registry with lazy loading — up to 95% context savings.
+
+### Step 3 — Search public repositories
+```
+"[capability] MCP server GitHub 2026"
+"[capability] site:github.com MCP server"
+```
+Key directories:
+- glama.ai/mcp/servers — 13,000+ indexed
+- github.com/wong2/awesome-mcp-servers — most maintained community list
+- mcpservers.org — curated with install commands
+- github.com/jaw9c/awesome-remote-mcp-servers — remote/hosted (no local install)
+
+### Step 4 — Filter
+Stars > 100 OR official company repo · last commit < 6 months · README with install command · not in BAD list
+
+### Step 5 — Propose to Jano
+1-3 options max, top pick with reasoning, exact install command, env var needed. Never add to `.mcp.json` without confirmation.
+
+### Step 6 — Write feedback
+After using any new MCP this session: one entry in `learnings/mcp-registry.md` before ending. Mandatory.
+
+---
+
+## SKILL DISCOVERY PROTOCOL
+
+When a task would benefit from specialized expertise:
+
+### Step 1 — Check what's installed
+```bash
+ls ~/.claude/skills/
+ls /mnt/skills/public/
+```
+
+### Step 2 — Use claude-skills-mcp for semantic search
+```bash
+# Install once if not present
+claude mcp add claude-skills -- uvx claude-skills-mcp
+
+# Search from within any session
+find_helpful_skills("[describe the task]")
+```
+
+### Step 3 — Search public repositories
+```
+"[capability] SKILL.md Claude Code GitHub 2026"
+```
+Key directories:
+- github.com/travisvn/awesome-claude-skills
+- github.com/VoltAgent/awesome-agent-skills — official skills from Anthropic, Google, Vercel, Stripe, Sentry, Cloudflare, Figma
+- github.com/BehiSecc/awesome-claude-skills
+- github.com/alirezarezvani/claude-skills — 192 skills
+- `npx antigravity-awesome-skills --list` — 1,234 skills
+
+### Step 4 — Filter
+Community adoption · clear SKILL.md with frontmatter · last updated < 6 months · matches the task
+
+### Step 5 — Install and invoke
+```bash
+mkdir -p ~/.claude/skills/[skill-name]
+curl -sL [raw-url-to-SKILL.md] -o ~/.claude/skills/[skill-name]/SKILL.md
+```
+Invoke with `/skill-name` or describe the task for auto-load.
+
+### Step 6 — Write feedback
+Same format as MCP feedback, under Skills section in `learnings/mcp-registry.md`.
+
+---
+
+## CURRENTLY CONFIGURED MCP TOOLS
+
+| Tool | Env var | What it does | Registry status |
+|---|---|---|---|
+| GitHub | `GITHUB_TOKEN` | Repos, PRs, issues, auto-create repos | GOOD |
+| Google Workspace | `GOOGLE_CLIENT_ID/SECRET` | Gmail, Calendar, Drive, Sheets, Slides, Docs, Forms, Tasks, Chat | UNTESTED |
+| Brave Search | `BRAVE_API_KEY` | Market research, competitor analysis | GOOD |
+| Memory (Supabase) | `SUPABASE_URL/KEY` | Cross-session memory via remember()/recall() | UNTESTED |
+| Filesystem | none | Read/write /workspaces | GOOD |
+| Fetch | none | HTTP requests, link validation | GOOD |
+| Sequential Thinking | none | Multi-step reasoning chains | GOOD |
+| Playwright | none | Browser automation, screenshots | GOOD |
+| n8n | `N8N_API_KEY/URL` | Build and deploy automations | UNTESTED |
+| Cloudflare | `CLOUDFLARE_API_TOKEN/ACCOUNT_ID` | R2, Workers, KV | UNTESTED |
+
+---
+
+## CURRENTLY INSTALLED SKILLS
+
+| Skill | Location | Invoked when |
+|---|---|---|
+| docx | /mnt/skills/public/docx/ | Creating Word documents |
+| pdf | /mnt/skills/public/pdf/ | Working with PDF files |
+| pptx | /mnt/skills/public/pptx/ | Creating presentations |
+| xlsx | /mnt/skills/public/xlsx/ | Creating spreadsheets |
+| frontend-design | /mnt/skills/public/frontend-design/ | Building any web UI |
+| file-reading | /mnt/skills/public/file-reading/ | Processing uploaded files |
+| pdf-reading | /mnt/skills/public/pdf-reading/ | Reading PDF content |
+| product-self-knowledge | /mnt/skills/public/product-self-knowledge/ | Questions about Claude/Anthropic |
+| skill-creator | /mnt/skills/examples/skill-creator/ | Building new custom skills |
+
+---
+
+## STORAGE ROUTING (apply automatically)
 
 ```
 Code, markdown, CSV, configs → GitHub (project repo)
-Research docs, proposals → GitHub (project repo /validation or /gtm)
-Client deliverables, PDFs, shared docs → Google Drive /VentureOS/[project]/
-Campaign images, AI-generated media → R2 venture-os-media/[project]/
+Research docs, proposals → GitHub (/validation or /gtm)
+Client deliverables, PDFs → Google Drive /VentureOS/[project]/
+Campaign media, AI images/video → Cloudflare R2 /venture-os-media/[project]/
 Large video files → Google Drive /VentureOS/[project]/media/
 ```
 
@@ -43,47 +150,16 @@ Large video files → Google Drive /VentureOS/[project]/media/
 
 ## GOOGLE CALENDAR RULES
 
-- Jano's constraint: **available after 3pm weekdays, weekends flexible**
-- Never schedule deep work before 3pm on weekdays
-- Buffer 30 minutes between project context switches
-- Sync project milestones as calendar events
-- Flag when a project's estimated timeline doesn't fit available hours
+- Available after 3pm weekdays, weekends flexible
+- 30 min buffer between project context switches
+- Read calendar before scheduling anything
+- Flag when estimated timeline doesn't fit available hours
 
 ---
 
 ## GMAIL CONTEXT EXTRACTION
 
-When a project needs client communication context:
-1. Search Gmail for threads related to that project or contact
-2. Extract: last message date, current status, any commitments made, next expected action
-3. Update the project's GTM tracker with this information
-4. Flag any threads that need a response from Jano
-
----
-
-## CREDENTIAL MANAGEMENT
-
-All API keys and secrets live in `salasoliva27/dotfiles` and load automatically into every Codespace.
-
-**To check which credentials are active right now, and to fix any missing ones → see [`CREDENTIALS.md`](./CREDENTIALS.md)**
-
-Never store secrets in any project repo. Never ask Jano for a key in conversation.
-
-### How project repos reference credentials
-
-Each project (lool-ai, espacio-bosques, freelance-system, etc.) declares which tools it uses in its own TOOLS.md. For credential setup, it references `venture-os/CREDENTIALS.md` — it does **not** duplicate setup instructions.
-
-**Rationale:** All projects share the same dotfiles. One place to update when a key rotates, one place to look when something breaks. If a project is ever handed off to an external collaborator, copy the relevant rows from CREDENTIALS.md into that project at handoff time.
-
----
-
-## ADDING NEW TOOLS
-
-When a new tool is needed:
-1. Add it to this file with server URL, use case, and which projects need it
-2. Add to .mcp.json
-3. Add env var to `salasoliva27/dotfiles/.env`
-4. Add row to the status table and "where to find" section in CREDENTIALS.md
-5. Update any project TOOLS.md files that should use it
-6. Log in CHANGELOG.md
-7. Restart Claude Code (MCP servers load at startup)
+1. Search Gmail for threads related to the project
+2. Extract: last message date, status, commitments, next action
+3. Update the project's GTM tracker
+4. Flag any threads needing Jano's response
