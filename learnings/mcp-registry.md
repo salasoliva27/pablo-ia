@@ -19,6 +19,7 @@ The system's accumulated knowledge about MCP tools and skills. Grows automatical
 - Repo management, auto-commit, push — reliable across all projects
 - GITHUB_TOKEN loads correctly from dotfiles
 - Session log: used across all projects, no failures
+- [2026-03-26] — longevite-therapeutics — GOOD: searched repo, read files, pushed 3 files cleanly
 
 ### Brave Search MCP
 **Verdict:** GOOD | **Install:** Built into `.mcp.json`
@@ -41,6 +42,7 @@ The system's accumulated knowledge about MCP tools and skills. Grows automatical
 ### Playwright MCP
 **Verdict:** GOOD | **Install:** Built into `.mcp.json`
 - Portfolio screenshots work reliably
+- [2026-03-26] — longevite-therapeutics — GOOD: browser_install needed once per environment (npx playwright install chromium first, then use browser_install tool). After that, navigate + screenshot work perfectly.
 
 ### Filesystem, Fetch, Sequential Thinking
 **Verdict:** GOOD | Built-in, no credentials needed
@@ -57,7 +59,8 @@ The system's accumulated knowledge about MCP tools and skills. Grows automatical
 ## DISCOVERED — HIGH PRIORITY
 
 ### Context7
-**Verdict:** UNTESTED — CRITICAL TO TRY
+**Verdict:** CONFIGURED — needs real-use test
+- [2026-03-26] — venture-os — Added to .mcp.json. Will activate on next session start.
 **Install:** `npx -y @upstash/context7-mcp` | **Keys:** None
 **Why:** Live version-specific docs before generating code. Add "use context7" to any prompt. 89,000+ installs on related skill. Eliminates outdated API answers.
 **Session log:** none yet
@@ -190,10 +193,10 @@ The system's accumulated knowledge about MCP tools and skills. Grows automatical
 ## DISCOVERED — HIGH PRIORITY (SKILLS)
 
 ### feature-dev ⚡ 89,000 INSTALLS
-**Verdict:** UNTESTED — CRITICAL TO TRY
-**Install:** Via Claude Code plugin marketplace
-**Why:** Structured senior-engineer process for turning feature briefs into working code. Most popular skill. Pairs with frontend-design.
-**Session log:** none yet
+**Verdict:** INSTALLED — not yet invoked via /feature-dev
+**Install:** Already in /home/codespace/.claude/plugins/marketplaces/claude-plugins-official/plugins/feature-dev/
+**Why:** 7-phase structured workflow — discovery, exploration, clarifying Qs, architecture design, implementation, quality review, summary. Commands: /feature-dev, agents: code-explorer, code-architect, code-reviewer.
+**Session log:** [2026-03-26] — confirmed installed, /feature-dev command available
 
 ### /code-review (official Anthropic)
 **Verdict:** UNTESTED

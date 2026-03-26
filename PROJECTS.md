@@ -59,6 +59,34 @@ This is the heartbeat of Venture OS. Every project is registered here. The maste
 
 ---
 
+### longevite-therapeutics
+- **Repo:** github.com/salasoliva27/LongeviteTherapeutics
+- **Type:** Client project — static website for a functional medicine & longevity IV clinic
+- **Interaction model:** Spec-fed — Jano builds for Susana (his mom); no gate-driven client decisions
+- **Stage:** Build in progress — v1 site exists, full redesign in progress
+- **Modules:** build 🔄
+- **Modules excluded:** validation (existing business), gtm (Susana handles), campaigns, performance, financial, legal
+- **Owner:** Susana (Jano's mom) — Jano is the builder
+- **Target market:** Residents of Lomas Virreyes / Polanco / high-end CDMX — health-conscious professionals 35–60
+- **Location:** Pedregal #47, Col. Lomas Virreyes, CDMX
+- **Contact:** +52 55 8930 3489 | @longevitetherapeutics | www.longevitetherapeutics.com
+- **Tech stack:** Static HTML/CSS/JS (vanilla, GSAP animations), hosted as static site
+- **Design direction:** Premium longevity clinic — black + olive/gold palette from logo, sophisticated minimalism, bilingual ES/EN
+- **Real assets available:** Clinic photos (treatment_chairs, waiting_chairs), product images for all 10 therapies, event invite photo
+- **Build status (2026-03-26):**
+  - ✅ Full redesign complete — index.html + css/styles.css + js/main.js (split from monolith)
+  - ✅ Cormorant Garamond editorial typography + DM Sans body
+  - ✅ Cream/olive/black palette, full-bleed clinic photography, real product images
+  - ✅ GSAP parallax + scroll reveals + staggered therapy cards
+  - ✅ Bilingual ES/EN with sessionStorage persistence
+  - ✅ Pushed to GitHub
+  - ⬜ Deploy to hosting (Netlify recommended)
+  - ⬜ Connect contact form to backend (email / WhatsApp)
+  - ⬜ Google Analytics
+- **Status:** 🔄 V2 live on GitHub — ready to deploy
+
+---
+
 ## COMPLETED PROJECTS
 
 None yet.
