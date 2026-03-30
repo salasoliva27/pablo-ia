@@ -1,5 +1,5 @@
 # MCP REGISTRY — CURATED EXPERIENCE LOG
-## Venture OS | Last updated: 2026-03-25
+## Venture OS | Last updated: 2026-03-30
 
 The system's accumulated knowledge about MCP tools and skills. Grows automatically — a brief entry after every session where a tool or skill is used, a full assessment after every project completes.
 
@@ -94,6 +94,36 @@ The system's accumulated knowledge about MCP tools and skills. Grows automatical
 
 ## DISCOVERED — RECOMMENDED
 
+### Notion MCP
+**Verdict:** UNTESTED — NOTE: Notion tools already appear via claude.ai integration (mcp__claude_ai_Notion)
+**Install:** `npx -y @notionhq/notion-mcp-server` | **Keys:** Notion API key
+**Search volume:** 23,000/mo (#7 most searched MCP) | **Why:** Docs, project wikis, content planning. May already be functional via existing integration — test first before installing separately.
+**Session log:** none yet
+
+### Slack MCP
+**Verdict:** UNTESTED
+**Install:** Via Slack app directory | **Keys:** Slack bot token
+**Search volume:** 17,700/mo (#9 most searched MCP) | **Why:** Team communication — relevant when lool-ai has employees or when coordinating with Longevité clinic
+**Session log:** none yet
+
+### Zapier MCP
+**Verdict:** UNTESTED
+**Install:** Via Zapier MCP beta | **Keys:** Zapier API key
+**Search volume:** 10,800/mo | **Why:** 8,000+ app integrations. Overlaps with n8n — evaluate which to standardize on. Zapier = simpler, n8n = more control.
+**Session log:** none yet
+
+### Tavily Search
+**Verdict:** UNTESTED
+**Install:** `npx -y tavily-mcp` | **Keys:** `TAVILY_API_KEY` (free tier)
+**Search volume:** 2,900/mo | **Why:** AI-optimized search with structured results + citations. Alternative to Exa. Brave = broad, Exa = semantic, Tavily = structured/cited.
+**Session log:** none yet
+
+### Desktop Commander
+**Verdict:** UNTESTED
+**Install:** Via Claude Desktop | **Keys:** None
+**Search volume:** 1,900/mo | **Why:** Full desktop control — terminal, file system, process management. Pairs with computer use.
+**Session log:** none yet
+
 ### Exa Search
 **Verdict:** UNTESTED
 **Install:** `npx -y exa-mcp-server` | **Keys:** `EXA_API_KEY` (free tier)
@@ -159,6 +189,12 @@ The system's accumulated knowledge about MCP tools and skills. Grows automatical
 
 ---
 
+## JANO-RECOMMENDED (MCP TOOLS)
+*Tools Jano has personally sourced and wants in the system. Added on instruction, not discovery.*
+*(Empty — will populate as Jano adds recommendations)*
+
+---
+
 ## REJECTED / AVOID (MCP TOOLS)
 *(Empty — will populate as bad experiences accumulate)*
 
@@ -190,6 +226,30 @@ The system's accumulated knowledge about MCP tools and skills. Grows automatical
 
 ---
 
+## JANO-RECOMMENDED (SKILLS)
+*Tools Jano has personally sourced and wants in the system. Added on instruction, not discovery.*
+
+### GSAP Skills ⭐ JANO-RECOMMENDED (OFFICIAL)
+**Verdict:** UNTESTED — HIGH PRIORITY for any animation work
+**Repo:** github.com/greensock/gsap-skills | **Official:** GreenSock (GSAP authors)
+**Install (npx):** `npx skills add https://github.com/greensock/gsap-skills`
+**Or via marketplace:** `/plugin marketplace add greensock/gsap-skills`
+**Keys:** None
+**Why:** Official GSAP skill from GreenSock — 8 modules: gsap-core, gsap-timeline, gsap-scrolltrigger, gsap-plugins, gsap-utils, gsap-react, gsap-performance, gsap-frameworks. Prevents incorrect syntax, ensures proper plugin registration and cleanup. Works across 40+ AI agents. Essential for any project using GSAP animations (Longevité, lool-ai widget UI, landing pages).
+**Session log:** none yet
+
+### ui-ux-pro-max ⭐ JANO-RECOMMENDED
+**Verdict:** UNTESTED — HIGH PRIORITY
+**Repo:** github.com/nextlevelbuilder/ui-ux-pro-max-skill | **Website:** uupm.cc
+**Install (global):** `npm install -g uipro-cli && uipro init --ai claude --global`
+**Or via marketplace:** `/plugin marketplace add nextlevelbuilder/ui-ux-pro-max-skill`
+**Keys:** None (Python 3.x required)
+**Why:** Multi-domain design reasoning engine. Analyzes request against 161 industry categories, runs 5 parallel design searches (style, color, typography, layout pattern, landing page), returns complete design system with anti-patterns. 67 UI styles, 161 palettes, 57 font pairings. Auto-activates on any UI request. Replaces frontend-design for any serious product UI work.
+**Use `--persist` flag** to save design system to disk across sessions.
+**Session log:** none yet
+
+---
+
 ## DISCOVERED — HIGH PRIORITY (SKILLS)
 
 ### feature-dev ⚡ 89,000 INSTALLS
@@ -197,6 +257,43 @@ The system's accumulated knowledge about MCP tools and skills. Grows automatical
 **Install:** Already in /home/codespace/.claude/plugins/marketplaces/claude-plugins-official/plugins/feature-dev/
 **Why:** 7-phase structured workflow — discovery, exploration, clarifying Qs, architecture design, implementation, quality review, summary. Commands: /feature-dev, agents: code-explorer, code-architect, code-reviewer.
 **Session log:** [2026-03-26] — confirmed installed, /feature-dev command available
+
+### Antigravity Awesome Skills ⭐ 22,000 STARS
+**Verdict:** UNTESTED — HIGH PRIORITY
+**Install:** `npx antigravity-awesome-skills --claude`
+**Stars:** 22,034 | **Skills count:** 1,234+
+**Why:** Largest open-source skills pack. Works across Claude Code, Cursor, Gemini CLI, Codex, 8+ agents. Single install command adds 1,234 skills. Check what's inside before relying on it — quality varies at scale.
+**Session log:** none yet
+
+### landing-page-guide
+**Verdict:** UNTESTED — HIGH PRIORITY for GTM
+**Install:** Via awesome-claude-skills repos (openaitoolshub.org list)
+**Why:** High-converting landing page structure with CRO principles baked in. Relevant for every project GTM phase.
+**Session log:** none yet
+
+### brainstorming
+**Verdict:** UNTESTED
+**Install:** Via awesome-claude-skills repos
+**Why:** Structured ideation — generates constraints, edge cases, alternative approaches before coding. Good for intake and validation phases.
+**Session log:** none yet
+
+### deploy-checklist
+**Verdict:** UNTESTED
+**Install:** Via awesome-claude-skills repos
+**Why:** Pre-deployment validation — env vars, rollback plans, smoke tests. Use before every lool-ai or Longevité deploy.
+**Session log:** none yet
+
+### test-harness
+**Verdict:** UNTESTED
+**Install:** Via awesome-claude-skills repos
+**Why:** Generates unit, integration, and E2E test suites automatically. Needed when lool-ai reaches production.
+**Session log:** none yet
+
+### Excalidraw Diagram Generator
+**Verdict:** UNTESTED
+**Install:** `npx skills add https://github.com/coleam00/excalidraw-diagram-skill --skill excalidraw-diagram`
+**Why:** Architecture diagrams from natural language. Useful for documenting lool-ai system design and explaining to stakeholders.
+**Session log:** none yet
 
 ### /code-review (official Anthropic)
 **Verdict:** UNTESTED

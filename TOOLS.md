@@ -48,7 +48,9 @@ Key directories:
 - github.com/jaw9c/awesome-remote-mcp-servers — remote/hosted (no local install)
 
 ### Step 4 — Filter
-Stars > 100 OR official company repo · last commit < 6 months · README with install command · not in BAD list
+**Stars first** — sort by GitHub stars descending before evaluating anything else.
+Stars > 500 preferred · official company repo accepted at any star count · last commit < 6 months · README with install command · not in BAD list
+Reference data: mcpmarket.com/leaderboards (star counts) · mcpmanager.ai/blog/most-popular-mcp-servers (search volume)
 
 ### Step 5 — Propose to Jano
 1-3 options max, top pick with reasoning, exact install command, env var needed. Never add to `.mcp.json` without confirmation.
@@ -89,7 +91,9 @@ Key directories:
 - `npx antigravity-awesome-skills --list` — 1,234 skills
 
 ### Step 4 — Filter
-Community adoption · clear SKILL.md with frontmatter · last updated < 6 months · matches the task
+**Stars first** — sort by GitHub stars before evaluating.
+Stars > 200 preferred · clear SKILL.md with frontmatter · last updated < 6 months · matches the task
+Reference data: openaitoolshub.org/en/blog/best-claude-code-skills-2026 · github.com/alirezarezvani/claude-skills (5,200+ stars, 192 skills)
 
 ### Step 5 — Install and invoke
 ```bash
@@ -133,6 +137,7 @@ Same format as MCP feedback, under Skills section in `learnings/mcp-registry.md`
 | pdf-reading | /mnt/skills/public/pdf-reading/ | Reading PDF content |
 | product-self-knowledge | /mnt/skills/public/product-self-knowledge/ | Questions about Claude/Anthropic |
 | skill-creator | /mnt/skills/examples/skill-creator/ | Building new custom skills |
+| gsap | ~/.claude/skills/gsap-skills/ | GSAP animations (core, timeline, ScrollTrigger, React, performance) |
 
 ---
 
