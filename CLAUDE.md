@@ -248,6 +248,31 @@ If a task requires a skill that appears in TOOLS.md (CURRENTLY INSTALLED SKILLS 
 Install command: `npx skills add [repo-url]` or `/plugin marketplace add [org/repo]`
 After installing, invoke it immediately for the task at hand.
 
+### MANDATORY PRE-TASK CHECKLIST (run before every build/edit task)
+
+Before touching any code or files, you MUST complete this checklist:
+
+1. **Read ALL existing files** in the target project — never assume, always read. List every file and its purpose before changing anything.
+2. **Audit existing content** — write a mental inventory of every section, image, piece of text, and feature that currently exists. Nothing gets deleted unless Jano explicitly says to remove it.
+3. **Check all portfolio repos** — `mcp__github__search_repositories` for `user:salasoliva27` to see all repos. Check if any have relevant code or patterns you can reuse.
+4. **Search online for skills/tools** — before building anything non-trivial, search the skill registries (awesome-claude-skills, VoltAgent/awesome-agent-skills) for an existing skill that covers it.
+5. **Inventory installed skills** — `ls ~/.agents/skills/ && ls ~/.claude/skills/` before any UI/animation/frontend task.
+
+### NO-DELETE RULE
+
+**You must never remove existing content, sections, images, text, or features from any project file unless Jano explicitly instructs you to remove it.** When adding or modifying:
+- ADD to what exists, don't replace
+- If you must restructure, copy existing content into the new structure first, then refine
+- Before committing, diff your changes and verify no content was lost
+
+### ALWAYS USE GET-SHIT-DONE (GSD)
+
+GSD is installed at `~/.claude/commands/gsd/`. For any significant build task (new feature, full page build, multi-file refactor), use `/gsd:do [task]` or `/gsd:execute-phase` to get structured, verified execution. GSD prevents context rot and ensures work is verified before completion.
+
+### ALWAYS USE MAGIC MCP
+
+Magic MCP (`mcp__magic`) is configured for website and UI building. Use it for any component creation, UI enhancement, or when you need polished production-ready UI patterns. It generates context-aware components that match the existing design system.
+
 ---
 
 ## END OF SESSION PROTOCOL

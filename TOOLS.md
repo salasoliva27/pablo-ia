@@ -154,7 +154,9 @@ npx remotion render        # renders to out/ locally
 - `freelance-system` — "AI Video Generation" as a new service type (~$500–2,000/project)
 - New standalone project — vertical video SaaS (see PROJECTS.md when ready)
 
-**Cost:** Free (local) · $0.01/render-minute (Lambda) · A 60-second video ≈ $0.01–0.03
+**Cost:** Free (local) · $0.01/render-minute (Lambda — deferred, AWS subscription not active)
+
+> **Current mode: local only.** `npx remotion render` outputs to `out/` folder. Good enough for all POC and client work. Revisit Lambda when volume justifies it.
 
 ---
 
