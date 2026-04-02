@@ -1,5 +1,5 @@
 # PROJECTS REGISTRY
-## Last updated: 2026-03-18
+## Last updated: 2026-04-02
 
 This is the heartbeat of Venture OS. Every project is registered here. The master agent reads this at the start of every session.
 
@@ -56,6 +56,27 @@ This is the heartbeat of Venture OS. Every project is registered here. The maste
 - **Immediate next steps:** Alchemy account → testnet ETH → MetaMask private key in .env → npm run deploy:sepolia → React frontend (4 screens)
 - **Key legal flag:** Blockchain-based investment → potential CNBV regulatory territory → validate before real funds
 - **Status:** ⬜ Not yet registered under venture-os. Smart contract phase complete.
+
+---
+
+### nutrIA
+- **Repo:** github.com/salasoliva27/nutria-app
+- **Type:** Monorepo — React PWA (app) + embeddable widget (widget)
+- **Stage:** Build — Phase 1 internal test
+- **Modules:** build 🔄
+- **Stack:** React + Vite · Tailwind v4 · Framer Motion · Supabase Auth · Claude API (claude-opus-4-6, streaming) · Web Speech API · Netlify (free)
+- **Relationship:** Frontend for nutri-ai agent. Widget embeds on longevite-therapeutics and any future clinic site.
+- **Build status (2026-04-02):**
+  - ✅ Monorepo scaffolded, both targets build clean
+  - ✅ Shared: ChatPanel, ChatFull, ChatBubble, VoiceButton, GlowEffect, useChat, useVoice, claude.js, supabase.js
+  - ✅ App: AuthScreen (Google + email), PageCarousel (swipe), MainPage (chat trigger), DashboardPage (4 sections)
+  - ✅ Widget: WidgetButton (otter, teal glow), shadow DOM isolation, session-only chat
+  - ✅ widget.js IIFE bundle (655kb) — embed with 1 script tag
+  - ✅ Pushed to GitHub, dev server running at localhost:5173
+  - ⬜ Supabase: run database/schema.sql + enable Google OAuth
+  - ⬜ Netlify deploy (needs NETLIFY_AUTH_TOKEN in dotfiles)
+  - ⬜ Embed widget on longevite-therapeutics
+- **Status:** 🔄 V1 built — needs Supabase config + Netlify deploy
 
 ---
 

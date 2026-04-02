@@ -144,10 +144,11 @@ The system's accumulated knowledge about MCP tools and skills. Grows automatical
 **Session log:** none yet
 
 ### Netlify MCP
-**Verdict:** UNTESTED
+**Verdict:** READY TO ACTIVATE — needs NETLIFY_AUTH_TOKEN in dotfiles
 **Install:** OAuth via Netlify
-**Why:** Deploy sites, manage functions and domains from Claude
-**Session log:** none yet
+**Why:** Deploy sites, manage functions and domains from Claude — nutrIA-app will use this
+**Action needed:** app.netlify.com → User settings → Applications → Personal access tokens → add to dotfiles as NETLIFY_AUTH_TOKEN
+**Session log:** 2026-04-02 — nutrIA build complete, netlify.toml written, ready to connect
 
 ### Apify Actors
 **Verdict:** UNTESTED
