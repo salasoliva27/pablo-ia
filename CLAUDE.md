@@ -39,6 +39,10 @@ All API keys live in Jano's private dotfiles repo (`salasoliva27/dotfiles`) and 
 
 To add new credentials: Jano adds them to `salasoliva27/dotfiles/.env` → they appear in all Codespaces automatically. Never store secrets directly in any project repo.
 
+### SUPABASE — ALL PROJECTS SHARE ONE INSTANCE
+
+All projects use the same Supabase project (`rycybujjedtofghigyxm`). Tables are prefixed per project to avoid collisions. Before writing any Supabase query for any project, read `learnings/supabase-registry.md` — it lists every table, its purpose, and schema file location. When a new project needs Supabase tables, add them to the registry.
+
 ---
 
 ## SESSION BEHAVIOR — READ THIS FIRST

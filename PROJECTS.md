@@ -73,7 +73,7 @@ This is the heartbeat of Venture OS. Every project is registered here. The maste
   - ✅ Widget: WidgetButton (otter, teal glow), shadow DOM isolation, session-only chat
   - ✅ widget.js IIFE bundle (655kb) — embed with 1 script tag
   - ✅ Pushed to GitHub, dev server running at localhost:5173
-  - ⬜ Supabase: run database/schema.sql + enable Google OAuth
+  - ⬜ Supabase: run database/schema.sql (tables: nutria_conversations, nutria_patient_profiles) + enable Google OAuth
   - ⬜ Netlify deploy (needs NETLIFY_AUTH_TOKEN in dotfiles)
   - ⬜ Embed widget on longevite-therapeutics
 - **Status:** 🔄 V1 built — needs Supabase config + Netlify deploy
