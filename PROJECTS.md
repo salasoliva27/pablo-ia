@@ -1,5 +1,5 @@
 # PROJECTS REGISTRY
-## Last updated: 2026-04-02
+## Last updated: 2026-04-05
 
 This is the heartbeat of Janus IA. Every project is registered here. The master agent reads this at the start of every session.
 
@@ -47,15 +47,11 @@ This is the heartbeat of Janus IA. Every project is registered here. The master 
 ---
 
 ### espacio-bosques
-- **Repo:** github.com/salasoliva27/espacio_bosques
-- **Type:** Blockchain community investment platform
-- **Interaction model:** Event-driven — blockchain contract events drive state; Jano handles community relationships
-- **Stage:** Smart contract complete (22/22 tests passing) → Sepolia deployment pending
-- **Modules:** build ✅ (contract), build ⬜ (React frontend), gtm ⬜, performance ⬜, learnings ⬜, financial ⬜, legal ⬜ (CNBV, blockchain asset regulation — heavy)
-- **Target market:** Bosques de las Lomas residents + local service providers
-- **Immediate next steps:** Alchemy account → testnet ETH → MetaMask private key in .env → npm run deploy:sepolia → React frontend (4 screens)
-- **Key legal flag:** Blockchain-based investment → potential CNBV regulatory territory → validate before real funds
-- **Status:** ⬜ Not yet registered under janus. Smart contract phase complete.
+Community blockchain funding platform. On-chain escrow + AI project creation.
+No MetaMask — fiat via Bitso API. Auth: Supabase email/PIN + Google.
+- **Dev:** github.com/salasoliva27/espacio-bosques-dev
+- **Status:** 🔄 POC overhaul — simulation mode, Bitso sandbox, Supabase auth
+- **Legal flag:** Ley Fintech / CNBV — using Bitso as licensed IFPE
 
 ---
 
@@ -126,4 +122,4 @@ None yet.
 |---|---|---|---|---|
 | freelance-system | Operational | ✅ | No revenue yet | Get first lead |
 | lool-ai | Build in progress | 🔄 Core widget done | No spend yet | Attribution tracking → embeddable widget |
-| espacio-bosques | Deploy pending | ⬜ Blocked | No spend yet | Alchemy setup |
+| espacio-bosques | POC overhaul | 🔄 Active | No spend yet | Bitso keys + Supabase SQL |
