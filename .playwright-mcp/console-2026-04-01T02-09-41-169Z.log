@@ -1,9 +1,0 @@
-[     360ms] [ERROR] Failed to load resource: the server responded with a status of 404 (File not found) @ http://localhost:8080/images/products/glutathione.jpg:0
-[     419ms] [ERROR] Failed to load resource: the server responded with a status of 404 (File not found) @ http://localhost:8080/images/products/nad-plus.jpg:0
-[     477ms] [ERROR] Failed to load resource: the server responded with a status of 404 (File not found) @ http://localhost:8080/images/products/vitamina-c.jpg:0
-[     477ms] [ERROR] Failed to load resource: the server responded with a status of 404 (File not found) @ http://localhost:8080/images/products/rehydration.jpg:0
-[     496ms] [ERROR] Failed to load resource: the server responded with a status of 404 (File not found) @ http://localhost:8080/images/products/hangover.jpg:0
-[     508ms] [ERROR] Failed to load resource: the server responded with a status of 404 (File not found) @ http://localhost:8080/images/products/anti-aging.jpg:0
-[     508ms] [ERROR] Failed to load resource: the server responded with a status of 404 (File not found) @ http://localhost:8080/images/products/iron.jpg:0
-[     509ms] [ERROR] Failed to load resource: the server responded with a status of 404 (File not found) @ http://localhost:8080/images/products/immune-recover.jpg:0
-[    1231ms] [ERROR] Failed to load resource: the server responded with a status of 404 (File not found) @ http://localhost:8080/favicon.ico:0
