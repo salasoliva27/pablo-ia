@@ -34,6 +34,7 @@ Before starting any work, identify what kind of task this is and route it:
 | Nutrition / clinical | agents/domain/nutrition.md | USDA API, Open Food Facts | — |
 | Performance / metrics | agents/core/performance.md | Google Workspace (Sheets) | xlsx |
 | Visual verification | agents/core/ux.md | Playwright | — |
+| Security review / vulnerability | agents/core/security.md | Playwright, GitHub | owasp-security |
 | Files in dump/ | (auto-route) | GitHub, Filesystem | — |
 
 ### The dispatch loop (runs for every task)
@@ -273,6 +274,7 @@ Each agent is defined in /agents/. Read the relevant agent file before performin
 | Deploy | agents/core/deploy.md | dev→UAT→prod pipeline, tagging, drift detection |
 | Research | agents/core/research.md | Market research, competitor analysis, data gathering |
 | UX | agents/core/ux.md | Visual verification, Playwright, design system |
+| Security | agents/core/security.md | Vulnerability detection, OWASP review, pre-deploy gates, cross-agent hardening |
 | Nutrition | agents/domain/nutrition.md | Clinical nutrition intelligence (powers nutri-ai) |
 
 ---

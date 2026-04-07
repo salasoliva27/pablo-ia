@@ -81,6 +81,24 @@ Note: run `npx playwright install chromium` once per Codespace.
 
 ---
 
+---
+
+## KNOWLEDGE MANAGEMENT
+
+### Obsidian MCP (obsidian-mcp)
+**Verdict:** UNTESTED — HIGH PRIORITY for knowledge base integration
+**Install options:**
+- Option A (community plugin): Install "Local REST API" plugin in Obsidian → enable → set API key → `claude mcp add obsidian https://localhost:27123`
+- Option B (standalone): `npx -y obsidian-mcp` (reads vault directly from filesystem, no plugin needed)
+**Keys:** Obsidian API key (if using Local REST API plugin), or vault path (if filesystem mode)
+**Setup:** Set vault path in dotfiles as `OBSIDIAN_VAULT_PATH`
+**Why:** Read/write Jano's Obsidian vault directly from Claude sessions. Useful for: capturing research notes, reading existing knowledge base, syncing learnings from sessions back to vault.
+**Agent ownership:** research agent + calendar agent (for meeting notes)
+**Coordination:** Learnings that belong in vault → write to Obsidian. Learnings that belong in janus-ia → write to learnings/ files. Don't double-write.
+**Session log:** none yet
+
+---
+
 ## HIGH PRIORITY — NOT YET CONFIGURED
 
 ### NotebookLM MCP ⚡
