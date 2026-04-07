@@ -335,6 +335,21 @@ Before touching any code or files, you MUST complete this checklist:
 - If you must restructure, copy existing content into the new structure first, then refine
 - Before committing, diff your changes and verify no content was lost
 
+### PORTFOLIO-MAP.md — MANDATORY IN EVERY REPO
+
+Every repo (venture-os and all product repos) must contain an up-to-date `PORTFOLIO-MAP.md` at the root. It is the canonical map of all repos, their stacks, shared services, and how they interact.
+
+The authoritative version lives at `/workspaces/venture-os/PORTFOLIO-MAP.md`. After any structural change (new repo, new external service, new inter-repo dependency), update the master and copy it to all active repos:
+
+```bash
+cp /workspaces/venture-os/PORTFOLIO-MAP.md /workspaces/espacio_bosques/PORTFOLIO-MAP.md
+cp /workspaces/venture-os/PORTFOLIO-MAP.md /workspaces/lool-ai/PORTFOLIO-MAP.md
+cp /workspaces/venture-os/PORTFOLIO-MAP.md /workspaces/nutria-app/PORTFOLIO-MAP.md
+cp /workspaces/venture-os/PORTFOLIO-MAP.md /workspaces/LongeviteTherapeutics/PORTFOLIO-MAP.md
+```
+
+The map must include: mindmap (structure), interaction graph (data flows + shared services), per-repo quick reference table, and shared infrastructure table.
+
 ### TEST ENDPOINTS — MANDATORY FOR EVERY BACKEND PROJECT
 
 Every project with a backend API **must** have:
