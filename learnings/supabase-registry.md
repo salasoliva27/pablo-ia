@@ -21,6 +21,21 @@
 
 ---
 
+## espacio-bosques (`salasoliva27/espacio_bosques`)
+
+| Table | Purpose | Key columns |
+|---|---|---|
+| `eb_profiles` | One row per registered user — mirrors auth.users + app fields | `id (uuid→auth.users)`, `display_name`, `full_name`, `neighborhood`, `rfc text UNIQUE`, `rfc_verified bool`, `rfc_status text`, `birth_date date` |
+
+**Schema file:** `espacio_bosques/database/schema.sql`  
+**Storage doc:** `espacio_bosques/SUPABASE.md`  
+**RLS:** Users can only read/write their own row (`auth.uid() = id`).  
+**Architecture note:** Projects/investments/governance/providers live in `backend/sim-data.json` (POC). Migration path documented in SUPABASE.md.  
+**Status:** ✅ Schema ready — run `database/schema.sql` in Supabase SQL Editor.  
+**RFC metadata:** `full_name`, `rfc`, `rfc_verified`, `rfc_status`, `birth_date` also stored in `auth.users.user_metadata` for JWT-accessible profile data without a DB round-trip.
+
+---
+
 ## Adding a new project's tables
 
 1. Add a section here with the table names and purpose
