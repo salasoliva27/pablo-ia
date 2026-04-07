@@ -65,10 +65,10 @@ neighborhood projects. Fiat-first (MXN via Bitso), AI blueprint creation, milest
   - ✅ Full EN/ES i18n across all pages
   - ✅ Simulation mode — zero infrastructure required to demo
   - ✅ Sign-up name field, display name in navbar
+  - ✅ User profile page (/profile) — avatar, name edit, stats, investment history, full i18n
+- **Decision:** Supabase persistent schema intentionally deferred — simulation mode is good for demos
 - **Next:**
-  - ⬜ User profile page (/profile)
-  - ⬜ Supabase persistent schema (bosques_profiles, bosques_projects, etc.)
-  - ⬜ Wire project creation + investments to persist in Supabase
+  - ⬜ First real demo / stakeholder walkthrough
 
 ---
 
