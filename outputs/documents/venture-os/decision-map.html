@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Janus IA — Decision Map</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #060a0f; color: #e8f4f0; font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; overflow-x: hidden; }
+
+  header { padding: 28px 40px 20px; border-bottom: 1px solid #1a2535; display: flex; align-items: baseline; gap: 16px; }
+  header h1 { font-size: 22px; font-weight: 700; color: #00e5c4; letter-spacing: -0.5px; }
+  header p { font-size: 13px; color: #4a6070; }
+
+  .canvas { padding: 40px; max-width: 1400px; margin: 0 auto; }
+
+  /* ── DISPATCH LOOP ── */
+  .loop-title { font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #4a6070; margin-bottom: 24px; }
+
+  .flow { display: flex; align-items: center; gap: 0; flex-wrap: wrap; margin-bottom: 48px; }
+  .step { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .step-badge { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 800; border: 2px solid; transition: transform 0.2s; cursor: default; }
+  .step-badge:hover { transform: scale(1.12); }
+  .step-label { font-size: 10px; font-weight: 600; letter-spacing: 0.5px; text-align: center; max-width: 72px; color: #6b8090; }
+  .step-sub { font-size: 9px; color: #3a5060; text-align: center; max-width: 72px; }
+  .arrow { font-size: 18px; color: #1e3040; padding: 0 6px; margin-bottom: 28px; }
+
+  .s0 { background: #0a1a10; border-color: #00e5c4; color: #00e5c4; }
+  .s1 { background: #0a1520; border-color: #3b82f6; color: #3b82f6; }
+  .s2 { background: #1a1020; border-color: #8b5cf6; color: #8b5cf6; }
+  .s3 { background: #1a1800; border-color: #f59e0b; color: #f59e0b; }
+  .s4 { background: #0a1a10; border-color: #10b981; color: #10b981; }
+  .s5 { background: #1a0a10; border-color: #ef4444; color: #ef4444; }
+  .s6 { background: #0a1520; border-color: #06b6d4; color: #06b6d4; }
+
+  /* ── DISPATCH TABLE ── */
+  .section-title { font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #4a6070; margin-bottom: 16px; margin-top: 40px; }
+
+  .dispatch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin-bottom: 48px; }
+  .dispatch-card { background: #0d1520; border: 1px solid #1a2535; border-radius: 10px; padding: 14px 16px; cursor: default; transition: border-color 0.2s, background 0.2s; }
+  .dispatch-card:hover { border-color: #2a3f52; background: #111d2a; }
+  .dispatch-card .trigger { font-size: 11px; color: #9ca3af; margin-bottom: 6px; line-height: 1.4; }
+  .dispatch-card .agent-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .dispatch-card .tools { font-size: 10px; color: #4a6070; }
+  .dispatch-card .tools span { display: inline-block; background: #0a1015; border: 1px solid #1e2d3d; border-radius: 3px; padding: 1px 5px; margin: 2px 2px 0 0; }
+
+  .a-dev    { background: #0a1a30; color: #3b82f6; }
+  .a-legal  { background: #1a100a; color: #f97316; }
+  .a-fin    { background: #0a1a10; color: #10b981; }
+  .a-cal    { background: #1a0a1a; color: #a78bfa; }
+  .a-res    { background: #0a1520; color: #06b6d4; }
+  .a-ux     { background: #1a1800; color: #f59e0b; }
+  .a-sec    { background: #1a0a0a; color: #ef4444; }
+  .a-over   { background: #0a1a1a; color: #00e5c4; }
+  .a-intake { background: #1a1a0a; color: #eab308; }
+  .a-perf   { background: #0a1520; color: #38bdf8; }
+  .a-tri    { background: #1a0a1a; color: #c084fc; }
+  .a-nut    { background: #0a1a10; color: #4ade80; }
+
+  /* ── AGENTS GRID ── */
+  .agents-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; margin-bottom: 48px; }
+  .agent-card { border-radius: 10px; border: 1px solid; padding: 14px; transition: transform 0.15s; cursor: default; }
+  .agent-card:hover { transform: translateY(-2px); }
+  .agent-card h3 { font-size: 12px; font-weight: 700; margin-bottom: 4px; }
+  .agent-card p { font-size: 10px; opacity: 0.65; line-height: 1.5; }
+  .agent-card .file { font-size: 9px; margin-top: 6px; opacity: 0.4; font-family: monospace; }
+
+  /* ── OUTPUT ROUTING ── */
+  .routing-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin-bottom: 48px; }
+  .route-card { background: #0d1520; border: 1px solid #1a2535; border-radius: 8px; padding: 12px 14px; }
+  .route-card .type { font-size: 10px; color: #00e5c4; font-weight: 700; margin-bottom: 4px; }
+  .route-card .dest { font-size: 11px; color: #9ca3af; }
+  .route-card .pattern { font-size: 9px; color: #4a6070; margin-top: 4px; font-family: monospace; }
+
+  /* ── PROJECTS ── */
+  .projects-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 48px; }
+  .proj-pill { background: #0d1520; border: 1px solid #1a2535; border-radius: 8px; padding: 10px 16px; display: flex; align-items: center; gap: 10px; }
+  .proj-pill .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .proj-pill .name { font-size: 12px; font-weight: 600; color: #e8f4f0; }
+  .proj-pill .stage { font-size: 10px; color: #4a6070; }
+
+  footer { text-align: center; padding: 32px; font-size: 10px; color: #2a3f52; border-top: 1px solid #0d1520; margin-top: 20px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Janus IA · Decision Map</h1>
+  <p>How every request is routed, processed, and stored — v2 · April 2026</p>
+</header>
+
+<div class="canvas">
+
+  <!-- DISPATCH LOOP -->
+  <div class="loop-title">Dispatch Loop — runs for every request</div>
+  <div class="flow">
+    <div class="step">
+      <div class="step-badge s0">🧠</div>
+      <div class="step-label">THINK FIRST</div>
+      <div class="step-sub">sequential thinking</div>
+    </div>
+    <div class="arrow">→</div>
+    <div class="step">
+      <div class="step-badge s1">1</div>
+      <div class="step-label">IDENTIFY</div>
+      <div class="step-sub">task type</div>
+    </div>
+    <div class="arrow">→</div>
+    <div class="step">
+      <div class="step-badge s2">2</div>
+      <div class="step-label">DISPATCH</div>
+      <div class="step-sub">read agent file</div>
+    </div>
+    <div class="arrow">→</div>
+    <div class="step">
+      <div class="step-badge s3">3</div>
+      <div class="step-label">LOOKUP</div>
+      <div class="step-sub">tools + skills registries</div>
+    </div>
+    <div class="arrow">→</div>
+    <div class="step">
+      <div class="step-badge s4">4</div>
+      <div class="step-label">EXECUTE</div>
+      <div class="step-sub">full context</div>
+    </div>
+    <div class="arrow">→</div>
+    <div class="step">
+      <div class="step-badge s5">5</div>
+      <div class="step-label">VERIFY</div>
+      <div class="step-sub">all 6 UX layers</div>
+    </div>
+    <div class="arrow">→</div>
+    <div class="step">
+      <div class="step-badge s6">6</div>
+      <div class="step-label">ROUTE</div>
+      <div class="step-sub">outputs / learnings</div>
+    </div>
+  </div>
+
+  <!-- DISPATCH TABLE -->
+  <div class="section-title">Task → Agent Routing</div>
+  <div class="dispatch-grid">
+
+    <div class="dispatch-card">
+      <div class="agent-tag a-intake">Intake</div>
+      <div class="trigger">New idea / product intake</div>
+      <div class="tools">Tools: <span>Brave Search</span><br>Skills: <span>deep-research</span></div>
+    </div>
+
+    <div class="dispatch-card">
+      <div class="agent-tag a-dev">Developer</div>
+      <div class="trigger">Software build / code</div>
+      <div class="tools">Tools: <span>GitHub</span> <span>Context7</span> <span>Playwright</span><br>Skills: <span>feature-dev</span> <span>frontend-design</span></div>
+    </div>
+
+    <div class="dispatch-card">
+      <div class="agent-tag a-dev">Developer + UX</div>
+      <div class="trigger">Frontend / UI change</div>
+      <div class="tools">Tools: <span>Playwright</span><br>Skills: <span>frontend-design</span></div>
+    </div>
+
+    <div class="dispatch-card">
+      <div class="agent-tag a-res">Research</div>
+      <div class="trigger">Market / competitor research</div>
+      <div class="tools">Tools: <span>Brave</span> <span>Firecrawl</span><br>Skills: <span>deep-research</span></div>
+    </div>
+
+    <div class="dispatch-card">
+      <div class="agent-tag a-legal">Legal</div>
+      <div class="trigger">Legal review</div>
+      <div class="tools">Tools: <span>Brave Search</span><br>Skills: <span>owasp-security</span></div>
+    </div>
+
+    <div class="dispatch-card">
+      <div class="agent-tag a-fin">Financial</div>
+      <div class="trigger">Financial / burn / revenue</div>
+      <div class="tools">Tools: <span>Google Sheets</span><br>Skills: <span>xlsx</span></div>
+    </div>
+
+    <div class="dispatch-card">
+      <div class="agent-tag a-cal">Calendar</div>
+      <div class="trigger">Calendar / scheduling</div>
+      <div class="tools">Tools: <span>Google Calendar</span></div>
+    </div>
+
+    <div class="dispatch-card">
+      <div class="agent-tag a-tri">Trickle-down</div>
+      <div class="trigger">Cross-project proposal</div>
+      <div class="tools">Tools: <span>GitHub (all repos)</span></div>
+    </div>
+
+    <div class="dispatch-card">
+      <div class="agent-tag a-nut">Nutrition</div>
+      <div class="trigger">Nutrition / clinical</div>
+      <div class="tools">Tools: <span>USDA API</span> <span>Open Food Facts</span></div>
+    </div>
+
+    <div class="dispatch-card">
+      <div class="agent-tag a-perf">Performance</div>
+      <div class="trigger">Performance / metrics</div>
+      <div class="tools">Tools: <span>Google Sheets</span><br>Skills: <span>xlsx</span></div>
+    </div>
+
+    <div class="dispatch-card">
+      <div class="agent-tag a-ux">UX</div>
+      <div class="trigger">Visual verification</div>
+      <div class="tools">Tools: <span>Playwright</span></div>
+    </div>
+
+    <div class="dispatch-card">
+      <div class="agent-tag a-sec">Security</div>
+      <div class="trigger">Security review / vulnerability</div>
+      <div class="tools">Tools: <span>Playwright</span> <span>GitHub</span><br>Skills: <span>owasp-security</span></div>
+    </div>
+
+    <div class="dispatch-card">
+      <div class="agent-tag a-over">Oversight</div>
+      <div class="trigger">Product coherence / pre-demo audit</div>
+      <div class="tools">Tools: <span>Playwright</span></div>
+    </div>
+
+    <div class="dispatch-card">
+      <div class="agent-tag a-dev">Deploy</div>
+      <div class="trigger">Deploy to UAT or prod</div>
+      <div class="tools">Tools: <span>GitHub</span></div>
+    </div>
+
+  </div>
+
+  <!-- AGENTS -->
+  <div class="section-title">Agents</div>
+  <div class="agents-grid">
+    <div class="agent-card" style="background:#0a1a30;border-color:#1e3a60;color:#3b82f6">
+      <h3>Developer</h3>
+      <p>Architecture, build, code. Reads all existing files before touching anything.</p>
+      <div class="file">agents/core/developer.md</div>
+    </div>
+    <div class="agent-card" style="background:#0a1a1a;border-color:#0e3a3a;color:#00e5c4">
+      <h3>Oversight</h3>
+      <p>Product coherence, end-to-end gap detection, launch readiness, external dependency loop.</p>
+      <div class="file">agents/core/oversight.md</div>
+    </div>
+    <div class="agent-card" style="background:#1a100a;border-color:#3a2010;color:#f97316">
+      <h3>Legal</h3>
+      <p>Compliance, contracts, regulatory flags. LFPDPPP, SAT, IFPE, Ley Fintech.</p>
+      <div class="file">agents/core/legal.md</div>
+    </div>
+    <div class="agent-card" style="background:#0a1a10;border-color:#0e3a20;color:#10b981">
+      <h3>Financial</h3>
+      <p>P&L, runway, portfolio view. All projects on one Supabase instance.</p>
+      <div class="file">agents/core/financial.md</div>
+    </div>
+    <div class="agent-card" style="background:#1a0a1a;border-color:#3a1a3a;color:#a78bfa">
+      <h3>Calendar</h3>
+      <p>Google Cal sync, conflict detection. Jano available weekdays after 3pm CDMX.</p>
+      <div class="file">agents/core/calendar.md</div>
+    </div>
+    <div class="agent-card" style="background:#0a1520;border-color:#0e2535;color:#06b6d4">
+      <h3>Research</h3>
+      <p>Market research, competitor analysis. Mexico City + LATAM focus.</p>
+      <div class="file">agents/core/research.md</div>
+    </div>
+    <div class="agent-card" style="background:#1a1800;border-color:#3a3000;color:#f59e0b">
+      <h3>UX</h3>
+      <p>Visual verification via Playwright. 6 layers: code → server → visual → functional → cross-env → security.</p>
+      <div class="file">agents/core/ux.md</div>
+    </div>
+    <div class="agent-card" style="background:#1a0a0a;border-color:#3a1010;color:#ef4444">
+      <h3>Security</h3>
+      <p>Vulnerability detection, OWASP, pre-deploy gates, cross-agent hardening.</p>
+      <div class="file">agents/core/security.md</div>
+    </div>
+    <div class="agent-card" style="background:#1a1a0a;border-color:#3a3a10;color:#eab308">
+      <h3>Intake</h3>
+      <p>New idea → validated project. 5 phases: understand, validate, conflict check, propose, spin up.</p>
+      <div class="file">agents/core/intake.md</div>
+    </div>
+    <div class="agent-card" style="background:#1a0a1a;border-color:#3a1a3a;color:#c084fc">
+      <h3>Trickle-down</h3>
+      <p>Cross-project proposal routing. ADOPT / ADAPT / REJECT per project.</p>
+      <div class="file">agents/core/trickle-down.md</div>
+    </div>
+    <div class="agent-card" style="background:#0a1520;border-color:#0e2535;color:#38bdf8">
+      <h3>Performance</h3>
+      <p>Dashboards, weekly summaries. Every project tracks its own metrics.</p>
+      <div class="file">agents/core/performance.md</div>
+    </div>
+    <div class="agent-card" style="background:#0a1a10;border-color:#0e3a20;color:#4ade80">
+      <h3>Nutrition</h3>
+      <p>Clinical nutrition intelligence. Powers nutrIA. USDA + Open Food Facts.</p>
+      <div class="file">agents/domain/nutrition.md</div>
+    </div>
+    <div class="agent-card" style="background:#0a1520;border-color:#0e2535;color:#60a5fa">
+      <h3>Deploy</h3>
+      <p>dev→UAT→prod pipeline, tagging, drift detection across all repos.</p>
+      <div class="file">agents/core/deploy.md</div>
+    </div>
+  </div>
+
+  <!-- OUTPUT ROUTING -->
+  <div class="section-title">Output Routing</div>
+  <div class="routing-grid">
+    <div class="route-card">
+      <div class="type">Code / Configs</div>
+      <div class="dest">GitHub</div>
+      <div class="pattern">product repo</div>
+    </div>
+    <div class="route-card">
+      <div class="type">Documents / Reports</div>
+      <div class="dest">outputs/documents/</div>
+      <div class="pattern">[project]/[name]_V[N]_[date]</div>
+    </div>
+    <div class="route-card">
+      <div class="type">Research</div>
+      <div class="dest">outputs/research/</div>
+      <div class="pattern">[project]/</div>
+    </div>
+    <div class="route-card">
+      <div class="type">Screenshots</div>
+      <div class="dest">outputs/screenshots/</div>
+      <div class="pattern">[project]/</div>
+    </div>
+    <div class="route-card">
+      <div class="type">Learnings</div>
+      <div class="dest">learnings/</div>
+      <div class="pattern">patterns / market / technical / gtm</div>
+    </div>
+    <div class="route-card">
+      <div class="type">Project Status</div>
+      <div class="dest">projects/</div>
+      <div class="pattern">dev / uat / prod</div>
+    </div>
+    <div class="route-card">
+      <div class="type">Media / Assets</div>
+      <div class="dest">Cloudflare R2</div>
+      <div class="pattern">janus-media/[project]/</div>
+    </div>
+    <div class="route-card">
+      <div class="type">Client Docs</div>
+      <div class="dest">Google Drive</div>
+      <div class="pattern">VentureOS/[project]/</div>
+    </div>
+  </div>
+
+  <!-- ACTIVE PROJECTS -->
+  <div class="section-title">Active Portfolio</div>
+  <div class="projects-row">
+    <div class="proj-pill"><div class="dot" style="background:#3b82f6"></div><div><div class="name">nutrIA</div><div class="stage">dev — agent-os + nutri-ai</div></div></div>
+    <div class="proj-pill"><div class="dot" style="background:#8b5cf6"></div><div><div class="name">lool-ai</div><div class="stage">dev in progress</div></div></div>
+    <div class="proj-pill"><div class="dot" style="background:#00e5c4"></div><div><div class="name">espacio-bosques</div><div class="stage">smart contract done · frontend active</div></div></div>
+    <div class="proj-pill"><div class="dot" style="background:#f59e0b"></div><div><div class="name">longevite-therapeutics</div><div class="stage">V2 built · pending deploy</div></div></div>
+    <div class="proj-pill"><div class="dot" style="background:#10b981"></div><div><div class="name">freelance-system</div><div class="stage">operational</div></div></div>
+    <div class="proj-pill"><div class="dot" style="background:#6b7280"></div><div><div class="name">agent-os-dev</div><div class="stage">platform shell</div></div></div>
+  </div>
+
+</div>
+
+<footer>Janus IA v2 · April 2026 · Generated by Claude Sonnet 4.6</footer>
+
+</body>
+</html>
