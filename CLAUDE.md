@@ -359,8 +359,11 @@ Every project with a backend API **must** have:
 1. **A `/api/test/` namespace** — mounted only when `SIMULATION_MODE=true` or `NODE_ENV=development`. Never active in production.
    - `GET /api/test` — self-documenting: list all test endpoints with curl examples
    - `GET /api/test/state` — dump current application state (store contents, counts, percentages)
-   - `POST /api/test/[action]` — simulate key actions without going through the UI
-   - `POST /api/test/reset` — wipe sim data back to seed state
+   - `GET /api/test/[feature]` — dump state for a specific feature (e.g., `/api/test/profile`)
+   - `POST /api/test/[feature]/[action]` — seed or mutate data without going through the UI
+   - `DELETE /api/test/[feature]/[id]` — delete specific records by ID
+   - `POST /api/test/[feature]/reset` — wipe that feature's data back to seed state
+   - `POST /api/test/reset` — global reset: wipe all sim data back to seed state
 
 2. **A `scripts/test-api.sh`** — shell script that exercises the full API flow end-to-end:
    - Authenticates using demo credentials (gets a real JWT from Supabase or auth provider)
@@ -372,6 +375,45 @@ Every project with a backend API **must** have:
 **Standard: always use the minimum required amount/value** when test endpoints trigger transactions (e.g., 100 MXN minimum for investments, not arbitrary large numbers).
 
 When building or modifying a backend feature, update `test.ts` and `test-api.sh` to cover the new surface. The test script is how future sessions verify the system works before touching anything.
+
+### PLAYWRIGHT — MANDATORY UI VERIFICATION PROTOCOL
+
+Playwright MCP (`mcp__playwright__*`) is the required tool for verifying any UI change or bug fix. The protocol for every frontend fix:
+
+**Step 1 — Reproduce with curl first**
+Before touching code, confirm the API layer works independently:
+```bash
+# Test the specific HTTP method and path that's broken
+curl -s -X DELETE http://localhost:3001/api/[path] -H "Authorization: Bearer test-sim-token"
+# If 404: check if the route exists, if tsx watch reloaded the file, restart if needed
+# If 403/401: check SIMULATION_MODE and auth middleware
+```
+
+**Step 2 — Use test endpoints to seed state**
+Never rely on manually created UI state for testing. Seed deterministic state via the test harness:
+```bash
+curl -s -X POST http://localhost:3001/api/test/[feature]/[action] \
+  -H "Content-Type: application/json" \
+  -d '{"field": "value"}'
+```
+
+**Step 3 — Playwright end-to-end**
+```
+1. mcp__playwright__browser_navigate → page under test
+2. mcp__playwright__browser_snapshot → find element refs
+3. mcp__playwright__browser_click / fill → trigger the action
+4. mcp__playwright__browser_network_requests (filter: "api") → confirm HTTP method + status
+5. mcp__playwright__browser_snapshot → confirm UI state updated
+6. mcp__playwright__browser_take_screenshot → save to outputs/screenshots/[project]/[feature]-verified.png
+```
+
+**Step 4 — Verify backend state**
+After every UI action, confirm the backend reflects it:
+```bash
+curl -s http://localhost:3001/api/test/[feature] | python3 -m json.tool
+```
+
+**The tsx watch trap**: `tsx watch` does NOT always hot-reload on file changes. If a route returns the global 404 (`{"error":"Not found"}`) but the route IS defined in the source file, the running process has a stale version. Fix: `lsof -ti :3001 | xargs kill -9 && cd backend && npx tsx src/index.ts &`. Always confirm the server restarted by testing a known-good endpoint before debugging the broken one.
 
 ### ALWAYS USE GET-SHIT-DONE (GSD)
 
