@@ -35,9 +35,19 @@ Before starting any work, identify what kind of task this is and route it:
 | Performance / metrics | agents/core/performance.md | Google Workspace (Sheets) | xlsx |
 | Visual verification | agents/core/ux.md | Playwright | — |
 | Security review / vulnerability | agents/core/security.md | Playwright, GitHub | owasp-security |
+| Product coherence / "this doesn't make sense" | agents/core/oversight.md | Playwright | — |
+| Pre-demo / pre-launch audit | agents/core/oversight.md | Playwright | — |
 | Files in dump/ | (auto-route) | GitHub, Filesystem | — |
 
 ### The dispatch loop (runs for every task)
+
+**0. THINK FIRST** — before any non-trivial task, use `mcp__sequential-thinking__sequentialthinking` to reason through:
+- What exactly is being asked?
+- What context do I have vs. what do I need?
+- What could go wrong or be missing?
+- What's the right order of operations?
+
+This step is mandatory for: any build task, any audit, any financial or legal decision, any cross-project proposal, any deploy. Skip only for single-file edits or direct factual lookups.
 
 **1. IDENTIFY** — what kind of task is this?
 
@@ -275,6 +285,7 @@ Each agent is defined in /agents/. Read the relevant agent file before performin
 | Research | agents/core/research.md | Market research, competitor analysis, data gathering |
 | UX | agents/core/ux.md | Visual verification, Playwright, design system |
 | Security | agents/core/security.md | Vulnerability detection, OWASP review, pre-deploy gates, cross-agent hardening |
+| Oversight | agents/core/oversight.md | Product coherence, end-to-end gap detection, launch readiness, external dependency loop |
 | Nutrition | agents/domain/nutrition.md | Clinical nutrition intelligence (powers nutri-ai) |
 
 ---
