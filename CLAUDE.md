@@ -99,10 +99,10 @@ All API keys live in Jano's private dotfiles repo (`salasoliva27/dotfiles`) and 
 
 | Key | Env var | Where used |
 |---|---|---|
-| Anthropic API key | `$ANTHROPIC_API_KEY` | Claude API, embeddings for Supabase memory |
+| Anthropic API key | `$ANTHROPIC_API_KEY` | Claude API calls |
 | Brave Search API key | `$BRAVE_API_KEY` | Market research, competitor analysis |
-| Supabase URL | `$SUPABASE_URL` | Cross-workspace memory MCP server |
-| Supabase service role key | `$SUPABASE_SERVICE_ROLE_KEY` | Cross-workspace memory MCP server |
+| Supabase URL | `$SUPABASE_URL` | janus_memories table + all project tables |
+| Supabase service role key | `$SUPABASE_SERVICE_ROLE_KEY` | janus_memories table + all project tables |
 
 To add new credentials: Jano adds them to `salasoliva27/dotfiles/.env` → they appear in all Codespaces automatically. Never store secrets directly in any project repo.
 
@@ -141,33 +141,44 @@ Wait for Jano's answer. Store the chosen mode for the rest of the session. Then 
 - **Manual**: ask before every tool use, including reads and file edits.
 
 ### STEP 1 — AUTOMATIC SESSION START (do this right after getting permission mode)
-1. Call `recall("recent janus portfolio work and decisions")` — gets cross-workspace memory
-2. Call `recall("recent lool-ai work")` + `recall("recent freelance-system work")` — loads project context
-3. Read `PROJECTS.md` — current portfolio state
-4. Check dump/ — are there files to route? Route them before starting the session.
-5. Check drift — for each product with a prod deploy, compare projects/prod/[product].md last tag against current prod HEAD via GitHub MCP. Flag any drift.
-6. You now have full context. Respond to whatever the user asked.
+1. Call `mcp__janus-memory__recall(query="recent janus portfolio work and decisions", workspace="janus-ia")` — loads portfolio context
+2. Call `mcp__janus-memory__recall(query="recent espacio-bosques work decisions bugs")` — loads espacio-bosques context
+3. Call `mcp__janus-memory__recall(query="recent lool-ai nutria freelance work")` — loads other project context
+4. Read `PROJECTS.md` — current portfolio state
+5. Check dump/ — are there files to route? Route them before starting the session.
+6. Check drift — for each product with a prod deploy, compare projects/prod/[product].md last tag against current prod HEAD via GitHub MCP. Flag any drift.
+7. You now have full context. Respond to whatever the user asked.
 
 ### WHEN THE USER ASKS "where did we leave off" / "what's the status" / "catch me up"
-This is explicitly answered by the recall() results above. Summarize:
+This is explicitly answered by the recall results above. Summarize:
 - What was last worked on in each active project
 - What decisions were made
 - What the immediate next steps are
 - Any open questions or blockers
 
 ### END OF EVERY SESSION
-Before the conversation ends, call `remember()` — even if the user doesn't ask:
+Before the conversation ends, call `mcp__janus-memory__remember` — even if the user doesn't ask:
 ```
-remember(
+mcp__janus-memory__remember(
+  name="session_[YYYY-MM-DD]_[short-slug]",
   content="[summary: what was worked on, decisions made, open questions, next steps]",
+  type="session",
   workspace="janus-ia",
-  project="[relevant project]",
-  type="session"
+  project="[relevant project or omit if cross-project]",
+  description="[one-line summary]"
 )
 ```
-For significant decisions or learnings, store those separately with type="decision" or type="learning".
+For significant decisions or learnings, call remember() separately with type="decision" or type="learning".
 
 **Never skip the end-of-session remember(). It is how the next chat will know what happened here.**
+
+### MEMORY TOOLS REFERENCE
+| Tool | When to use |
+|---|---|
+| `mcp__janus-memory__recall` | Session start, "catch me up", before any major decision |
+| `mcp__janus-memory__remember` | End of session, after major decisions, after important learnings |
+| `mcp__janus-memory__forget` | When a memory is outdated or wrong |
+| `mcp__janus-memory__list_memories` | Audit what's stored, browse by type/workspace |
 
 ---
 

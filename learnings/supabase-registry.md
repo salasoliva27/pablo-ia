@@ -7,6 +7,23 @@
 
 ---
 
+## Janus IA — Cross-workspace Memory (`salasoliva27/venture-os`)
+
+| Table | Purpose | Key columns |
+|---|---|---|
+| `janus_memories` | All AI memories across every repo — sessions, decisions, learnings, user profile, feedback | `id`, `workspace`, `project`, `type`, `name`, `description`, `content`, `tags`, `search_vector` (tsvector), `archived`, `created_at`, `updated_at` |
+
+**Schema file:** `venture-os/database/janus-memory-schema.sql`  
+**MCP server:** `~/.claude/memory-mcp/index.js` (registered in `~/.claude/settings.json`)  
+**Tools:** `mcp__janus-memory__recall`, `mcp__janus-memory__remember`, `mcp__janus-memory__forget`, `mcp__janus-memory__list_memories`  
+**Migration script:** `venture-os/scripts/migrate-memories.js` (run once after schema)  
+**RLS:** Disabled — accessed exclusively via service role key (internal to Claude sessions)  
+**Search:** Full-text via `tsvector` (`websearch_to_tsquery`). Vector column can be added later with Voyage AI key.  
+**Workspace values:** `janus-ia`, `espacio-bosques`, `lool-ai`, `nutria-app`, `longevite`, `freelance-system`  
+**Status:** ✅ Schema ready — run `database/janus-memory-schema.sql` in Supabase SQL Editor, then `node scripts/migrate-memories.js`
+
+---
+
 ## nutrIA (`salasoliva27/nutria-app`)
 
 | Table | Purpose | Key columns |
