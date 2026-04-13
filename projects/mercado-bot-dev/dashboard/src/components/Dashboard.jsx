@@ -705,6 +705,12 @@ body {
   0%, 100% { box-shadow: 0 0 0 0 rgba(0,212,255,0.5); }
   50% { box-shadow: 0 0 0 4px rgba(0,212,255,0); }
 }
+@keyframes slide-in {
+  from { opacity: 0; transform: translateX(-12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.trade-entry { animation: slide-in 0.3s ease; }
+.log-entry { animation: slide-in 0.2s ease; }
 
 /* SCROLLBAR */
 ::-webkit-scrollbar { width: 4px; height: 4px; }
@@ -1068,7 +1074,7 @@ export default function Dashboard() {
             'anthropic-dangerous-direct-browser-access': 'true',
           },
           body: JSON.stringify({
-            model: 'claude-sonnet-4-20250514',
+            model: 'claude-opus-4-6',
             max_tokens: 1200,
             messages: [{
               role: 'user',
@@ -1284,6 +1290,71 @@ edge = p_model - p_market. direction = "yes" if p_model > p_market, "no" if p_mo
     }
   }
 
+  // ── AUTO-PILOT ──────────────────────────────────────────────────────────────
+  const [autopilot, setAutopilot] = useState(false)
+  const [autopilotInterval, setAutopilotInterval] = useState(45) // seconds between runs
+  const [autopilotRuns, setAutopilotRuns] = useState(0)
+  const autopilotRef = useRef(null)
+  const autopilotActiveRef = useRef(false)
+
+  async function autopilotCycle() {
+    if (!autopilotActiveRef.current) return
+    try {
+      // Fetch fresh markets + Claude predictions
+      const { enriched, source } = await fetchAndPredict()
+
+      // Execute
+      setStepStates({ SCAN: 'done', RESEARCH: 'done', PREDICT: 'done', EXECUTE: 'active' })
+      const tradeable = enriched.filter(s => s.kelly.size > 0)
+      addLog('cyan', `▶ AUTO · executing ${tradeable.length} fill(s)...`)
+      await delay(400)
+
+      if (!autopilotActiveRef.current) return
+
+      const pnlDelta = executeRound(enriched, source)
+      const sign = pnlDelta >= 0 ? '+' : ''
+      addLog('green', `✓ AUTO · ${tradeable.length} fill(s) · P&L ${sign}$${pnlDelta.toFixed(2)} · portfolio $${portfolioRef.current.toFixed(2)}`)
+
+      setStepStates({ SCAN: 'done', RESEARCH: 'done', PREDICT: 'done', EXECUTE: 'done', COMPOUND: 'done' })
+      setAutopilotRuns(r => r + 1)
+    } catch (e) {
+      if (e.message !== 'STOPPED') addLog('amber', `⚠ AUTO · ${e.message?.slice(0, 60)}`)
+    }
+
+    // Schedule next cycle
+    if (autopilotActiveRef.current) {
+      autopilotRef.current = setTimeout(autopilotCycle, autopilotInterval * 1000)
+    }
+  }
+
+  function startAutopilot() {
+    if (running) return
+    setRunning(true)
+    stopRef.current = false
+    autopilotActiveRef.current = true
+    setAutopilot(true)
+    setAutopilotRuns(0)
+    addLog('cyan', `▶ AUTOPILOT · started · cycle every ${autopilotInterval}s`)
+    autopilotCycle()
+  }
+
+  function stopAutopilot() {
+    autopilotActiveRef.current = false
+    stopRef.current = true
+    setAutopilot(false)
+    setRunning(false)
+    if (autopilotRef.current) { clearTimeout(autopilotRef.current); autopilotRef.current = null }
+    addLog('amber', `⚠ AUTOPILOT · stopped after ${autopilotRuns} cycle(s)`)
+  }
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      autopilotActiveRef.current = false
+      if (autopilotRef.current) clearTimeout(autopilotRef.current)
+    }
+  }, [])
+
   // Derived metrics
   const winRate = totalTrades > 0 ? `${(wins / totalTrades * 100).toFixed(1)}%` : '—'
   const winRateClass = totalTrades === 0 ? 'kpi-neutral' : wins / totalTrades >= 0.6 ? 'kpi-target-ok' : 'kpi-target-bad'
@@ -1430,9 +1501,23 @@ edge = p_model - p_market. direction = "yes" if p_model > p_market, "no" if p_mo
             >
               ×50
             </button>
+            {!autopilot ? (
+              <button
+                className="btn btn-run"
+                onClick={startAutopilot}
+                disabled={running}
+                style={!running ? { borderColor: 'var(--green)', color: 'var(--green)', background: 'rgba(0,255,135,0.08)' } : {}}
+              >
+                ⟳ Auto
+              </button>
+            ) : (
+              <span style={{ color: 'var(--green)', fontSize: 11, letterSpacing: '0.06em', animation: 'pulse-cyan 1.5s infinite' }}>
+                AUTOPILOT · {autopilotRuns} cycles
+              </span>
+            )}
             <button
               className="btn btn-stop"
-              onClick={() => { stopRef.current = true }}
+              onClick={() => { autopilot ? stopAutopilot() : (stopRef.current = true) }}
               disabled={!running}
             >
               ■ Stop
