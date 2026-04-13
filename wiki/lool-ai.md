@@ -30,10 +30,25 @@ B2B SaaS virtual try-on widget for Mexican optical SMEs.
 - ⬜ Real client catalog upload flow
 
 ## Connections
+
+### Projects
 - [[wiki/espacio-bosques]] — same CDMX geography, potential referral
 - [[wiki/longevite]] — same high-income neighborhoods (Polanco/Lomas)
-- [[agents/core/legal]] — LFPDPPP facial data flag
+
+### Agents
+- [[agents/core/legal]] — LFPDPPP facial data flag (BLOCKER before real users)
+- [[agents/core/developer]] — 3D pipeline + embeddable widget
+- [[agents/core/ux]] — widget verification in store context
+- [[agents/core/financial]] — pricing model decision (flat vs revenue share)
+
+### Concepts used
+- [[concepts/cdmx-neighborhood-targeting]] — Polanco, Condesa, Roma, Lomas
+- [[concepts/spanish-first-mx]] — Spanish onboarding, MXN pricing
+- [[concepts/ley-fintech-compliance]] — LFPDPPP facial data requires consent flow
+
+### Learnings
 - [[learnings/cross-project-map]]
+- [[learnings/market]]
 
 ## Legal flag
 ⚠️ LFPDPPP — facial image data requires consent flow before real users

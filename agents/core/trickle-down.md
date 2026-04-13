@@ -42,3 +42,10 @@ Add to learnings/patterns.md: what was proposed, what was adopted/adapted/reject
 
 ### Standing rule
 Never apply a trickle-down change silently. Even if all verdicts are ADOPT, present the evaluation. Jano should always know what changed and why.
+---
+
+## Vault connections
+- [[wiki/espacio-bosques]] · [[wiki/lool-ai]] · [[wiki/nutria]] · [[wiki/longevite]] · [[wiki/mercado-bot]] · [[wiki/jp-ai]] · [[wiki/freelance-system]]
+- [[concepts/simulation-first-dev]] — can propagate to all projects without real infra cost
+- [[concepts/spanish-first-mx]] — propagated as baseline standard across portfolio
+- [[learnings/cross-project-map]] · [[learnings/patterns]]

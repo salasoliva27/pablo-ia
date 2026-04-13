@@ -560,3 +560,28 @@ Before ending any session:
 3. Update finances if any money moved or was committed
 4. Push all changes to GitHub
 5. Confirm with Jano: "Session complete. Here's what changed: [summary]"
+
+---
+
+## VAULT CONNECTIONS — BRAIN GRAPH WIRING
+
+### Projects I orchestrate
+- [[wiki/espacio-bosques]] · [[wiki/lool-ai]] · [[wiki/nutria]] · [[wiki/longevite]] · [[wiki/mercado-bot]] · [[wiki/jp-ai]] · [[wiki/freelance-system]]
+
+### Agents I dispatch to
+- [[agents/core/developer]] · [[agents/core/ux]] · [[agents/core/legal]] · [[agents/core/financial]]
+- [[agents/core/intake]] · [[agents/core/research]] · [[agents/core/deploy]] · [[agents/core/calendar]]
+- [[agents/core/performance]] · [[agents/core/oversight]] · [[agents/core/marketing]]
+- [[agents/core/trickle-down]] · [[agents/core/security]] · [[agents/domain/nutrition]]
+
+### Concepts I enforce
+- [[concepts/simulation-first-dev]] · [[concepts/test-harness-first]]
+- [[concepts/spanish-first-mx]] · [[concepts/cdmx-neighborhood-targeting]]
+- [[concepts/ley-fintech-compliance]] · [[concepts/supabase-shared-instance]]
+
+### Learnings I read
+- [[learnings/cross-project-map]] · [[learnings/patterns]] · [[learnings/technical]]
+- [[learnings/market]] · [[learnings/supabase-registry]] · [[learnings/mcp-registry]]
+
+### Registries
+- [[PROJECTS]] · [[wiki/index]] · [[tools/registry]] · [[PORTFOLIO-MAP]]

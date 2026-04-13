@@ -29,11 +29,30 @@ Community DAO platform for Bosques de las Lomas. Fiat-first, no MetaMask.
 - ⬜ Seed 5+ investors for PENDING_VOTES threshold path
 
 ## Connections
+
+### Projects
 - [[wiki/nutria]] — same Supabase instance, same auth pattern
 - [[wiki/lool-ai]] — overlapping CDMX geography
+- [[wiki/freelance-system]] — SAT/CFDI overlap for provider payments
+
+### Agents
 - [[agents/core/legal]] — Ley Fintech / CNBV flag
+- [[agents/core/developer]] — built the POC
+- [[agents/core/ux]] — Playwright verification protocol
 - [[agents/core/financial]] — no revenue yet
+- [[agents/core/deploy]] — dev→UAT→prod pipeline
+
+### Concepts used
+- [[concepts/simulation-first-dev]] — entire POC runs in SIMULATION_MODE
+- [[concepts/test-harness-first]] — /api/test/* harness caught 5 silent bugs
+- [[concepts/ley-fintech-compliance]] — Bitso as licensed IFPE
+- [[concepts/supabase-shared-instance]] — eb_ prefix on shared instance
+- [[concepts/spanish-first-mx]] — full EN/ES i18n, MXN pricing via Bitso
+- [[concepts/cdmx-neighborhood-targeting]] — Bosques de las Lomas
+
+### Learnings
 - [[learnings/cross-project-map]]
+- [[learnings/supabase-registry]]
 
 ## Legal flag
 ⚠️ Ley Fintech / CNBV — custodial model, using Bitso as licensed IFPE

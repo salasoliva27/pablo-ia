@@ -24,5 +24,16 @@ Prediction market trading bot — simulation + research tool.
 - ⬜ Python backend scaffolding
 
 ## Connections
-- [[agents/core/financial]] — P&L tracking
+
+### Agents
+- [[agents/core/financial]] — P&L tracking, Kelly Criterion
+- [[agents/core/developer]] — Python backend scaffolding next
+- [[agents/core/security]] — trading bot risk controls
+
+### Concepts used
+- [[concepts/simulation-first-dev]] — SIMULATION_MODE hardcoded (US entity required for live)
+- [[concepts/test-harness-first]] — Python backend needs test harness before UI wiring
+
+### Learnings
 - [[learnings/cross-project-map]]
+- [[learnings/technical]]

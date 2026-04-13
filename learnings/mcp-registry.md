@@ -392,3 +392,8 @@ Skills used: [list with verdicts]
 Registry updates made: [list]
 Full assessment: [what worked, what didn't, what to try next time]
 ```
+
+## Vault connections
+- [[CLAUDE]] — brain reads this for tool availability
+- [[tools/registry]] — tool verdicts live here
+- [[agents/core/developer]] · [[agents/core/ux]] · [[agents/core/research]]

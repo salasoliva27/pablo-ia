@@ -27,6 +27,19 @@ Functional medicine clinic website. Jano builds, Susana owns.
 - ⬜ Google Analytics
 
 ## Connections
-- [[wiki/nutria]] — widget embedded here
-- [[wiki/lool-ai]] — same Polanco/Lomas neighborhood overlap
+
+### Projects
+- [[wiki/nutria]] — widget embedded here once Netlify is up
+- [[wiki/lool-ai]] — same Polanco/Lomas Virreyes neighborhood overlap
+
+### Agents
+- [[agents/core/developer]] — Netlify deploy + contact form
+- [[agents/core/ux]] — visual verification (GSAP animations)
+
+### Concepts used
+- [[concepts/cdmx-neighborhood-targeting]] — Lomas Virreyes, health-conscious 35–60
+- [[concepts/spanish-first-mx]] — bilingual ES/EN, Mexican clinic context
+
+### Learnings
 - [[learnings/cross-project-map]]
+- [[learnings/market]]

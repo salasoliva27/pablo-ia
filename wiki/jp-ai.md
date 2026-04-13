@@ -27,6 +27,15 @@ Client: Juan Pablo García (CSO). Built by Jano.
 - ⬜ CRM Phase 1 build (lead intake + AI proposal generator)
 
 ## Connections
-- [[agents/core/developer]] — CRM build
-- [[agents/core/legal]] — client data handling
+
+### Agents
+- [[agents/core/developer]] — CRM Phase 1 build
+- [[agents/core/legal]] — client data handling, contract review
+- [[agents/core/deploy]] — repo transfer to Ozum GitHub org
+
+### Concepts used
+- [[concepts/supabase-shared-instance]] — ozum_memories table pending
+- [[concepts/spanish-first-mx]] — Ozum operates in Mexico + USA, Spanish primary
+
+### Learnings
 - [[learnings/cross-project-map]]

@@ -35,3 +35,9 @@ At the start of every session:
 1. Read Google Calendar for next 14 days
 2. Flag any project deadlines in that window
 3. Flag any conflicts with new work being discussed
+---
+
+## Vault connections
+- [[wiki/espacio-bosques]] · [[wiki/lool-ai]] · [[wiki/nutria]] · [[wiki/longevite]] · [[wiki/mercado-bot]] · [[wiki/jp-ai]] · [[wiki/freelance-system]]
+- [[agents/core/intake]] — calendar conflict check at intake
+- [[agents/core/financial]] — schedule tied to cash runway

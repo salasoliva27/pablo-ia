@@ -67,11 +67,14 @@ async function buildGraph() {
   const files = await glob('**/*.md', {
     cwd: VAULT,
     ignore: [
-      'node_modules/**',
+      '**/node_modules/**',
       'tools/brain-viewer/**',
       '.git/**',
       'outputs/**',
       'dump/**',
+      'projects/*/dashboard/**',
+      'mcp-servers/**/node_modules/**',
+      'skills/**',
     ],
   });
 
@@ -148,6 +151,33 @@ async function buildGraph() {
     }
   }
 
+  // Auto-edges: project-status files → their wiki page
+  const wikiSlugs = new Map([
+    ['espacio-bosques', 'wiki/espacio-bosques'],
+    ['lool-ai', 'wiki/lool-ai'],
+    ['nutria', 'wiki/nutria'],
+    ['longevite-therapeutics', 'wiki/longevite'],
+    ['freelance-system', 'wiki/freelance-system'],
+    ['mercado-bot-dev', 'wiki/mercado-bot'],
+    ['jp-ai', 'wiki/jp-ai'],
+  ]);
+  for (const [fromSlug, node] of nodes) {
+    if (node.type !== 'project-status') continue;
+    // extract project folder name: projects/[name]/...
+    const parts = fromSlug.split('/');
+    if (parts.length < 2) continue;
+    const projFolder = parts[1];
+    const wikiTarget = wikiSlugs.get(projFolder);
+    if (!wikiTarget || !nodes.has(wikiTarget)) continue;
+    const key = `${fromSlug}||${wikiTarget}`;
+    if (!edgeSet.has(key)) {
+      edgeSet.add(key);
+      edges.push({ source: fromSlug, target: wikiTarget });
+      node.linkCount++;
+      nodes.get(wikiTarget).linkCount++;
+    }
+  }
+
   return {
     nodes: Array.from(nodes.values()),
     edges,
@@ -199,7 +229,7 @@ app.get('/map', (req, res) => res.send(MINDMAP_HTML));
 
 chokidar.watch('**/*.md', {
   cwd: VAULT,
-  ignored: ['node_modules/**', 'tools/brain-viewer/**', '.git/**', 'outputs/**', 'dump/**'],
+  ignored: ['**/node_modules/**', 'tools/brain-viewer/**', '.git/**', 'outputs/**', 'dump/**', 'projects/*/dashboard/**', 'mcp-servers/**/node_modules/**'],
   ignoreInitial: true,
 }).on('all', async () => {
   graphCache = await buildGraph();
@@ -443,20 +473,45 @@ function render(data) {
     adj.get(e.target).push(e.source);
   });
 
+  // Cluster centers — multiple gravity wells by semantic type
+  const clusterPos = {
+    brain:            { x: W * 0.50, y: H * 0.50 },
+    agent:            { x: W * 0.50, y: H * 0.18 },
+    'project-wiki':   { x: W * 0.80, y: H * 0.42 },
+    'project-status': { x: W * 0.80, y: H * 0.65 },
+    concept:          { x: W * 0.22, y: H * 0.42 },
+    learning:         { x: W * 0.30, y: H * 0.78 },
+    registry:         { x: W * 0.50, y: H * 0.80 },
+    index:            { x: W * 0.50, y: H * 0.80 },
+    note:             { x: W * 0.65, y: H * 0.82 },
+    ghost:            { x: W * 0.50, y: H * 0.50 },
+  };
+
   simulation = d3.forceSimulation(data.nodes)
     .force('link', d3.forceLink(data.edges)
       .id(d => d.id)
       .distance(d => {
         const st = d.source.type || 'note';
         const tt = d.target.type || 'note';
-        if (st === 'brain' || tt === 'brain') return 120;
-        if (st === 'concept' || tt === 'concept') return 80;
-        return 60;
+        if (st === 'brain' || tt === 'brain') return 140;
+        if (st === 'concept' && tt === 'project-wiki') return 100;
+        if (st === 'agent' && tt === 'project-wiki') return 120;
+        if (st === 'concept' || tt === 'concept') return 90;
+        if (st === 'project-status' || tt === 'project-status') return 30;
+        return 70;
       })
-      .strength(0.4))
-    .force('charge', d3.forceManyBody().strength(d => -80 - d.linkCount * 10))
-    .force('center', d3.forceCenter(W / 2, H / 2))
-    .force('collision', d3.forceCollide(d => nodeRadius(d) + 4));
+      .strength(0.5))
+    .force('charge', d3.forceManyBody().strength(d => -120 - d.linkCount * 8))
+    .force('cluster', alpha => {
+      for (const node of data.nodes) {
+        const c = clusterPos[node.type];
+        if (!c) return;
+        const strength = node.type === 'brain' ? 0.25 : 0.08;
+        node.vx += (c.x - node.x) * strength * alpha;
+        node.vy += (c.y - node.y) * strength * alpha;
+      }
+    })
+    .force('collision', d3.forceCollide(d => nodeRadius(d) + 6));
 
   // Links
   linkSel = g.append('g').attr('class', 'links')

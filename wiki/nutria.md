@@ -26,11 +26,24 @@ Clinical nutrition AI agent. React PWA + embeddable widget.
 - ⬜ Embed on longevite-therapeutics
 
 ## Connections
-- [[wiki/longevite]] — first embed target
+
+### Projects
+- [[wiki/longevite]] — first embed target (widget on clinic site)
 - [[wiki/espacio-bosques]] — same Supabase auth pattern to copy
-- [[agents/core/legal]] — LFPDPPP health data
-- [[agents/domain/nutrition]] — nutrition intelligence agent
+
+### Agents
+- [[agents/core/legal]] — LFPDPPP health data flag
+- [[agents/core/developer]] — Netlify deploy + Supabase wiring
+- [[agents/domain/nutrition]] — nutrition intelligence layer
+- [[agents/core/ux]] — widget embed verification
+
+### Concepts used
+- [[concepts/supabase-shared-instance]] — nutria_ prefix on shared instance
+- [[concepts/spanish-first-mx]] — Spanish-first UI before real user testing
+
+### Learnings
 - [[learnings/cross-project-map]]
+- [[learnings/supabase-registry]]
 
 ## Legal flag
 ⚠️ LFPDPPP — health/nutrition data is sensitive personal data

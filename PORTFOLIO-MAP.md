@@ -131,3 +131,7 @@ All backends in dev must expose `/api/test/*`. See `scripts/test-api.sh` in each
 | `GET /api/test/state` | Dump current store state |
 | `POST /api/test/invest` | Simulate an investment (100 MXN min) |
 | `POST /api/test/reset` | Reset sim data to seed |
+
+## Vault connections
+- [[CLAUDE]] · [[PROJECTS]] · [[wiki/index]]
+- [[wiki/espacio-bosques]] · [[wiki/lool-ai]] · [[wiki/nutria]] · [[wiki/longevite]] · [[wiki/mercado-bot]] · [[wiki/jp-ai]] · [[wiki/freelance-system]]

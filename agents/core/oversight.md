@@ -169,3 +169,12 @@ Write to: `outputs/oversight/[project]/GAPS_[date].md`
 
 ## Launch readiness: NOT READY / DEMO-READY / PRODUCTION-READY
 ```
+
+---
+
+## Vault connections
+- [[wiki/espacio-bosques]] · [[wiki/lool-ai]] · [[wiki/nutria]] · [[wiki/longevite]] · [[wiki/mercado-bot]] · [[wiki/jp-ai]] · [[wiki/freelance-system]]
+- [[agents/core/ux]] — oversight uses UX verification protocol
+- [[agents/core/security]] — pre-launch security gate
+- [[concepts/simulation-first-dev]] — validates sim→prod transition readiness
+- [[concepts/test-harness-first]] — checks test harness coverage before launch

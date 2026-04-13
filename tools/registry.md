@@ -247,3 +247,7 @@ Zero hallucinations — only answers from what you uploaded.
 
 ## SITUATIONAL
 *(Populate with nuanced verdicts)*
+
+## Vault connections
+- [[CLAUDE]] · [[learnings/mcp-registry]]
+- [[agents/core/developer]] · [[agents/core/ux]] · [[agents/core/security]]

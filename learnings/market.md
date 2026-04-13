@@ -1,5 +1,18 @@
 # MARKET KNOWLEDGE — MEXICO CITY / LATAM
-## Last updated: 2026-03-16
+## Last updated: 2026-04-13
+
+## Related concepts
+- [[concepts/cdmx-neighborhood-targeting]] — colonia-level market strategy
+- [[concepts/spanish-first-mx]] — localization requirements for all MX markets
+- [[concepts/ley-fintech-compliance]] — regulatory landscape for fintech products
+
+## Projects with market data
+- [[wiki/lool-ai]] — eyewear market
+- [[wiki/espacio-bosques]] — community investment / fintech
+- [[wiki/longevite]] — functional medicine / longevity
+- [[wiki/nutria]] — clinical nutrition
+
+
 
 ### Eyewear / optical (lool-ai)
 - Mexico eyewear market: ~$1.93B USD in 2025, growing at 7.2% CAGR through 2035

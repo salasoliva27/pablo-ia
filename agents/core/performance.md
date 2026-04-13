@@ -31,3 +31,9 @@ Surface immediately (don't wait for weekly summary) when:
 - A project's burn rate doubles unexpectedly
 - A client goes silent for more than 7 days (freelance-system)
 - A legal blocker is identified
+---
+
+## Vault connections
+- [[wiki/espacio-bosques]] · [[wiki/lool-ai]] · [[wiki/nutria]] · [[wiki/longevite]] · [[wiki/mercado-bot]] · [[wiki/jp-ai]] · [[wiki/freelance-system]]
+- [[agents/core/financial]] — performance data feeds financial decisions
+- [[learnings/patterns]] · [[learnings/market]]

@@ -18,6 +18,16 @@ Automated freelance pipeline. Gate-driven at client decision points.
 - Never apologetic, never desperate — senior delivery at below-market rate in exchange for review
 
 ## Connections
-- [[agents/core/financial]] — P&L tracking
-- [[agents/core/legal]] — SAT invoicing
+
+### Agents
+- [[agents/core/financial]] — P&L, revenue tracking
+- [[agents/core/legal]] — SAT/CFDI 4.0 invoicing
+- [[agents/core/performance]] — lead conversion, response rates
+
+### Concepts used
+- [[concepts/spanish-first-mx]] — CFDI 4.0, Mexican client invoicing
+- [[concepts/ley-fintech-compliance]] — SAT RFC required for all commercial invoices
+
+### Learnings
 - [[learnings/cross-project-map]]
+- [[learnings/market]]
