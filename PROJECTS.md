@@ -55,7 +55,7 @@ This is the heartbeat of Janus IA. Every project is registered here. The master 
 ### espacio-bosques
 Community funding platform for Bosques de las Lomas. Residents propose, fund, and track
 neighborhood projects. Fiat-first (MXN via Bitso), AI blueprint creation, milestone-gated escrow.
-- **Repo:** github.com/salasoliva27/espacio_bosques
+- **Repo:** github.com/salasoliva27/espacio-bosques-dev
 - **URLs (Codespace sturdy-orbit-g67qwj5pjjqcwwjr):**
   - Frontend: https://sturdy-orbit-g67qwj5pjjqcwwjr-5173.app.github.dev
   - Backend: https://sturdy-orbit-g67qwj5pjjqcwwjr-3001.app.github.dev

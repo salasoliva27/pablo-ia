@@ -44,3 +44,23 @@ Run autonomously for ~1 hour, improving skills, agents, concepts, and tools.
 ## Vault connections
 - [[CLAUDE]] · [[learnings/patterns]] · [[learnings/technical]]
 - [[agents/core/developer]] · [[agents/core/research]]
+
+### Iteration 2 — DONE (21:55 UTC)
+**Status:** COMPLETE
+**Executed:**
+- TIER 4: Added 4 tools to tools/registry.md — antvis/mcp-server-chart, OctagonAI/octagon-mcp, Vega-Lite MCP, Miranda Intelligence
+- TIER 5: research.md enriched — Mexico-specific source priority matrix (Miranda Intelligence, INEGI, CNBV, Profeco, SAT), research report mandatory fields, vault connections added
+- TIER 3: concepts/poc-before-production.md created — links espacio-bosques, lool-ai, nutria, longevite, mercado-bot to the pattern
+- Graph: 297 → 327 edges, 91 → 93 nodes
+- Note: calendar.md and performance.md already had solid content — skipped rewrite, they were not actually thin
+- 🔴 SURFACE TO JANO: INEGI has a free API for Mexican demographic + economic data. Should add $INEGI_API_KEY (no key needed, public) to research protocol. Miranda Intelligence is the best free source for MX fintech regulatory tracking — bookmark it.
+
+### Iteration 3 — DONE (22:12 UTC)
+**Status:** COMPLETE
+**Executed:**
+- TIER 6: Cross-repo check revealed actual repo names: espacio-bosques-dev, lool-ai-dev. lool-ai README confirms "campaigns deferred until 20+ stores" — direct source for b2b-before-b2c threshold. espacio-bosques README slightly outdated vs vault (vault is more current). nutria-app repo not found under that name.
+- TIER 3: concepts/b2b-before-b2c.md created (20-store threshold, portfolio evidence table, colonia sequencing rules)
+- TIER 3: concepts/relationship-capital-cdmx.md created (colonia-scoped referrals, lool-ai/longevite overlap risk flagged)
+- TIER 1: Found 2 legal MCPs — agentic-ops/legal-mcp and open-legal-compliance-mcp (uses govt APIs, best for MX). Logged in tools/registry.md.
+- 🔴 SURFACE TO JANO: Repo names are espacio-bosques-dev and lool-ai-dev (not espacio_bosques / lool-ai). Update PORTFOLIO-MAP.md links if needed.
+- 🔴 SURFACE TO JANO: lool-ai and longevite share Polanco/Lomas geography. Sequence GTM — deploy longevite first (1 session), then lool-ai GTM. Don't run both simultaneously.

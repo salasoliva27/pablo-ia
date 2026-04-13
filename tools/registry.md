@@ -275,3 +275,13 @@ Zero hallucinations — only answers from what you uploaded.
 **Verdict:** RESEARCHED — Mexico fintech newsletter. Free articles. Covers CNBV, Banxico, Bitso, CONDUSEF regulatory updates monthly.
 **Use for:** [[agents/core/research]] MX fintech market updates, [[wiki/espacio-bosques]] regulatory monitoring
 **Key stat found:** Bitso processed $6.5B USD in stablecoin remittances in 2024 — validates espacio-bosques market opportunity
+
+### agentic-ops/legal-mcp
+**Install:** `npx -y legal-mcp` (check repo for latest)
+**Verdict:** AVAILABLE — comprehensive legal workflows MCP, document analysis, case research. US-focused but adaptable.
+**Use for:** [[agents/core/legal]] document review, contract analysis
+
+### TCoder920x/open-legal-compliance-mcp
+**Install:** see github.com/TCoder920x/open-legal-compliance-mcp
+**Verdict:** RESEARCHED — uses free/open government APIs for compliance. Most relevant for Mexico since SAT/CNBV have public APIs.
+**Use for:** [[agents/core/legal]] compliance checks, [[wiki/espacio-bosques]] regulatory monitoring
