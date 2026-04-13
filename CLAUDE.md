@@ -85,8 +85,9 @@ Code, configs → GitHub (product repo)
 Documents, reports → outputs/documents/[project]/[name]_V[N]_[date].[ext]
 Research → outputs/research/[project]/
 Screenshots → outputs/screenshots/[project]/
-Learnings → learnings/[relevant file].md
-Project status → projects/[env]/[product].md
+Learnings → `mcp__obsidian-vault__patch_note("learnings/[file]")` — patch the relevant section
+Cross-project patterns → `mcp__obsidian-vault__patch_note("concepts/[slug]")` — create if new
+Project status → `mcp__obsidian-vault__patch_note("PROJECTS")` + projects/[env]/[product].md
 
 ---
 
@@ -168,10 +169,13 @@ Wait for Jano's answer. Store the chosen mode for the rest of the session. Then 
 3. recall("recent lool-ai work")
 4. recall("recent nutrIA work")
 
-#### 1b — Load vault context
-5. Read `PROJECTS.md` — current status of all projects
-6. Read `learnings/cross-project-map.md` — relationship graph between projects
-7. Read `wiki/index.md` — vault entry point
+#### 1b — Load vault context (use MCP tools, not flat reads)
+5. `mcp__obsidian-vault__read_note("PROJECTS")` — current status of all projects
+6. `mcp__obsidian-vault__read_note("learnings/cross-project-map")` — relationship graph
+7. `mcp__obsidian-vault__search_notes(query)` — search for notes relevant to what Jano just said
+   - If Jano mentions a project: search that project name
+   - If Jano mentions a topic: search the concept keywords
+   - Surface any concept notes in `concepts/` that relate to the task at hand
 
 #### 1c — MANDATORY CROSS-SYNTHESIS
 Before responding to anything, complete these checks silently:
@@ -206,15 +210,41 @@ This is explicitly answered by the recall results above. Summarize:
 - What the immediate next steps are
 - Any open questions or blockers
 
+### VAULT PLASTICITY — RUNS MID-SESSION (not just at the end)
+
+The vault is a living brain. It restructures as understanding changes. Apply these rules **as insights surface**, not just at end of session:
+
+**When a new insight appears:**
+1. `mcp__obsidian-vault__search_notes` — does a relevant note already exist?
+2. If yes → `mcp__obsidian-vault__patch_note` — UPDATE the relevant section. Do not just append. Rewrite if understanding changed.
+3. If no → `mcp__obsidian-vault__write_note` — create `concepts/[slug].md` with proper frontmatter + [[links]]
+4. Always add `[[links]]` to connect the new knowledge to existing notes
+
+**When a pattern repeats across 2+ projects:**
+→ It earns its own concept node in `concepts/`. Link both projects to it.
+
+**When something turns out to be wrong:**
+→ Rewrite the note, don't append a correction. The brain replaces outdated beliefs, it doesn't accumulate contradictions.
+
+**When two previously separate ideas connect:**
+→ Add `[[links]]` in both notes pointing at each other. The graph edge is the insight.
+
+**Vault structure:**
+- `wiki/` → project knowledge (what each project is, its state, its stack)
+- `concepts/` → cross-project patterns and abstractions (the compounding layer)
+- `learnings/` → domain knowledge (market, legal, technical reality)
+- `agents/` → behavioral specs for each agent role
+- `PROJECTS.md` → live status registry (operational, not knowledge)
+
 ### END OF EVERY SESSION
 Before ending:
-1. Update `PROJECTS.md` with any status changes
-2. Update `learnings/cross-project-map.md` with NEW connections found this session
-   (add [[wiki links]] so Obsidian draws the edges)
-3. Write learnings to the appropriate learnings/ file
-4. Write MCP/tool feedback to tools/registry.md
-5. Push changes to GitHub
-6. claude-mem handles session compression automatically — no manual remember() needed
+1. `mcp__obsidian-vault__patch_note("PROJECTS")` — update project status
+2. `mcp__obsidian-vault__patch_note("learnings/cross-project-map")` — add new [[links]] found this session
+3. For each learning this session: patch the relevant `learnings/*.md` or `concepts/*.md` note — REWRITE sections that changed, don't just append
+4. Ask: did any pattern repeat across 2+ projects this session? If yes, create or update the concept node.
+5. Write MCP/tool feedback to tools/registry.md
+6. Push changes to GitHub
+7. claude-mem handles session compression automatically — no manual remember() needed
    (only call remember() for explicit cross-session decisions that should be findable by name)
 
 For significant named decisions, still call remember() with type="decision":
