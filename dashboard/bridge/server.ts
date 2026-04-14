@@ -5,6 +5,10 @@ import type { ClientMessage, ServerMessage } from "./types.js";
 import { isValidClientMessage } from "./types.js";
 import { ClaudeSession } from "./claude-session.js";
 import { PermissionManager } from "./permissions.js";
+import { startWatchers, stopWatchers } from "./file-watcher.js";
+import type { FSWatcher } from "chokidar";
+import fs from "node:fs";
+import path from "node:path";
 
 export function startServer(port: number): Promise<http.Server> {
   const app = express();
@@ -15,10 +19,17 @@ export function startServer(port: number): Promise<http.Server> {
     res.json({ status: "ok", uptime: process.uptime() });
   });
 
-  // Hook placeholder — wired in Plan 03
+  // Hook receiver — broadcasts tool events to all WS clients
   app.post("/hooks/post-tool-use", (req, res) => {
-    console.log("[hook] post-tool-use:", JSON.stringify(req.body).slice(0, 200));
-    res.sendStatus(200);
+    const { tool_name, tool_input, session_id } = req.body;
+    broadcast({
+      type: "tool_event",
+      toolName: tool_name || "unknown",
+      input: tool_input || {},
+      sessionId: session_id || "",
+      timestamp: Date.now(),
+    });
+    res.json({});
   });
 
   const server = http.createServer(app);
@@ -91,8 +102,10 @@ export function startServer(port: number): Promise<http.Server> {
   });
 
   // Graceful shutdown
+  let watchers: FSWatcher[] = [];
   function shutdown() {
     console.log("\n[bridge] shutting down...");
+    stopWatchers(watchers).catch(() => {});
     wss.close();
     server.close(() => process.exit(0));
     setTimeout(() => process.exit(1), 3000);
@@ -107,7 +120,39 @@ export function startServer(port: number): Promise<http.Server> {
   return new Promise((resolve) => {
     server.listen(port, () => {
       console.log(`[bridge] listening on port ${port}`);
+      watchers = startWatchers(broadcast);
+      ensureHookConfig(port);
       resolve(server);
     });
   });
+}
+
+function ensureHookConfig(port: number): void {
+  const configDir = path.join(path.dirname(new URL(import.meta.url).pathname), "..", ".claude");
+  const configPath = path.join(configDir, "settings.json");
+  const hookUrl = `http://localhost:${port}/hooks/post-tool-use`;
+
+  const desired = {
+    hooks: {
+      PostToolUse: [
+        {
+          matcher: "",
+          hooks: [{ type: "http", url: hookUrl }],
+        },
+      ],
+    },
+  };
+
+  try {
+    if (fs.existsSync(configPath)) {
+      const existing = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+      const existingUrl = existing?.hooks?.PostToolUse?.[0]?.hooks?.[0]?.url;
+      if (existingUrl === hookUrl) return;
+    }
+    fs.mkdirSync(configDir, { recursive: true });
+    fs.writeFileSync(configPath, JSON.stringify(desired, null, 2) + "\n");
+    console.log(`[bridge] hook config written to ${configPath}`);
+  } catch (err) {
+    console.warn("[bridge] failed to write hook config:", err);
+  }
 }
