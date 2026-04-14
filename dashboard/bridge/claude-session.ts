@@ -34,6 +34,7 @@ export class ClaudeSession {
       "--settings", '{"hooks":{}}',
       "--disable-slash-commands",
       "--no-session-persistence",
+      "--max-turns", "20",
     ];
 
     // If we have a prior session, continue it
@@ -45,7 +46,14 @@ export class ClaudeSession {
 
     // Strip ANTHROPIC_API_KEY so claude CLI uses OAuth subscription, not API key
     const cleanEnv = { ...process.env };
+    const hadApiKey = !!cleanEnv.ANTHROPIC_API_KEY;
     delete cleanEnv.ANTHROPIC_API_KEY;
+
+    // Notify UI that session is starting with auth method
+    this.send({
+      type: "session_start",
+      auth: hadApiKey ? "subscription" : "subscription", // always subscription — we stripped the key
+    });
 
     const proc = spawn("claude", args, {
       cwd: safeCwd,

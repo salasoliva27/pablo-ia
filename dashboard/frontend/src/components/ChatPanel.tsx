@@ -2,7 +2,10 @@ import { useRef, useEffect, useState } from 'react';
 import { useDashboard } from '../store';
 
 export function ChatPanel() {
-  const { chatMessages, agents, sendChatMessage } = useDashboard();
+  const dashboard = useDashboard();
+  const { chatMessages, agents, sendChatMessage } = dashboard;
+  const chatThinking = (dashboard as any).chatThinking as boolean;
+  const chatAuth = (dashboard as any).chatAuth as string | null;
   const [input, setInput] = useState('');
   const [showAgents, setShowAgents] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -31,7 +34,7 @@ export function ChatPanel() {
     <div className="chat-panel">
       {/* Header */}
       <div className="chat-panel__header">
-        <span>Venture OS</span>
+        <span>Venture OS{chatAuth ? <span className="chat-panel__auth-badge">{chatAuth}</span> : null}</span>
         <button
           style={{
             background: 'none', border: 'none', color: 'var(--color-text-muted)',
@@ -50,6 +53,13 @@ export function ChatPanel() {
             {msg.content}
           </div>
         ))}
+        {chatThinking && (
+          <div className="chat-panel__thinking">
+            <span className="chat-panel__thinking-dot" />
+            <span className="chat-panel__thinking-dot" />
+            <span className="chat-panel__thinking-dot" />
+          </div>
+        )}
         <div ref={messagesEndRef} />
       </div>
 

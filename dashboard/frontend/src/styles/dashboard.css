@@ -349,6 +349,41 @@
   text-align: center;
   align-self: center;
 }
+/* Thinking indicator */
+.chat-panel__thinking {
+  display: flex;
+  gap: 4px;
+  padding: var(--space-2) var(--space-3);
+  align-self: flex-start;
+}
+.chat-panel__thinking-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  opacity: 0.4;
+  animation: chat-thinking 1.2s ease-in-out infinite;
+}
+.chat-panel__thinking-dot:nth-child(2) { animation-delay: 0.2s; }
+.chat-panel__thinking-dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes chat-thinking {
+  0%, 60%, 100% { opacity: 0.2; transform: scale(0.8); }
+  30% { opacity: 1; transform: scale(1.2); }
+}
+
+/* Auth badge */
+.chat-panel__auth-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 6px;
+  font-size: 9px;
+  font-family: var(--font-family-mono);
+  border-radius: 3px;
+  background: oklch(0.25 0.04 160);
+  color: oklch(0.75 0.15 160);
+  vertical-align: middle;
+}
+
 .chat-panel__agents {
   border-top: 1px solid var(--border-color);
   max-height: 200px;

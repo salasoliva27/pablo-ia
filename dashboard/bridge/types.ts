@@ -14,7 +14,8 @@ export type ServerMessage =
   | { type: "tool_event"; toolName: string; input: unknown; sessionId: string; timestamp: number }
   | { type: "fs_event"; event: string; path: string; timestamp: number }
   | { type: "error"; message: string }
-  | { type: "session_end"; cost?: number; usage?: unknown };
+  | { type: "session_end"; cost?: number; usage?: unknown }
+  | { type: "session_start"; auth: "subscription" | "api_key" | "unknown" };
 
 // Permission handling
 export interface PermissionResult {

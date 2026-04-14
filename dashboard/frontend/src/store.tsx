@@ -221,6 +221,8 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       { id: 'sys-1', role: 'system', content: 'Initializing...', timestamp: Date.now() },
     ],
     chatInput: '',
+    chatThinking: false,
+    chatAuth: null as string | null,
   });
 
   // ── Process real WebSocket events from bridge ────────────
@@ -268,6 +270,20 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         break;
       }
 
+      case 'session_start': {
+        setState(s => ({
+          ...s,
+          chatThinking: true,
+          chatAuth: (msg as any).auth || 'unknown',
+          chatMessages: [...s.chatMessages, {
+            id: uid(), role: 'system',
+            content: `Session started (${(msg as any).auth || 'unknown'})`,
+            timestamp: Date.now(),
+          }],
+        }));
+        break;
+      }
+
       case 'claude_message': {
         // Claude session output — only show readable text, filter out system/hook JSON
         const raw = msg.message;
@@ -278,6 +294,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
           if (trimmed.length > 0 && trimmed.length < 2000) {
             setState(s => ({
               ...s,
+              chatThinking: false,
               chatMessages: [...s.chatMessages, { id: uid(), role: 'assistant', content: trimmed, timestamp: Date.now() }],
             }));
           }
@@ -289,6 +306,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
           if (text && typeof text === 'string' && text.length < 2000 && !text.startsWith('{')) {
             setState(s => ({
               ...s,
+              chatThinking: false,
               chatMessages: [...s.chatMessages, { id: uid(), role: 'assistant', content: text, timestamp: Date.now() }],
             }));
           }
@@ -313,6 +331,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         hasActiveSession.current = false;
         setState(s => ({
           ...s,
+          chatThinking: false,
           chatMessages: [...s.chatMessages, {
             id: uid(), role: 'system',
             content: `Session ended.${msg.cost ? ` Cost: $${msg.cost.toFixed(4)}` : ''}`,
@@ -423,6 +442,8 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       }));
       return;
     }
+
+    setState(s => ({ ...s, chatThinking: true }));
 
     if (!hasActiveSession.current) {
       // Start a new Claude session
