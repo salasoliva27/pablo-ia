@@ -9,7 +9,8 @@
     "dev": "tsx bin/venture-os.ts",
     "dev:frontend": "cd frontend && npm run dev",
     "dev:all": "npm run dev & npm run dev:frontend",
-    "build": "tsc",
+    "build:frontend": "cd frontend && npm run build",
+    "build": "npm run build:frontend && tsc",
     "start": "node dist/bin/venture-os.js"
   },
   "dependencies": {
