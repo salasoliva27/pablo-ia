@@ -29,12 +29,11 @@ export class ClaudeSession {
       "-p", prompt,
       "--output-format", "stream-json",
       "--verbose",
-      // Disable hooks, skills, and session persistence for subprocess —
-      // hooks (GSD, claude-mem) cause interference and massive overhead
-      "--settings", '{"hooks":{}}',
+      // Skip permissions so tools execute in non-interactive -p mode
+      // (without this, tool calls silently fail and session ends early)
+      "--dangerously-skip-permissions",
       "--disable-slash-commands",
       "--no-session-persistence",
-      "--max-turns", "20",
     ];
 
     // If we have a prior session, continue it
