@@ -35,7 +35,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Tool permission prompts from Claude Code appear as WebSocket events that can be approved/denied from the client
   4. Filesystem changes in the vault trigger WebSocket events to connected clients
   5. Hook-emitted tool call events flow through the bridge to connected clients
-**Plans**: TBD
+**Plans**: 3 plans
+Plans:
+- [ ] 01-01-PLAN.md — Project scaffold, types, Express+WS server skeleton
+- [ ] 01-02-PLAN.md — Claude session management, permissions, streaming
+- [ ] 01-03-PLAN.md — Hook receiver endpoint, filesystem watcher
 
 ### Phase 2: Shell Layout
 **Goal**: Users see a three-panel resizable layout that remembers its configuration
@@ -153,7 +157,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation & Bridge Server | 0/? | Not started | - |
+| 1. Foundation & Bridge Server | 0/3 | Not started | - |
 | 2. Shell Layout | 0/? | Not started | - |
 | 3. Chat Panel | 0/? | Not started | - |
 | 4. System Graph | 0/? | Not started | - |
