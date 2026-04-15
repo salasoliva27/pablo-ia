@@ -5,10 +5,11 @@ import type { ClientMessage, ServerMessage } from "./types.js";
 import { isValidClientMessage } from "./types.js";
 import { ClaudeSession } from "./claude-session.js";
 import { PermissionManager } from "./permissions.js";
-import { startWatchers, stopWatchers } from "./file-watcher.js";
+import { startWatchers, stopWatchers, broadcastInitialLearnings } from "./file-watcher.js";
 import type { FSWatcher } from "chokidar";
 import fs from "node:fs";
 import path from "node:path";
+import os from "node:os";
 
 export function startServer(port: number): Promise<http.Server> {
   const app = express();
@@ -110,6 +111,22 @@ export function startServer(port: number): Promise<http.Server> {
     }
   });
 
+  // File API — move/rename
+  app.post("/api/file/move", (req, res) => {
+    const { from, to } = req.body;
+    if (!from || !to || !from.startsWith("/workspaces/") || !to.startsWith("/workspaces/")) {
+      res.status(400).json({ error: "Invalid paths" });
+      return;
+    }
+    try {
+      fs.mkdirSync(path.dirname(to), { recursive: true });
+      fs.renameSync(from, to);
+      res.json({ ok: true, from, to });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
   // Hook receiver — broadcasts tool events to all WS clients
   app.post("/hooks/post-tool-use", (req, res) => {
     const { tool_name, tool_input, session_id } = req.body;
@@ -144,6 +161,13 @@ export function startServer(port: number): Promise<http.Server> {
 
   wss.on("connection", (ws) => {
     console.log("[ws] client connected");
+
+    // Send initial learnings to this client
+    broadcastInitialLearnings((msg) => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(msg));
+      }
+    });
 
     const permissionManager = new PermissionManager();
     const session = new ClaudeSession(ws, permissionManager);
@@ -219,6 +243,7 @@ export function startServer(port: number): Promise<http.Server> {
     server.listen(port, () => {
       console.log(`[bridge] listening on port ${port}`);
       watchers = startWatchers(broadcast);
+      broadcastInitialLearnings(broadcast);
       ensureHookConfig(port);
       resolve(server);
     });
@@ -299,13 +324,63 @@ function buildGraphFromFs(): { nodes: GraphNode[]; edges: { source: string; targ
     }
   }
 
+  // Scan memory files (persistent learnings)
+  const memoryDir = path.join(os.homedir(), ".claude", "projects", "-workspaces-venture-os", "memory");
+  if (fs.existsSync(memoryDir)) {
+    for (const f of fs.readdirSync(memoryDir)) {
+      if (f === "MEMORY.md" || !f.endsWith(".md")) continue;
+      const name = f.replace(".md", "");
+      try {
+        const content = fs.readFileSync(path.join(memoryDir, f), "utf-8");
+        // Parse frontmatter
+        const typeMatch = content.match(/^type:\s*(\w+)/m);
+        const nameMatch = content.match(/^name:\s*(.+)/m);
+        const descMatch = content.match(/^description:\s*(.+)/m);
+        const memType = typeMatch?.[1] || "memory";
+        const group = memType === "feedback" ? "learnings"
+          : memType === "user" ? "concepts"
+          : memType === "project" ? "wiki"
+          : memType === "reference" ? "learnings"
+          : "learnings";
+
+        // Use frontmatter for the label — prefer description for sessions, name for others
+        const rawName = nameMatch?.[1]?.trim() || "";
+        const desc = descMatch?.[1]?.trim() || "";
+        const isSessionSlug = /^[Ss]ession.20\d{2}/.test(rawName) || rawName.startsWith("session_");
+        let label = (isSessionSlug && desc) ? desc : (rawName || desc || name.replace(/_/g, " "));
+        // Truncate long labels for readability
+        if (label.length > 50) label = label.slice(0, 47) + "...";
+
+        // Auto-link to projects/concepts mentioned in content
+        const links: string[] = [];
+        const lc = content.toLowerCase();
+        for (const n of nodes) {
+          if (n.group === "wiki" && lc.includes(n.label.toLowerCase())) {
+            links.push(n.id);
+          }
+        }
+        // Link feedback/user memories to relevant agents
+        if (memType === "feedback" && lc.includes("ui")) links.push("a-ux");
+        if (memType === "feedback" && lc.includes("deploy")) links.push("a-deploy");
+        if (lc.includes("legal") || lc.includes("compliance")) links.push("a-legal");
+        if (lc.includes("security")) links.push("a-security");
+        if (lc.includes("supabase")) links.push("c-supabase-shared");
+        if (lc.includes("playwright")) links.push("a-ux");
+
+        addNode(`m-${name}`, label, group, links.filter(l => seen.has(l)));
+      } catch { /* skip */ }
+    }
+  }
+
   // Parse [[links]] from files to build edges
   for (const n of nodes) {
+    const labelFile = n.label.replace(/ /g, "_") + ".md";
     const possiblePaths = [
       path.join(root, "agents", "core", `${n.label}.md`),
       path.join(root, "agents", "domain", `${n.label}.md`),
       path.join(root, "learnings", `${n.label}.md`),
       path.join(root, "concepts", `${n.label}.md`),
+      path.join(memoryDir, labelFile),
     ];
     for (const p of possiblePaths) {
       if (fs.existsSync(p)) {

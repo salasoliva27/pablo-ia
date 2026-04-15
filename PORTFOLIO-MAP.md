@@ -15,20 +15,29 @@ mindmap
       CLAUDE.md dispatch protocol
       Agents core + domain
       Skills + Tools registries
-      PROJECTS.md portfolio state
-    espacio-bosques
-      frontend React+Vite
-      backend Express+Prisma
-      contracts Hardhat
-    lool-ai
+      Dashboard React+Express
+    espacio-bosques-dev
+      frontend React+Vite+Tailwind
+      backend Express+simStore
+      Bitso MXN integration
+    lool-ai-dev
       React SPA
       MediaPipe face mesh
-    nutria-app
+    nutria-app-dev
       app React PWA
       widget IIFE bundle
-    LongeviteTherapeutics
+    longevite-therapeutics-dev
       Static HTML+CSS+JS
       GSAP animations
+    mercado-bot-dev
+      React dashboard
+      Python backend planned
+    jp-ai
+      CLAUDE.md brain for Ozum
+      10 agents + CRM spec
+    freelance-system
+      Automation pipeline
+      Upwork+Fiverr outreach
 ```
 
 ---
@@ -57,7 +66,7 @@ graph TD
     NAA -->|same session| NAW
   end
 
-  subgraph LT["LongeviteTherapeutics"]
+  subgraph LT["longevite-therapeutics-dev"]
     LTS[Static site<br/>index.html + GSAP]
     LTS -->|embeds| NAW
   end
@@ -91,11 +100,14 @@ graph TD
 
 | Repo | Type | Stack | External deps | Status |
 |---|---|---|---|---|
-| **venture-os** | Orchestrator | Markdown + agents | GitHub MCP, Gmail, GCal, Notion | Always active |
-| **espacio-bosques** | Community funding platform | React · Express · Prisma · Hardhat | Supabase, Claude API, Bitso | POC complete |
-| **lool-ai** | B2B virtual try-on widget | React · MediaPipe | None (standalone) | Core widget done |
-| **nutria-app** | Nutrition AI — app + widget | React · Supabase · Claude API | Supabase, Claude API | Build phase |
-| **LongeviteTherapeutics** | Clinic website | Static HTML · GSAP | nutria-app widget | V2 built, not deployed |
+| **venture-os** | Orchestrator + Dashboard | Markdown + agents + React + Express | GitHub, Gmail, Supabase, Brave, Obsidian MCPs | Always active |
+| **espacio-bosques-dev** | Community funding platform | React · Express · Tailwind · Supabase Auth | Supabase, Claude API, Bitso | POC complete |
+| **lool-ai-dev** | B2B virtual try-on widget | React · MediaPipe | None (standalone) | Core widget done |
+| **nutria-app-dev** | Nutrition AI — app + widget | React · Supabase · Claude API | Supabase, Claude API | V1 built, needs deploy |
+| **longevite-therapeutics-dev** | Clinic website | Static HTML · GSAP | nutria-app widget | V2 built, not deployed |
+| **mercado-bot-dev** | Prediction market bot | React dashboard · Python backend | Claude API | Dashboard v1, backend pending |
+| **jp-ai** | AI-OS for Ozum events | CLAUDE.md + 10 agents | Supabase (ozum_*), Claude API | Setup complete, CRM pending |
+| **freelance-system** | Freelance automation | Pipeline + portfolio | Upwork, Fiverr | Operational, needs leads |
 
 ---
 
@@ -103,9 +115,10 @@ graph TD
 
 | Service | Project ref | Used by | Table prefix |
 |---|---|---|---|
-| Supabase | `rycybujjedtofghigyxm` | espacio-bosques, nutria-app | `bosques_*`, `nutria_*` |
-| Claude API | `claude-sonnet-4-6` | espacio-bosques (blueprints), nutria-app (agent) | — |
+| Supabase | `rycybujjedtofghigyxm` | venture-os, espacio-bosques, nutria-app, jp-ai | `janus_*`, `eb_*`, `nutria_*`, `ozum_*` (pending) |
+| Claude API | `claude-sonnet-4-6` | espacio-bosques, nutria-app, mercado-bot, jp-ai | — |
 | Bitso sandbox | sandbox API | espacio-bosques | — |
+| Cloudflare R2 | `janus-media` bucket | lool-ai, longevite (planned) | — |
 
 **Rule:** All credentials live in `salasoliva27/dotfiles` and are injected as env vars into every Codespace. Never hardcode in any repo.
 
@@ -114,7 +127,7 @@ graph TD
 ## How the repos relate
 
 - **venture-os** is the brain — it doesn't run code, it orchestrates all others
-- **nutria-app widget** embeds into **LongeviteTherapeutics** via `<script src="widget.js">`
+- **nutria-app widget** embeds into **longevite-therapeutics-dev** via `<script src="widget.js">`
 - **espacio-bosques** is fully self-contained (frontend + backend + contracts), shares only Supabase and Claude
 - **lool-ai** is standalone — no backend, no auth, no shared services yet
 - **Supabase** is the only shared database — table prefixes prevent collisions between projects

@@ -35,6 +35,7 @@ Google OAuth and email/password auth are shared at the Supabase level. This mean
 
 ## Connected patterns
 → [[concepts/simulation-first-dev]]
+→ [[concepts/rls-by-default]] — every table must have RLS enabled (enforced 2026-04-15)
 → [[learnings/supabase-registry]]
 
 ## Projects

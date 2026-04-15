@@ -1,13 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
 import { useDashboard } from '../store';
 
-type Tab = 'timeline' | 'capacity' | 'learnings' | 'files' | 'terminal' | 'workspace';
+type Tab = 'timeline' | 'capacity' | 'learnings' | 'terminal' | 'workspace';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'timeline', label: 'Timeline' },
   { id: 'capacity', label: 'Capacity' },
   { id: 'learnings', label: 'Learnings' },
-  { id: 'files', label: 'Files' },
   { id: 'terminal', label: 'Terminal' },
   { id: 'workspace', label: 'Workspace' },
 ];
@@ -83,18 +82,70 @@ function CapacityHeatmap() {
   );
 }
 
+const STATUS_ICONS: Record<string, string> = {
+  active: '',
+  argued: '(debated)',
+  revised: '(revised)',
+  rejected: '(rejected)',
+};
+
 function LearningFeed() {
-  const { learnings } = useDashboard();
+  const { learnings, sendChatMessage } = useDashboard();
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  function timeAgo(ts: number): string {
+    const s = Math.floor((Date.now() - ts) / 1000);
+    if (s < 5) return 'just now';
+    if (s < 60) return `${s}s ago`;
+    if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+    if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+    return `${Math.floor(s / 86400)}d ago`;
+  }
+
+  function handleArgue(l: typeof learnings[0]) {
+    sendChatMessage(`I want to argue this learning:\n\n**Rule:** ${l.rule}\n**Based on:** ${l.content}\n**Project:** ${l.project}\n\nLet's debate whether this is still the right behavioral rule.`);
+  }
 
   return (
     <div className="learning-feed">
-      {learnings.map(l => (
-        <div key={l.id} className={`learning-feed__item learning-feed__item--${l.domain}`}>
-          <div className="learning-feed__domain">{l.domain}</div>
-          <div>{l.content}</div>
-          <div className="learning-feed__project">{l.project}</div>
-        </div>
-      ))}
+      {learnings.map(l => {
+        const isExpanded = expandedId === l.id;
+        return (
+          <div key={l.id} className={`learning-feed__item learning-feed__item--${l.domain} ${l.status === 'rejected' ? 'learning-feed__item--rejected' : ''}`}>
+            <div className="learning-feed__domain">
+              {l.domain}
+              {l.status !== 'active' && (
+                <span className="learning-feed__status">{STATUS_ICONS[l.status]}</span>
+              )}
+              <span className="learning-feed__time">{timeAgo(l.timestamp)}</span>
+            </div>
+            <div className="learning-feed__rule">{l.rule}</div>
+            <div className="learning-feed__meta">
+              <span className="learning-feed__project">{l.project}</span>
+              <span
+                className="learning-feed__provenance"
+                onClick={() => setExpandedId(isExpanded ? null : l.id)}
+                title="Show source memories"
+              >
+                {l.sourceMemoryIds.length} source{l.sourceMemoryIds.length !== 1 ? 's' : ''}
+              </span>
+              <button
+                className="learning-feed__argue"
+                onClick={() => handleArgue(l)}
+                title="Debate this learning in chat"
+              >
+                Argue
+              </button>
+            </div>
+            {isExpanded && (
+              <div className="learning-feed__evidence">
+                <div className="learning-feed__evidence-label">Evidence:</div>
+                <div className="learning-feed__evidence-content">{l.content}</div>
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -153,6 +204,17 @@ function TerminalPreview() {
       <div ref={endRef} />
     </div>
   );
+}
+
+function getPortUrl(port: number): string {
+  // In Codespaces, use the forwarded URL; locally, use localhost
+  const hostname = window.location.hostname;
+  if (hostname.includes('.app.github.dev')) {
+    // Replace the current port segment with the target port
+    const base = hostname.replace(/-\d+\.app\.github\.dev$/, '');
+    return `https://${base}-${port}.app.github.dev`;
+  }
+  return `http://localhost:${port}`;
 }
 
 function WorkspacePreview() {
@@ -223,7 +285,7 @@ function WorkspacePreview() {
       <div style={{ flex: 1, minHeight: 0 }}>
         {activePort ? (
           <iframe
-            src={`http://localhost:${activePort}`}
+            src={getPortUrl(activePort)}
             style={{ width: '100%', height: '100%', border: 'none', background: 'white', borderRadius: 4 }}
             title={`Port ${activePort}`}
           />
@@ -248,7 +310,6 @@ export function BottomPanel() {
     timeline: <SessionTimeline />,
     capacity: <CapacityHeatmap />,
     learnings: <LearningFeed />,
-    files: <FileHeatmap />,
     terminal: <TerminalPreview />,
     workspace: <WorkspacePreview />,
   };

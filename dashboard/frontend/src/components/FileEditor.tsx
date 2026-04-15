@@ -97,7 +97,7 @@ function SubTree({ path, onSelect }: { path: string; onSelect: (p: string, isDir
 }
 
 export function FileEditor() {
-  const [treePath, setTreePath] = useState('/workspaces/venture-os/dashboard/frontend/src');
+  const [treePath, setTreePath] = useState('/workspaces/venture-os');
   const [openFiles, setOpenFiles] = useState<OpenFile[]>([]);
   const [activeFile, setActiveFile] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);

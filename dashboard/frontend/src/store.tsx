@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
-import type { DashboardState, DashboardActions, Project, ToolStatus, BrainNode, BrainEdge, Notification, Learning, CalendarSlot, FileActivity, CenterView, Document } from './types/dashboard';
+import type { DashboardState, DashboardActions, Project, ToolStatus, BrainNode, BrainEdge, Notification, Learning, CalendarSlot, FileActivity, CenterView, Document, AgentInfo, MemoryEntry } from './types/dashboard';
 import type { ServerMessage } from './types/bridge';
 
 // ── Static Data (real project state, not simulated) ────────
@@ -73,20 +73,39 @@ const NOTIFICATIONS: Notification[] = [
 ];
 
 const LEARNINGS: Learning[] = [
-  { id: 'lr1', content: 'tsx watch does NOT hot-reload route file changes — must kill and restart process', domain: 'technical', project: 'espacio-bosques', timestamp: Date.now() - 86400000 },
-  { id: 'lr2', content: 'CDMX optical market: ~2,400 independent labs, no dominant SaaS player', domain: 'market', project: 'lool-ai', timestamp: Date.now() - 172800000 },
-  { id: 'lr3', content: 'Bitso sandbox requires explicit MXN funding before crypto operations', domain: 'technical', project: 'espacio-bosques', timestamp: Date.now() - 259200000 },
-  { id: 'lr4', content: 'Ley Fintech Article 58: tokenized real estate requires CNBV sandbox notification', domain: 'legal', project: 'espacio-bosques', timestamp: Date.now() - 345600000 },
-  { id: 'lr5', content: 'Claude API streaming with tool_use requires handling content_block_delta events', domain: 'technical', project: 'lool-ai', timestamp: Date.now() - 432000000 },
-  { id: 'lr6', content: 'Simulation-first dev cuts integration bugs by ~60% based on 3 project comparison', domain: 'pattern', project: 'all', timestamp: Date.now() - 518400000 },
-  { id: 'lr7', content: 'Polanco and Roma Norte have highest concentration of optical labs in CDMX', domain: 'market', project: 'lool-ai', timestamp: Date.now() - 604800000 },
-  { id: 'lr8', content: 'React projects consistently take 4 weeks, not the 2 weeks estimated', domain: 'pattern', project: 'all', timestamp: Date.now() - 691200000 },
+  { id: 'lr1', rule: 'Always kill and restart tsx after route changes — never trust hot-reload for backend files', content: 'tsx watch does NOT hot-reload route file changes — must kill and restart process', domain: 'technical', project: 'espacio-bosques', timestamp: Date.now() - 86400000, sourceMemoryIds: ['mem-tsx-1', 'mem-tsx-2'], status: 'active' },
+  { id: 'lr2', rule: 'Target independent labs first — no incumbent to displace, direct sales viable', content: 'CDMX optical market: ~2,400 independent labs, no dominant SaaS player', domain: 'market', project: 'lool-ai', timestamp: Date.now() - 172800000, sourceMemoryIds: ['mem-mkt-1'], status: 'active' },
+  { id: 'lr3', rule: 'Always fund Bitso sandbox wallet with MXN before testing any crypto flow', content: 'Bitso sandbox requires explicit MXN funding before crypto operations', domain: 'technical', project: 'espacio-bosques', timestamp: Date.now() - 259200000, sourceMemoryIds: ['mem-bitso-1'], status: 'active' },
+  { id: 'lr4', rule: 'Flag CNBV sandbox notification as a blocker before any prod deploy involving tokenized assets', content: 'Ley Fintech Article 58: tokenized real estate requires CNBV sandbox notification', domain: 'legal', project: 'espacio-bosques', timestamp: Date.now() - 345600000, sourceMemoryIds: ['mem-legal-1', 'mem-legal-2'], status: 'active' },
+  { id: 'lr5', rule: 'Handle content_block_delta events in streaming — tool_use breaks without them', content: 'Claude API streaming with tool_use requires handling content_block_delta events', domain: 'technical', project: 'lool-ai', timestamp: Date.now() - 432000000, sourceMemoryIds: ['mem-claude-1'], status: 'active' },
+  { id: 'lr6', rule: 'Default to simulation-first architecture for every new project — proven 60% bug reduction', content: 'Simulation-first dev cuts integration bugs by ~60% based on 3 project comparison', domain: 'pattern', project: 'all', timestamp: Date.now() - 518400000, sourceMemoryIds: ['mem-sim-1', 'mem-sim-2', 'mem-sim-3'], status: 'active' },
+  { id: 'lr7', rule: 'Prioritize Polanco and Roma Norte for lool-ai pilot — highest lab density', content: 'Polanco and Roma Norte have highest concentration of optical labs in CDMX', domain: 'market', project: 'lool-ai', timestamp: Date.now() - 604800000, sourceMemoryIds: ['mem-geo-1'], status: 'active' },
+  { id: 'lr8', rule: 'Estimate 4 weeks for any React project — never promise 2 weeks again', content: 'React projects consistently take 4 weeks, not the 2 weeks estimated', domain: 'pattern', project: 'all', timestamp: Date.now() - 691200000, sourceMemoryIds: ['mem-est-1', 'mem-est-2', 'mem-est-3'], status: 'argued' },
 ];
 
 const TERMINAL_INITIAL = [
   '[bridge] listening on port 3100',
   '[bridge] hook config written to .claude/settings.json',
   '[watcher] watching vault and project directories',
+];
+
+// ── Agent Registry (real agents from agents/core/) ─────
+export const AGENT_REGISTRY: AgentInfo[] = [
+  { id: 'a-dev', name: 'Developer', icon: '>', role: 'Software architecture, build sequencing, technical decisions', description: 'The developer agent handles all code tasks — architecture decisions, build sequencing, feature implementation, and technical debt. It reads project context before touching any code and follows the dispatch protocol for verification.', file: 'agents/core/developer.md', lastUpdated: '2026-04-13T20:13:17Z', tools: ['GitHub', 'Context7', 'Playwright'], linkedAgents: ['a-ux', 'a-security'] },
+  { id: 'a-ux', name: 'UX', icon: '◎', role: 'Visual verification, Playwright, design system', description: 'The UX agent verifies every UI change through a multi-layer protocol: code review, server start, desktop + mobile screenshots via Playwright, functional click-through testing, and cross-environment checks.', file: 'agents/core/ux.md', lastUpdated: '2026-04-13T20:13:17Z', tools: ['Playwright'], linkedAgents: ['a-dev'] },
+  { id: 'a-legal', name: 'Legal', icon: '§', role: 'Compliance, contracts, regulatory flags', description: 'Handles LFPDPPP compliance, Ley Fintech exposure, contract reviews, and regulatory flags. Automatically surfaces legal concerns when sessions touch regulated projects like espacio-bosques.', file: 'agents/core/legal.md', lastUpdated: '2026-04-13T20:13:17Z', tools: ['Brave Search'], linkedAgents: [] },
+  { id: 'a-financial', name: 'Financial', icon: '$', role: 'Portfolio P&L, burn tracking, runway', description: 'Tracks burn rate, revenue, runway, and P&L across the entire venture portfolio. Produces financial snapshots and flags capacity conflicts when new commitments are proposed.', file: 'agents/core/financial.md', lastUpdated: '2026-04-13T21:40:23Z', tools: ['Google Sheets'], linkedAgents: [] },
+  { id: 'a-intake', name: 'Intake', icon: '+', role: 'New idea validation and project spin-up', description: 'Runs the full intake protocol for new ideas: understand, validate (market research), check conflicts, propose structure, and spin up. Challenges weak ideas and capacity conflicts directly.', file: 'agents/core/intake.md', lastUpdated: '2026-04-13T21:20:59Z', tools: ['Brave Search'], linkedAgents: ['a-research'] },
+  { id: 'a-research', name: 'Research', icon: '?', role: 'Market research, competitor analysis, discovery', description: 'All research tasks route here. Uses Brave Search, Firecrawl, USDA API, and NotebookLM with a priority matrix based on research type. Mexico/LATAM market focus with source citations and confidence levels.', file: 'agents/core/research.md', lastUpdated: '2026-04-13T21:56:32Z', tools: ['Brave Search', 'Firecrawl', 'NotebookLM'], linkedAgents: [] },
+  { id: 'a-deploy', name: 'Deploy', icon: '↑', role: 'Dev → UAT → prod pipeline, tagging, drift detection', description: 'Manages the deployment pipeline across environments. Handles tagging, drift detection between prod tags and HEAD, and environment promotion with verification gates.', file: 'agents/core/deploy.md', lastUpdated: '2026-04-13T21:20:59Z', tools: ['GitHub'], linkedAgents: [] },
+  { id: 'a-calendar', name: 'Calendar', icon: '▦', role: 'Google Cal sync, conflict detection', description: 'Two-way Google Calendar sync via MCP. Detects scheduling conflicts, checks capacity against active projects, and enforces the post-3pm availability constraint.', file: 'agents/core/calendar.md', lastUpdated: '2026-04-13T21:20:59Z', tools: ['Google Calendar'], linkedAgents: [] },
+  { id: 'a-performance', name: 'Performance', icon: '◆', role: 'Dashboards, weekly summaries, metrics', description: 'Tracks project performance metrics, produces weekly summaries, and maintains dashboards. Monitors build times, test coverage, and delivery velocity.', file: 'agents/core/performance.md', lastUpdated: '2026-04-13T21:20:59Z', tools: ['Google Sheets'], linkedAgents: [] },
+  { id: 'a-oversight', name: 'Oversight', icon: '◉', role: 'Product coherence, gap detection, launch readiness', description: 'Sees the full product end-to-end. Walks user flows, finds integration gaps, produces launch readiness checklists, and manages external dependency loops. Works WITH Jano in a loop — does not fix unilaterally.', file: 'agents/core/oversight.md', lastUpdated: '2026-04-13T21:20:59Z', tools: ['Playwright'], linkedAgents: ['a-ux'] },
+  { id: 'a-marketing', name: 'Marketing', icon: '◈', role: 'Brand, content, campaigns, email, video', description: 'Handles brand voice, content creation, campaign execution, email outreach via Gmail MCP, and video generation via Remotion. Uses Magic MCP for UI component generation and competitor benchmarking.', file: 'agents/core/marketing.md', lastUpdated: '2026-04-13T20:13:17Z', tools: ['Brave Search', 'Magic MCP', 'Gmail', 'Remotion'], linkedAgents: [] },
+  { id: 'a-trickle', name: 'Trickle-Down', icon: '⇣', role: 'Cross-project proposal routing', description: 'When a pattern or proposal should apply across projects, this agent evaluates each project individually and produces ADOPT / ADAPT / REJECT decisions with specific reasoning per project.', file: 'agents/core/trickle-down.md', lastUpdated: '2026-04-13T21:20:59Z', tools: ['GitHub'], linkedAgents: [] },
+  { id: 'a-security', name: 'Security', icon: '⊘', role: 'Vulnerability detection, OWASP review, pre-deploy gates', description: 'Runs OWASP top 10 checks, audits auth flows, reviews data handling, and gates deployments. Cross-agent hardening ensures security is checked even when other agents are executing.', file: 'agents/core/security.md', lastUpdated: '2026-04-13T20:13:17Z', tools: ['Playwright', 'GitHub'], linkedAgents: [] },
+  { id: 'a-nutrition', name: 'Nutrition', icon: '♥', role: 'Clinical nutrition intelligence (powers nutrIA)', description: 'Domain-specific agent for clinical nutrition. Uses USDA FoodData Central API and Open Food Facts for nutritional data. Powers the nutrIA product with evidence-based recommendations.', file: 'agents/core/nutrition.md', lastUpdated: '2026-04-13T20:13:17Z', tools: ['USDA API', 'Open Food Facts'], linkedAgents: [] },
+  { id: 'a-evolve', name: 'Evolve', icon: '∞', role: 'Self-improvement, capability discovery, memory consolidation', description: 'The system introspection and growth engine. Runs timed loops searching for tools, strengthening knowledge connections, and installing capabilities that benefit all projects. Does not build features — makes the system itself better.', file: 'agents/core/evolve.md', lastUpdated: '2026-04-15T01:58:00Z', tools: ['Brave Search', 'GitHub'], linkedAgents: [] },
 ];
 
 function makeBrainData(): { nodes: BrainNode[]; edges: BrainEdge[] } {
@@ -213,39 +232,88 @@ export function useDashboard() {
 let _idCounter = 0;
 const uid = () => `ev-${++_idCounter}-${Date.now()}`;
 
+// Persist key session state across reloads
+const SESSION_STORAGE_KEY = 'venture-os-session';
+function loadPersistedState(): Partial<DashboardState> | null {
+  try {
+    const raw = localStorage.getItem(SESSION_STORAGE_KEY);
+    if (!raw) return null;
+    const saved = JSON.parse(raw);
+    // Only restore if saved within last 2 hours
+    if (saved._savedAt && Date.now() - saved._savedAt > 2 * 60 * 60 * 1000) return null;
+    return saved;
+  } catch { return null; }
+}
+function persistState(s: DashboardState) {
+  try {
+    const toSave = {
+      chatMessages: s.chatMessages,
+      chatAuth: s.chatAuth,
+      chatStatus: s.chatStatus === 'thinking' || s.chatStatus === 'streaming' ? 'done' : s.chatStatus,
+      memories: s.memories,
+      sessionEvents: s.sessionEvents.slice(0, 30),
+      agentCounts: s.agentCounts,
+      documents: s.documents.slice(0, 20),
+      tools: s.tools.map(t => ({ id: t.id, callCount: t.callCount })),
+      _savedAt: Date.now(),
+    };
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(toSave));
+  } catch { /* quota exceeded, ignore */ }
+}
+
 export function DashboardProvider({ children }: { children: ReactNode }) {
   const brainData = useRef(makeBrainData());
+  const persisted = useRef(loadPersistedState());
 
-  const [state, setState] = useState<DashboardState>({
-    projects: PROJECTS,
-    agents: [],
-    tools: TOOLS,
-    memories: [],
-    gitCommits: [],
-    brainNodes: brainData.current.nodes,
-    brainEdges: brainData.current.edges,
-    notifications: NOTIFICATIONS,
-    sessionEvents: [],
-    learnings: LEARNINGS,
-    terminalLines: TERMINAL_INITIAL,
-    calendarSlots: makeCalendar(),
-    fileActivities: makeFileActivities(),
-    documents: [],
-    selectedProject: null,
-    centerView: 'constellation',
-    commandPaletteOpen: false,
-    scoreboardOpen: false,
-    chatMessages: [
-      { id: 'sys-1', role: 'system', content: 'Initializing...', timestamp: Date.now() },
-    ],
-    chatInput: '',
-    chatThinking: false,
-    chatAuth: null,
-    chatStatus: 'idle',
-    chatThinkingStart: null,
-    activeDocumentId: null,
-    rightPanelTab: 'memory',
+  const [state, setState] = useState<DashboardState>(() => {
+    const p = persisted.current;
+    const restoredTools = p?.tools
+      ? TOOLS.map(t => {
+          const saved = (p.tools as any[])?.find((st: any) => st.id === t.id);
+          return saved ? { ...t, callCount: saved.callCount } : t;
+        })
+      : TOOLS;
+
+    return {
+      projects: PROJECTS,
+      agents: [],
+      tools: restoredTools,
+      memories: (p?.memories as MemoryEntry[]) || [],
+      gitCommits: [],
+      brainNodes: brainData.current.nodes,
+      brainEdges: brainData.current.edges,
+      notifications: NOTIFICATIONS,
+      sessionEvents: (p?.sessionEvents as any[]) || [],
+      learnings: LEARNINGS,
+      terminalLines: TERMINAL_INITIAL,
+      calendarSlots: makeCalendar(),
+      fileActivities: makeFileActivities(),
+      documents: (p?.documents as any[]) || [],
+      selectedProject: null,
+      selectedBrainNode: null,
+      centerView: 'constellation',
+      commandPaletteOpen: false,
+      scoreboardOpen: false,
+      chatMessages: (p?.chatMessages as any[]) || [
+        { id: 'sys-1', role: 'system', content: 'Initializing...', timestamp: Date.now() },
+      ],
+      chatInput: '',
+      chatThinking: false,
+      chatAuth: (p?.chatAuth as string) || null,
+      chatStatus: (p?.chatStatus as any) || 'idle',
+      chatThinkingStart: null,
+      activeDocumentId: null,
+      rightPanelTab: 'memory',
+      agentCounts: (p?.agentCounts as Record<string, number>) || {},
+    };
   });
+
+  // Persist state on changes (debounced)
+  const persistTimer = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => {
+    clearTimeout(persistTimer.current);
+    persistTimer.current = setTimeout(() => persistState(state), 500);
+  }, [state]);
 
   // ── Fetch real graph data from bridge API ────────────
   useEffect(() => {
@@ -299,8 +367,120 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
             brainEdges[idx] = { ...brainEdges[idx], firing: true, fireProgress: 0 };
           }
 
-          // Detect document creation from Write/Edit tool calls
+          // Increment agent counts — map tool to owning agents
+          const agentCounts = { ...s.agentCounts };
+          if (toolId) {
+            const toolAgentMap: Record<string, string[]> = {
+              github: ['Developer', 'Deploy', 'Security', 'Trickle-Down'],
+              playwright: ['UX', 'Developer', 'Security', 'Oversight'],
+              brave: ['Research', 'Intake', 'Legal', 'Marketing'],
+              filesystem: ['Developer'],
+              supabase: ['Developer'],
+              'claude-sdk': ['Developer'],
+              obsidian: ['Research'],
+              sequential: ['Oversight'],
+            };
+            const ownerAgents = toolAgentMap[toolId];
+            if (ownerAgents) {
+              // Credit the first (primary) agent
+              const primary = ownerAgents[0];
+              agentCounts[primary] = (agentCounts[primary] || 0) + 1;
+            }
+          }
+
+          // Extract memories from memory/vault tool calls
           const input = msg.input as Record<string, unknown> | undefined;
+          let memories = s.memories;
+          if (input && msg.toolName.startsWith('mcp__janus-memory__')) {
+            const action = msg.toolName.split('__').pop();
+            if (action === 'remember') {
+              const content = (input.content as string) || (input.name as string) || '';
+              const project = (input.project as string) || undefined;
+              const memType: MemoryEntry['type'] = (input.type as string) === 'decision' ? 'decision' : 'learning';
+              if (content) {
+                const mem: MemoryEntry = { id: uid(), type: memType, direction: 'out', content, project, timestamp: Date.now() };
+                memories = [mem, ...memories].slice(0, 100);
+              }
+            } else if (action === 'recall') {
+              const query = (input.query as string) || (input.name as string) || 'recall';
+              const mem: MemoryEntry = { id: uid(), type: 'recall', direction: 'in', content: query, timestamp: Date.now() };
+              memories = [mem, ...memories].slice(0, 100);
+            }
+          }
+          if (input && msg.toolName.startsWith('mcp__obsidian-vault__')) {
+            const action = msg.toolName.split('__').pop();
+            if (action === 'write_note' || action === 'patch_note') {
+              const path = (input.path as string) || (input.note as string) || '';
+              const content = (input.content as string) || (input.patch as string) || '';
+              const snippet = content.length > 120 ? content.slice(0, 120) + '...' : content;
+              if (path) {
+                const mem: MemoryEntry = { id: uid(), type: 'learning', direction: 'out', content: `${path}: ${snippet}`, timestamp: Date.now() };
+                memories = [mem, ...memories].slice(0, 100);
+              }
+            } else if (action === 'read_note' || action === 'search_notes') {
+              const query = (input.path as string) || (input.query as string) || 'vault read';
+              const mem: MemoryEntry = { id: uid(), type: 'context', direction: 'in', content: query, timestamp: Date.now() };
+              memories = [mem, ...memories].slice(0, 100);
+            }
+          }
+
+          // ── Derive learnings from memory writes ────────────
+          let learnings = s.learnings;
+          if (input && msg.toolName.startsWith('mcp__janus-memory__')) {
+            const action = msg.toolName.split('__').pop();
+            if (action === 'remember') {
+              const content = (input.content as string) || '';
+              const name = (input.name as string) || '';
+              const project = (input.project as string) || 'all';
+              const memType = (input.type as string) || '';
+              if (content && memType !== 'recall') {
+                const domain = memType === 'decision' ? 'pattern' as const
+                  : name.includes('market') ? 'market' as const
+                  : name.includes('legal') ? 'legal' as const
+                  : name.includes('gtm') ? 'gtm' as const
+                  : 'technical' as const;
+                const learning: Learning = {
+                  id: uid(),
+                  rule: content.length > 140 ? content.slice(0, 140) + '...' : content,
+                  content,
+                  domain,
+                  project,
+                  timestamp: Date.now(),
+                  sourceMemoryIds: [memories[0]?.id || uid()],
+                  status: 'active',
+                };
+                learnings = [learning, ...learnings].slice(0, 50);
+              }
+            }
+          }
+          if (input && msg.toolName.startsWith('mcp__obsidian-vault__')) {
+            const action = msg.toolName.split('__').pop();
+            if (action === 'write_note' || action === 'patch_note') {
+              const notePath = (input.path as string) || (input.note as string) || '';
+              const content = (input.content as string) || (input.patch as string) || '';
+              if (notePath && (notePath.includes('learnings/') || notePath.includes('concepts/'))) {
+                const snippet = content.length > 140 ? content.slice(0, 140) + '...' : content;
+                const domain = notePath.includes('market') ? 'market' as const
+                  : notePath.includes('legal') ? 'legal' as const
+                  : notePath.includes('gtm') ? 'gtm' as const
+                  : notePath.includes('pattern') ? 'pattern' as const
+                  : 'technical' as const;
+                const learning: Learning = {
+                  id: uid(),
+                  rule: `Updated ${notePath.split('/').pop()}: ${snippet}`,
+                  content: `${notePath}: ${content.length > 200 ? content.slice(0, 200) + '...' : content}`,
+                  domain,
+                  project: 'all',
+                  timestamp: Date.now(),
+                  sourceMemoryIds: [memories[0]?.id || uid()],
+                  status: 'active',
+                };
+                learnings = [learning, ...learnings].slice(0, 50);
+              }
+            }
+          }
+
+          // Detect document creation from Write/Edit tool calls
           let documents = s.documents;
           let activeDocumentId = s.activeDocumentId;
           let rightPanelTab = s.rightPanelTab;
@@ -325,7 +505,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
             }
           }
 
-          return { ...s, tools, terminalLines, sessionEvents, brainEdges, documents, activeDocumentId, rightPanelTab };
+          return { ...s, tools, terminalLines, sessionEvents, brainEdges, memories, learnings, documents, activeDocumentId, rightPanelTab, agentCounts };
         });
 
         // Deactivate tool pulse after 800ms
@@ -346,6 +526,24 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
           const sessionEvents = [{ id: uid(), type: 'edit' as const, label: `${msg.event}: ${msg.path.split('/').pop()}`, timestamp: Date.now() }, ...s.sessionEvents].slice(0, 50);
           return { ...s, terminalLines, sessionEvents };
         });
+        break;
+      }
+
+      case 'learning_update': {
+        const l = (msg as any).learning;
+        if (l) {
+          setState(s => {
+            // Deduplicate by id — update if exists, prepend if new
+            const exists = s.learnings.findIndex(x => x.id === l.id);
+            let learnings: Learning[];
+            if (exists >= 0) {
+              learnings = s.learnings.map((x, i) => i === exists ? { ...x, rule: l.rule, content: l.content, timestamp: l.timestamp } : x);
+            } else {
+              learnings = [{ ...l, status: l.status || 'active', sourceMemoryIds: l.sourceMemoryIds || [] } as Learning, ...s.learnings].slice(0, 50);
+            }
+            return { ...s, learnings };
+          });
+        }
         break;
       }
 
@@ -462,6 +660,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   // ── Actions ──────────────────────────────────────────────
 
   const selectProject = useCallback((id: string | null) => setState(s => ({ ...s, selectedProject: id })), []);
+  const selectBrainNode = useCallback((id: string | null) => setState(s => ({ ...s, selectedBrainNode: id })), []);
   const setCenterView = useCallback((view: CenterView) => setState(s => ({ ...s, centerView: view })), []);
   const toggleCommandPalette = useCallback(() => setState(s => ({ ...s, commandPaletteOpen: !s.commandPaletteOpen })), []);
   const toggleScoreboard = useCallback(() => setState(s => ({ ...s, scoreboardOpen: !s.scoreboardOpen })), []);
@@ -543,7 +742,37 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const actions: DashboardActions = { selectProject, setCenterView, toggleCommandPalette, toggleScoreboard, sendChatMessage, dismissNotification, addTerminalLine, setActiveDocument, setRightPanelTab };
+  const stopResponse = useCallback(() => {
+    const send = wsSendRef.current;
+    if (send) {
+      send({ type: 'interrupt' });
+    }
+    hasActiveSession.current = false;
+    setState(s => ({
+      ...s,
+      chatThinking: false,
+      chatStatus: 'idle',
+      chatThinkingStart: null,
+      chatMessages: [...s.chatMessages, { id: uid(), role: 'system', content: 'Response stopped.', timestamp: Date.now() }],
+    }));
+  }, []);
+
+  const editMessage = useCallback((messageId: string): string | null => {
+    let editContent: string | null = null;
+    setState(s => {
+      const idx = s.chatMessages.findIndex(m => m.id === messageId);
+      if (idx < 0 || s.chatMessages[idx].role !== 'user') return s;
+      editContent = s.chatMessages[idx].content;
+      // Truncate everything from this message onward
+      const chatMessages = s.chatMessages.slice(0, idx);
+      return { ...s, chatMessages, chatStatus: 'idle', chatThinking: false, chatThinkingStart: null };
+    });
+    // Reset session so next send starts fresh context from truncated point
+    hasActiveSession.current = false;
+    return editContent;
+  }, []);
+
+  const actions: DashboardActions = { selectProject, selectBrainNode, setCenterView, toggleCommandPalette, toggleScoreboard, sendChatMessage, stopResponse, editMessage, dismissNotification, addTerminalLine, setActiveDocument, setRightPanelTab };
 
   return (
     <DashboardContext.Provider value={{ ...state, ...actions, _handleBridgeMessage: handleBridgeMessage, _registerWsSend: registerWsSend } as any}>

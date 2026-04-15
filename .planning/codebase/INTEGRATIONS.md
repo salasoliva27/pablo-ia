@@ -141,7 +141,7 @@ venture-os orchestrates Claude Code sessions via 14 configured MCP servers in `.
 **Configured but Untested:**
 | Server | Package | Purpose |
 |---|---|---|
-| memory | Custom (`/workspaces/janus-ia/mcp-servers/memory/`) | Cross-session semantic memory via Supabase |
+| memory | Custom (`/workspaces/venture-os/mcp-servers/memory/`) | Cross-session semantic memory via Supabase (NOTE: .mcp.json still references old /workspaces/janus-ia/ path — needs fix) |
 | obsidian-vault | `@bitbonsai/mcpvault` | Read/write vault markdown |
 | knowledge-graph | `obra-knowledge-graph` | Graph traversal on vault |
 | supabase | HTTP MCP at `mcp.supabase.com` | Direct Supabase management |

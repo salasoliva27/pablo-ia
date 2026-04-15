@@ -12,7 +12,7 @@ Updated at end of every session when new connections are found.
 
 | Resource | Projects | Notes |
 |---|---|---|
-| Supabase (rycybujjedtofghigyxm) | [[wiki/espacio-bosques]] [[wiki/nutria]] | eb_, nutria_ prefixes |
+| Supabase (rycybujjedtofghigyxm) | [[wiki/espacio-bosques]] [[wiki/nutria]] [[wiki/jp-ai]] | eb_, nutria_ prefixes. ozum_ pending. [[concepts/rls-by-default]] enforced |
 | Anthropic API | ALL | claude-sonnet-4-6 standard |
 | Cloudflare R2 | [[wiki/lool-ai]] [[wiki/longevite]] | janus-media bucket |
 | Google OAuth | [[wiki/espacio-bosques]] [[wiki/nutria]] | same Supabase provider |
@@ -44,6 +44,8 @@ Updated at end of every session when new connections are found.
 | Bitso MXN→crypto rails | [[wiki/espacio-bosques]] ✅ | Any future MXN product |
 | MediaPipe FaceMesh | [[wiki/lool-ai]] ✅ | Any real-time overlay |
 | Evidence review + voting | [[wiki/espacio-bosques]] ✅ | Any community/DAO product |
+| [[concepts/rls-by-default]] | ALL Supabase tables ✅ | Enforced 2026-04-15 via evolve agent |
+| Dark teal theme | [[wiki/espacio-bosques]] [[wiki/mercado-bot]] dashboard ✅ | Portfolio-wide standard |
 
 ## Capacity (April 2026)
 

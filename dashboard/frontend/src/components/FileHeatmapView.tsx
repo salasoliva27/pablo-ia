@@ -1,70 +1,139 @@
-import { useDashboard } from '../store';
+import { useDashboard, AGENT_REGISTRY } from '../store';
 import type { CenterView } from '../types/dashboard';
 
-export function FileHeatmapView() {
-  const { fileActivities, centerView, setCenterView } = useDashboard();
-  const maxChanges = Math.max(...fileActivities.map(f => f.changes), 1);
+const STAGE_ORDER = ['idea', 'dev', 'uat', 'prod'] as const;
+const STAGE_ICONS: Record<string, string> = { idea: '\u2727', dev: '\u2692', uat: '\u2691', prod: '\u2713' };
+const STAGE_LABELS: Record<string, string> = { idea: 'IDEA', dev: 'DEV', uat: 'UAT', prod: 'PROD' };
 
-  // Group by repo
-  const repos = new Map<string, typeof fileActivities>();
-  for (const f of fileActivities) {
-    if (!repos.has(f.repo)) repos.set(f.repo, []);
-    repos.get(f.repo)!.push(f);
-  }
+export function FileHeatmapView() {
+  const { projects, tools, agents, agentCounts, sessionEvents, learnings, centerView, setCenterView } = useDashboard();
+
+  const activeTools = tools.filter(t => t.callCount > 0);
+  const maxCalls = Math.max(...tools.map(t => t.callCount), 1);
 
   const views: { id: CenterView; label: string }[] = [
-    { id: 'constellation', label: 'Constellation' },
+    { id: 'constellation', label: 'Projects' },
     { id: 'brain', label: 'Brain' },
-    { id: 'files', label: 'Files' },
+    { id: 'files', label: 'Activity' },
   ];
 
   return (
-    <div style={{ width: '100%', height: '100%', position: 'relative', background: 'var(--color-bg-secondary)', overflow: 'auto', padding: 12 }}>
-      <div style={{ fontSize: 11, fontFamily: 'var(--font-family-mono)', color: 'var(--color-text-muted)', marginBottom: 12 }}>
-        File Activity Across Repos
+    <div className="project-grid__wrapper">
+      <div className="activity-view">
+        {/* Project pipeline — horizontal lanes by stage */}
+      <div className="activity-view__pipeline">
+        {STAGE_ORDER.map(stage => {
+          const stageProjects = projects.filter(p => p.stage === stage);
+          return (
+            <div key={stage} className="activity-view__lane">
+              <div className="activity-view__lane-header">
+                <span className="activity-view__lane-icon">{STAGE_ICONS[stage]}</span>
+                <span className="activity-view__lane-label">{STAGE_LABELS[stage]}</span>
+                <span className="activity-view__lane-count">{stageProjects.length}</span>
+              </div>
+              <div className="activity-view__lane-cards">
+                {stageProjects.map(p => (
+                  <div key={p.id} className="activity-view__project-card" style={{ '--proj-color': p.color } as React.CSSProperties}>
+                    <div className="activity-view__project-header">
+                      <span className={`activity-view__health activity-view__health--${p.health}`} />
+                      <span className="activity-view__project-name">{p.displayName}</span>
+                    </div>
+                    <div className="activity-view__project-phase">{p.currentPhase}</div>
+                    <div className="activity-view__progress-bar">
+                      <div className="activity-view__progress-fill" style={{ width: `${p.phaseProgress * 100}%` }} />
+                    </div>
+                    <div className="activity-view__project-stack">
+                      {p.stack.slice(0, 3).map(s => (
+                        <span key={s} className="activity-view__stack-badge">{s}</span>
+                      ))}
+                      {p.stack.length > 3 && <span className="activity-view__stack-badge">+{p.stack.length - 3}</span>}
+                    </div>
+                  </div>
+                ))}
+                {stageProjects.length === 0 && (
+                  <div className="activity-view__lane-empty">no projects</div>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
-      {Array.from(repos.entries()).map(([repo, files]) => (
-        <div key={repo} style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 10, fontFamily: 'var(--font-family-mono)', color: files[0].repoColor, marginBottom: 6 }}>
-            {repo}
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
-            {files.map((f, i) => {
-              const intensity = f.changes / maxChanges;
-              const age = (Date.now() - f.lastModified) / 604800000;
-              const heat = Math.max(0.15, 1 - age);
-
-              return (
-                <div
-                  key={i}
-                  style={{
-                    width: Math.max(40, f.size / 4),
-                    height: Math.max(22, 18 + intensity * 20),
-                    borderRadius: 3,
-                    background: `rgba(255,255,255,${0.03 + heat * 0.1 + intensity * 0.08})`,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'default',
-                    transition: 'transform 0.15s',
-                    fontSize: 8,
-                    fontFamily: 'var(--font-family-mono)',
-                    color: 'rgba(255,255,255,0.5)',
-                    overflow: 'hidden',
-                    whiteSpace: 'nowrap',
-                    padding: '0 3px',
-                    border: `1px solid ${f.repoColor.replace(')', ' / 0.2)')}`,
-                  }}
-                  title={`${f.path}\n${f.changes} changes\n${Math.round(age * 7)}d old`}
-                >
-                  {f.path.split('/').pop()}
+      {/* Tool activity grid */}
+      <div className="activity-view__tools-section">
+        <div className="activity-view__section-title">Tool Activity</div>
+        <div className="activity-view__tools-grid">
+          {tools.map(t => {
+            const fill = t.callCount / maxCalls;
+            return (
+              <div key={t.id} className={`activity-view__tool ${t.active ? 'activity-view__tool--active' : ''}`}>
+                <div className="activity-view__tool-ring" style={{ '--fill': fill, '--tool-color': t.configured === 'ready' ? 'oklch(0.72 0.18 180)' : 'oklch(0.55 0.08 60)' } as React.CSSProperties}>
+                  <svg viewBox="0 0 36 36" className="activity-view__tool-svg">
+                    <circle cx="18" cy="18" r="15.5" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="3" />
+                    <circle cx="18" cy="18" r="15.5" fill="none" stroke="var(--tool-color)" strokeWidth="3"
+                      strokeDasharray={`${fill * 97.4} ${97.4 - fill * 97.4}`}
+                      strokeDashoffset="24.35"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <span className="activity-view__tool-short">{t.shortName}</span>
                 </div>
-              );
-            })}
+                <span className="activity-view__tool-name">{t.name.replace(' MCP', '')}</span>
+                <span className="activity-view__tool-count">{t.callCount}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Agent Monitor */}
+      <div className="agent-monitor">
+        <div className="agent-monitor__title">Agents</div>
+        <div className="agent-monitor__list">
+          {AGENT_REGISTRY.map(ag => {
+            const count = agentCounts[ag.name] || 0;
+            const dispatch = agents.find(a => a.agent.toLowerCase() === ag.name.toLowerCase() && a.status !== 'done');
+            const isActive = !!dispatch;
+
+            return (
+              <div
+                key={ag.id}
+                className={`agent-monitor__row ${isActive ? 'agent-monitor__row--active' : ''}`}
+              >
+                <span className={`agent-monitor__icon ${isActive ? 'agent-monitor__icon--pulse' : ''}`}>
+                  {ag.icon}
+                </span>
+                <span className="agent-monitor__name">{ag.name}</span>
+                <span className="agent-monitor__role">{ag.role.split(',')[0]}</span>
+                {isActive && dispatch && (
+                  <span className={`agent-monitor__status agent-monitor__status--${dispatch.status}`}>
+                    {dispatch.phase}
+                  </span>
+                )}
+                <span className="agent-monitor__count">{count}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Recent session events feed */}
+      {sessionEvents.length > 0 && (
+        <div className="activity-view__feed-section">
+          <div className="activity-view__section-title">Session Feed</div>
+          <div className="activity-view__feed">
+            {sessionEvents.slice(0, 8).map(ev => (
+              <div key={ev.id} className="activity-view__feed-item">
+                <span className={`activity-view__feed-dot activity-view__feed-dot--${ev.type}`} />
+                <span className="activity-view__feed-label">{ev.label}</span>
+                <span className="activity-view__feed-time">{formatAge(ev.timestamp)}</span>
+              </div>
+            ))}
           </div>
         </div>
-      ))}
+      )}
+
+      </div>
 
       <div className="constellation__view-toggle">
         {views.map(v => (
@@ -79,4 +148,11 @@ export function FileHeatmapView() {
       </div>
     </div>
   );
+}
+
+function formatAge(ts: number): string {
+  const s = Math.floor((Date.now() - ts) / 1000);
+  if (s < 60) return `${s}s`;
+  if (s < 3600) return `${Math.floor(s / 60)}m`;
+  return `${Math.floor(s / 3600)}h`;
 }

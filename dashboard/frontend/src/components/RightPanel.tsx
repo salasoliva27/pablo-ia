@@ -3,9 +3,10 @@ import { MemoryRiver } from './MemoryRiver';
 import { DocumentPreview } from './DocumentPreview';
 import { FileEditor } from './FileEditor';
 import { ProjectDrillDown } from './ProjectDrillDown';
+import { BrainNodeDrillDown } from './BrainNodeDrillDown';
 
 export function RightPanel() {
-  const { selectedProject, rightPanelTab, setRightPanelTab, documents } = useDashboard();
+  const { selectedProject, selectedBrainNode, rightPanelTab, setRightPanelTab, documents } = useDashboard();
 
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
@@ -41,8 +42,9 @@ export function RightPanel() {
          <FileEditor />}
       </div>
 
-      {/* Project drill-down overlays everything */}
+      {/* Drill-downs overlay everything */}
       {selectedProject && <ProjectDrillDown />}
+      {selectedBrainNode && !selectedProject && <BrainNodeDrillDown />}
     </div>
   );
 }

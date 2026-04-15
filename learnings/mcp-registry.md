@@ -1,4 +1,9 @@
-# MCP REGISTRY — CURATED EXPERIENCE LOG
+# MCP REGISTRY — DEPRECATED
+## Superseded by `tools/registry.md` and `skills/registry.md` (since V2 restructure, April 2026)
+
+> **Do not update this file.** Use `tools/registry.md` for MCP servers and `skills/registry.md` for Claude skills. This file is kept for historical reference only.
+
+# ~~MCP REGISTRY — CURATED EXPERIENCE LOG~~
 ## Janus IA | Last updated: 2026-03-30
 
 The system's accumulated knowledge about MCP tools and skills. Grows automatically — a brief entry after every session where a tool or skill is used, a full assessment after every project completes.

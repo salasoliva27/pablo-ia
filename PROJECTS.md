@@ -201,4 +201,15 @@ None yet.
 |---|---|---|---|---|
 | freelance-system | Operational | ✅ | No revenue yet | Get first lead |
 | lool-ai | Build in progress | 🔄 Core widget done | No spend yet | Attribution tracking → embeddable widget |
-| espacio-bosques | POC complete | 🔄 Active | No spend yet | Supabase schema + profile page |
+| espacio-bosques | POC complete | 🔄 Active | No spend yet | i18n titleEs/summaryEs incomplete, first demo |
+| nutrIA | V1 built | 🔄 | No spend yet | Supabase schema + Netlify deploy |
+| longevite | V2 built | ✅ | No spend yet | Netlify deploy (30 min) |
+| mercado-bot | Dashboard v1 | 🔄 | No spend yet | Python backend scaffolding |
+| jp-ai | Setup complete | 🔄 | No spend yet | Supabase creation + CRM Phase 1 |
+
+## INFRASTRUCTURE HEALTH (updated 2026-04-15)
+
+**Supabase security audit:** 0 ERRORs, 3 WARNs, 2 INFOs (5 migrations applied by evolve agent)
+**Integrations verified:** Gmail ✅, Google Drive ✅, Supabase MCP ✅, Obsidian Vault ✅
+**Integrations pending:** Google Calendar (OAuth), Memory MCP (path fix), Netlify (auth token)
+**Skills installed:** 127 total (36 marketing, 87 GSD, CKM, GSAP, ui-ux-pro-max, cost-mode, excalidraw)

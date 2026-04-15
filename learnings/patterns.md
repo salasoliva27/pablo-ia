@@ -10,6 +10,10 @@
 - [[concepts/test-harness-first]] — test harness before UI
 - [[concepts/ley-fintech-compliance]] — Bitso as IFPE, LFPDPPP triggers
 - [[concepts/supabase-shared-instance]] — one instance, table-prefix namespacing
+- [[concepts/rls-by-default]] — RLS on every table, `(select auth.uid())` for performance
+- [[concepts/poc-before-production]] — POC validates before persistent infra
+- [[concepts/b2b-before-b2c]] — sell to businesses first, consumers later
+- [[concepts/relationship-capital-cdmx]] — sequence GTM to avoid network overlap
 
 ## Projects feeding this
 - [[wiki/espacio-bosques]] · [[wiki/lool-ai]] · [[wiki/nutria]] · [[wiki/longevite]] · [[wiki/mercado-bot]] · [[wiki/jp-ai]] · [[wiki/freelance-system]]

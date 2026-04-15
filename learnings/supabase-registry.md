@@ -17,7 +17,7 @@
 **MCP server:** `~/.claude/memory-mcp/index.js` (registered in `~/.claude/settings.json`)  
 **Tools:** `mcp__janus-memory__recall`, `mcp__janus-memory__remember`, `mcp__janus-memory__forget`, `mcp__janus-memory__list_memories`  
 **Migration script:** `venture-os/scripts/migrate-memories.js` (run once after schema)  
-**RLS:** Disabled — accessed exclusively via service role key (internal to Claude sessions)  
+**RLS:** Enabled (2026-04-15) — no policies needed, service role key bypasses RLS. See [[concepts/rls-by-default]].  
 **Search:** Full-text via `tsvector` (`websearch_to_tsquery`). Vector column can be added later with Voyage AI key.  
 **Workspace values:** `janus-ia`, `espacio-bosques`, `lool-ai`, `nutria-app`, `longevite`, `freelance-system`  
 **Status:** ✅ Schema ready — run `database/janus-memory-schema.sql` in Supabase SQL Editor, then `node scripts/migrate-memories.js`

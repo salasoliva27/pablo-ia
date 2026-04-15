@@ -30,6 +30,18 @@ export interface AgentDispatch {
   message: string;
 }
 
+export interface AgentInfo {
+  id: string;
+  name: string;
+  icon: string;
+  role: string;
+  description: string;
+  file: string;
+  lastUpdated: string; // ISO date
+  tools: string[];
+  linkedAgents: string[];
+}
+
 export interface ToolStatus {
   id: string;
   name: string;
@@ -99,10 +111,17 @@ export interface SessionEvent {
 
 export interface Learning {
   id: string;
+  /** The behavioral rule — how the agent's thinking changed */
+  rule: string;
+  /** The raw insight/fact that produced this learning */
   content: string;
   domain: 'market' | 'technical' | 'legal' | 'gtm' | 'pattern';
   project: string;
   timestamp: number;
+  /** IDs of memory entries that contributed to this learning */
+  sourceMemoryIds: string[];
+  /** Whether this learning has been argued/debated by the user */
+  status: 'active' | 'argued' | 'revised' | 'rejected';
 }
 
 export interface CalendarSlot {
@@ -150,6 +169,7 @@ export interface DashboardState {
   documents: Document[];
   // UI state
   selectedProject: string | null;
+  selectedBrainNode: string | null;
   centerView: CenterView;
   commandPaletteOpen: boolean;
   scoreboardOpen: boolean;
@@ -161,6 +181,7 @@ export interface DashboardState {
   chatThinkingStart: number | null;
   activeDocumentId: string | null;
   rightPanelTab: 'memory' | 'documents' | 'editor';
+  agentCounts: Record<string, number>;
 }
 
 export interface ChatMessage {
@@ -172,10 +193,13 @@ export interface ChatMessage {
 
 export interface DashboardActions {
   selectProject: (id: string | null) => void;
+  selectBrainNode: (id: string | null) => void;
   setCenterView: (view: CenterView) => void;
   toggleCommandPalette: () => void;
   toggleScoreboard: () => void;
   sendChatMessage: (msg: string) => void;
+  stopResponse: () => void;
+  editMessage: (messageId: string) => string | null;
   dismissNotification: (id: string) => void;
   addTerminalLine: (line: string) => void;
   setActiveDocument: (id: string | null) => void;

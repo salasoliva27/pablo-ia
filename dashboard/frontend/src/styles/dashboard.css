@@ -316,7 +316,7 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--color-bg-secondary);
+  background: linear-gradient(180deg, oklch(0.14 0.025 200), oklch(0.12 0.02 210));
 }
 .chat-panel__header {
   padding: var(--space-2) var(--space-3);

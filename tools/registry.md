@@ -290,4 +290,72 @@ Zero hallucinations — only answers from what you uploaded.
 **Install:** Copy DESIGN.md from https://github.com/VoltAgent/awesome-design-md into project root
 **Verdict:** QUEUED — 66 production-extracted DESIGN.md files (Stripe, Linear, Supabase, Vercel, Apple, Coinbase, etc.)
 **Use for:** Any new project at design phase. Drop matching DESIGN.md into repo root, agent reads it for pixel-consistent UI generation. No tooling needed — plain markdown.
-**Best matches:** espacio-bosques → Coinbase/Revolut | lool-ai → Linear | longevite → Apple | nutria → Mintlify
+**Best matches (confirmed from repo, 55+ available):**
+- espacio-bosques → `coinbase` or `revolut` or `wise` (fintech, trust, dark)
+- lool-ai → `linear.app` (B2B SaaS, clean)
+- longevite → `apple` (premium health, minimalist)
+- nutrIA → `mintlify` (health/docs, conversational)
+- venture-os dashboard → `raycast` or `warp` (developer tool, dark terminal)
+- mercado-bot → `kraken` (trading, dark)
+- jp-ai → `intercom` (CRM, professional)
+**Install:** `npx getdesign@latest add [brand]` — saves DESIGN.md to current directory.
+**Pre-downloaded (in `/workspaces/venture-os/design-systems/`):**
+- `coinbase-DESIGN.md` → espacio-bosques (fintech, trust UI)
+- `linear-DESIGN.md` → lool-ai (B2B SaaS)
+- `apple-DESIGN.md` → longevite (premium health)
+- `raycast-DESIGN.md` → venture-os dashboard (developer tool)
+- `kraken-DESIGN.md` → mercado-bot (trading terminal)
+
+---
+
+## SESSION LOG — 2026-04-15 (evolve session)
+
+### Supabase MCP ✅
+**Verdict:** VERIFIED WORKING — ran full security + performance audit via `get_advisors`. Applied 5 migrations fixing RLS, policies, indexes.
+**Findings:** janus_memories had NO RLS (fixed), 4 RLS policies had per-row auth re-evaluation (fixed), missing FK index (fixed), duplicate index (fixed), 1 function search_path (fixed).
+
+### Gmail (Claude-native) ✅
+**Verdict:** WORKING — connected to salasoliva27@gmail.com, 38.5k messages. No MCP config needed.
+
+### Google Drive (Claude-native) ✅
+**Verdict:** WORKING — recent files accessible (Finanzas spreadsheet, Eclipse data dictionary).
+
+### Google Calendar (Claude-native) ⚠️
+**Verdict:** NEEDS OAUTH — authenticate tool available but requires user interaction.
+
+### Notion (Claude-native) ⚠️
+**Verdict:** AVAILABLE — search tool loaded but not tested. Needs Jano to connect.
+
+### Memory MCP ❌
+**Verdict:** BROKEN — path `/workspaces/janus-ia/` doesn't exist, should be `/workspaces/venture-os/`. Fix blocked by .mcp.json edit permissions. **Jano action: edit .mcp.json line with janus-ia → venture-os.**
+
+### n8n MCP ❌
+**Verdict:** NON-FUNCTIONAL — configured but `N8N_API_KEY` and `N8N_BASE_URL` not in env. **Jano action: add to dotfiles if n8n is being used.**
+
+### Cloudflare MCP ❌
+**Verdict:** NON-FUNCTIONAL — configured but `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` not in env. **Jano action: add to dotfiles when R2 media storage is needed.**
+
+### Obsidian Vault MCP ✅
+**Verdict:** VERIFIED WORKING — search_notes, read_note, write_note, patch_note all functional. Vault rooted at /workspaces/venture-os.
+
+### WhatsApp MCP ⭐ QUEUED
+**Best option:** `verygoodplugins/whatsapp-mcp` (Go bridge + Python MCP, well-maintained, updated Apr 12)
+**Alt:** `FredShred7/whatsapp-mcp-server` (WhatsApp Cloud API, more official but needs Business account)
+**Impact:** B2B outreach for lool-ai, client comms for longevite, jp-ai context extraction
+**Needs:** Jano decision — personal WA bridge vs Business API. Personal bridge requires QR scan auth.
+
+### Sentry MCP ⭐ QUEUED
+**Install:** `npx -y @sentry/mcp` or Claude plugin `getsentry/sentry-for-ai`
+**Verdict:** AVAILABLE — official Sentry MCP. Error monitoring, issue search, traces.
+**Needs:** Sentry account + SENTRY_AUTH_TOKEN. Queue for post-deployment.
+
+### Remotion Video MCP ⭐ QUEUED
+**Install:** `npx -y remotion-video-mcp` (dev-arctik) or official docs MCP at remotion.dev/docs/ai/mcp
+**Verdict:** AVAILABLE — programmatic video creation via Claude. React-based video engine.
+**Use for:** Marketing videos for longevite, lool-ai demos, portfolio showcase
+**Needs:** Remotion license for production renders (free for dev/preview)
+
+### Stripe MCP ⭐ QUEUED
+**Options:** `dahlinomine/mcp-stripe-bridge-1683` (subscriptions/invoices)
+**Verdict:** AVAILABLE — community Stripe MCP. Handle subscriptions via natural language.
+**Needs:** Stripe account + API key. Queue for revenue phase.

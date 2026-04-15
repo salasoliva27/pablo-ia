@@ -12,6 +12,7 @@ export type ServerMessage =
   | { type: "permission_request"; id: string; toolName: string; input: Record<string, unknown> }
   | { type: "tool_event"; toolName: string; input: unknown; sessionId: string; timestamp: number }
   | { type: "fs_event"; event: string; path: string; timestamp: number }
+  | { type: "learning_update"; learning: { id: string; rule: string; content: string; domain: string; project: string; timestamp: number; sourceMemoryIds: string[]; status: string } }
   | { type: "error"; message: string }
   | { type: "session_end"; cost?: number; usage?: unknown }
   | { type: "session_start"; auth: string };

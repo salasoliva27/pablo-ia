@@ -94,10 +94,11 @@ const STATUS_CONFIG = {
 
 export function ChatPanel() {
   const dashboard = useDashboard();
-  const { chatMessages, chatThinking, chatAuth, chatStatus, chatThinkingStart, agents, sendChatMessage } = dashboard;
+  const { chatMessages, chatThinking, chatAuth, chatStatus, chatThinkingStart, sendChatMessage, stopResponse, editMessage } = dashboard;
   const [input, setInput] = useState('');
-  const [showAgents, setShowAgents] = useState(true);
+  const [hoveredMsgId, setHoveredMsgId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -117,73 +118,105 @@ export function ChatPanel() {
     }
   }
 
-  const recentAgents = agents.slice(0, 6);
+  function handleEditMessage(msgId: string) {
+    const content = editMessage(msgId);
+    if (content !== null) {
+      setInput(content);
+      setTimeout(() => inputRef.current?.focus(), 50);
+    }
+  }
+
   const cfg = STATUS_CONFIG[chatStatus] || STATUS_CONFIG.idle;
+  const [learnOpen, setLearnOpen] = useState(false);
+  const [learnTime, setLearnTime] = useState('');
+  const isBusy = chatStatus === 'thinking' || chatStatus === 'streaming';
+
+  function startLearn() {
+    const t = learnTime.trim();
+    if (!t || isBusy) return;
+    setLearnOpen(false);
+    setLearnTime('');
+    sendChatMessage(
+      `Run /evolve until ${t}. Use all available session time. When a session runs out, write a handoff to .planning/evolve/handoff.md with remaining time and what was done. ` +
+      `When the next session starts, read the handoff and continue from where you left off. ` +
+      `Consolidate memory, assess gaps, discover and install tools. Keep cycling until ${t}.`
+    );
+  }
 
   return (
     <div className="chat-panel">
       {/* Header */}
       <div className="chat-panel__header">
         <span>Venture OS{chatAuth ? <span className="chat-panel__auth-badge">{chatAuth}</span> : null}</span>
-        <button
-          style={{
-            background: 'none', border: 'none', color: 'var(--color-text-muted)',
-            fontSize: 10, fontFamily: 'var(--font-family-mono)', cursor: 'pointer',
-          }}
-          onClick={() => setShowAgents(!showAgents)}
-        >
-          {showAgents ? 'hide agents' : 'show agents'}
-        </button>
+        <div style={{ position: 'relative' }}>
+          <button
+            className={`chat-panel__learn-btn ${isBusy ? 'chat-panel__learn-btn--disabled' : ''}`}
+            onClick={() => !isBusy && setLearnOpen(v => !v)}
+            title="Start learning mode"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+              <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+            </svg>
+            <span>Learn</span>
+          </button>
+          {learnOpen && (
+            <div className="chat-panel__learn-menu">
+              <input
+                className="chat-panel__learn-input"
+                value={learnTime}
+                onChange={e => setLearnTime(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && startLearn()}
+                placeholder="e.g. 7am, 2 hours, 30m"
+                autoFocus
+              />
+              <button
+                className="chat-panel__learn-option"
+                onClick={startLearn}
+                disabled={!learnTime.trim()}
+              >
+                Go
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Messages */}
       <div className="chat-panel__messages">
         {chatMessages.map(msg => (
-          <div key={msg.id} className={`chat-panel__msg chat-panel__msg--${msg.role}`}>
+          <div
+            key={msg.id}
+            className={`chat-panel__msg chat-panel__msg--${msg.role}`}
+            onMouseEnter={() => msg.role === 'user' && setHoveredMsgId(msg.id)}
+            onMouseLeave={() => setHoveredMsgId(null)}
+          >
             <MessageContent msg={msg} />
+            {msg.role === 'user' && hoveredMsgId === msg.id && (
+              <button
+                className="chat-panel__edit-btn"
+                onClick={(e) => { e.stopPropagation(); handleEditMessage(msg.id); }}
+                title="Edit and resend"
+              >
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+                </svg>
+              </button>
+            )}
           </div>
         ))}
 
-        {/* Thinking indicator — prominent */}
+        {/* Thinking indicator — 3 dots */}
         {chatThinking && (
-          <div className="chat-panel__thinking-bar">
-            <div className="chat-panel__thinking-pulse" />
-            <span className="chat-panel__thinking-label">
-              thinking
-              {chatThinkingStart && (
-                <>
-                  {' '}<ElapsedTimer start={chatThinkingStart} />
-                </>
-              )}
-            </span>
+          <div className="chat-panel__thinking-dots">
+            <span className="chat-panel__dot" />
+            <span className="chat-panel__dot" />
+            <span className="chat-panel__dot" />
           </div>
         )}
 
         <div ref={messagesEndRef} />
       </div>
-
-      {/* Agent Stream */}
-      {showAgents && recentAgents.length > 0 && (
-        <div className="chat-panel__agents">
-          {recentAgents.map(agent => (
-            <div key={agent.id} className="chat-panel__agent-card">
-              <span className="chat-panel__agent-icon">{agent.icon}</span>
-              <div className="chat-panel__agent-info">
-                <div className="chat-panel__agent-name">
-                  {agent.agent}
-                  <span style={{ color: 'var(--color-text-muted)', fontWeight: 400, fontSize: 10, marginLeft: 6 }}>
-                    {agent.project}
-                  </span>
-                </div>
-                <div className="chat-panel__agent-msg">{agent.message}</div>
-              </div>
-              <span className={`chat-panel__agent-status chat-panel__agent-status--${agent.status}`}>
-                {agent.phase}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* Status bar + Input */}
       <div className="chat-panel__input-area">
@@ -198,16 +231,43 @@ export function ChatPanel() {
               <> — <ElapsedTimer start={chatThinkingStart} /></>
             )}
           </span>
+          {(chatStatus === 'thinking' || chatStatus === 'streaming') && (
+            <button
+              type="button"
+              className="chat-panel__stop-btn"
+              onClick={stopResponse}
+              title="Stop response"
+            >
+              <svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor">
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+              </svg>
+              <span>stop</span>
+            </button>
+          )}
         </div>
-        <form onSubmit={handleSubmit} style={{ display: 'contents' }}>
-          <textarea
-            className="chat-panel__input"
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask anything... (add skill, paste key, build project)"
-            rows={2}
-          />
+        <form onSubmit={handleSubmit} className="chat-panel__form">
+          <div className="chat-panel__input-wrap">
+            <textarea
+              ref={inputRef}
+              className="chat-panel__input"
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Ask anything..."
+              rows={2}
+            />
+            <button
+              type="submit"
+              className={`chat-panel__send-btn ${input.trim() ? 'chat-panel__send-btn--active' : ''}`}
+              disabled={!input.trim()}
+              title="Send message"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13" />
+                <polygon points="22 2 15 22 11 13 2 9 22 2" />
+              </svg>
+            </button>
+          </div>
         </form>
       </div>
     </div>

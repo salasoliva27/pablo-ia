@@ -35,7 +35,7 @@ export function CommandPalette() {
     // Views
     { icon: '*', label: 'Constellation View', hint: 'center', action: () => { setCenterView('constellation'); toggleCommandPalette(); } },
     { icon: '#', label: 'Brain View', hint: 'center', action: () => { setCenterView('brain'); toggleCommandPalette(); } },
-    { icon: '%', label: 'File Activity', hint: 'center', action: () => { setCenterView('files'); toggleCommandPalette(); } },
+    { icon: '%', label: 'Activity Dashboard', hint: 'center', action: () => { setCenterView('files'); toggleCommandPalette(); } },
     // Actions
     { icon: '!', label: 'Portfolio Scoreboard', hint: 'Ctrl+P', action: () => { toggleScoreboard(); toggleCommandPalette(); } },
     { icon: '?', label: 'Status Overview', hint: 'all projects', action: () => { toggleScoreboard(); toggleCommandPalette(); } },

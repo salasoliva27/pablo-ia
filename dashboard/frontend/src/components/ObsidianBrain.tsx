@@ -62,7 +62,7 @@ function runForceStep(nodes: BrainNode[], edges: BrainEdge[], w: number, h: numb
 }
 
 export function ObsidianBrain() {
-  const { brainNodes, brainEdges, setCenterView, centerView } = useDashboard();
+  const { brainNodes, brainEdges, setCenterView, centerView, selectBrainNode } = useDashboard();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const nodesRef = useRef<BrainNode[]>([]);
   const edgesRef = useRef<BrainEdge[]>([]);
@@ -70,6 +70,11 @@ export function ObsidianBrain() {
   const timeRef = useRef(0);
   const mouseRef = useRef({ x: -1, y: -1 });
   const hoveredRef = useRef<string | null>(null);
+  const zoomRef = useRef(1);
+  const panRef = useRef({ x: 0, y: 0 });
+  const draggingRef = useRef(false);
+  const dragStartRef = useRef({ x: 0, y: 0 });
+  const panStartRef = useRef({ x: 0, y: 0 });
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -117,6 +122,14 @@ export function ObsidianBrain() {
     bgGrad.addColorStop(1, 'rgba(6, 5, 14, 1)');
     ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, w, h);
+
+    // Apply zoom + pan
+    ctx.save();
+    const z = zoomRef.current;
+    const pan = panRef.current;
+    ctx.translate(w / 2 + pan.x, h / 2 + pan.y);
+    ctx.scale(z, z);
+    ctx.translate(-w / 2, -h / 2);
 
     // Subtle hex grid for premium feel
     ctx.strokeStyle = 'rgba(120, 100, 200, 0.025)';
@@ -262,6 +275,7 @@ export function ObsidianBrain() {
       ctx.fillText(group.toUpperCase(), gx, gy);
     }
 
+    ctx.restore();
     timeRef.current += 16;
     frameRef.current = requestAnimationFrame(animate);
   }, []);
@@ -272,9 +286,24 @@ export function ObsidianBrain() {
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
-    const mx = (e.clientX - rect.left) * scaleX;
-    const my = (e.clientY - rect.top) * scaleY;
+    const rawMx = (e.clientX - rect.left) * scaleX;
+    const rawMy = (e.clientY - rect.top) * scaleY;
+    // Un-transform mouse coords for zoom/pan
+    const z = zoomRef.current;
+    const pan = panRef.current;
+    const w = canvas.width, h = canvas.height;
+    const mx = (rawMx - w / 2 - pan.x) / z + w / 2;
+    const my = (rawMy - h / 2 - pan.y) / z + h / 2;
     mouseRef.current = { x: mx, y: my };
+
+    // Handle drag panning
+    if (draggingRef.current) {
+      const dx = (e.clientX - dragStartRef.current.x) * scaleX;
+      const dy = (e.clientY - dragStartRef.current.y) * scaleY;
+      panRef.current = { x: panStartRef.current.x + dx, y: panStartRef.current.y + dy };
+      canvas.style.cursor = 'grabbing';
+      return;
+    }
 
     let found: string | null = null;
     for (const n of nodesRef.current) {
@@ -284,6 +313,33 @@ export function ObsidianBrain() {
     hoveredRef.current = found;
     canvas.style.cursor = found ? 'pointer' : 'grab';
   }, []);
+
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    zoomRef.current = Math.max(0.3, Math.min(4, zoomRef.current * delta));
+  }, []);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    // Only drag if not hovering a node
+    if (!hoveredRef.current) {
+      draggingRef.current = true;
+      dragStartRef.current = { x: e.clientX, y: e.clientY };
+      panStartRef.current = { ...panRef.current };
+    }
+  }, []);
+
+  const handleMouseUp = useCallback((e: React.MouseEvent) => {
+    const wasDrag = draggingRef.current && (
+      Math.abs(e.clientX - dragStartRef.current.x) > 3 ||
+      Math.abs(e.clientY - dragStartRef.current.y) > 3
+    );
+    draggingRef.current = false;
+    // Click on node (not a drag)
+    if (!wasDrag && hoveredRef.current) {
+      selectBrainNode(hoveredRef.current);
+    }
+  }, [selectBrainNode]);
 
   useEffect(() => {
     if (centerView !== 'brain') {
@@ -311,6 +367,9 @@ export function ObsidianBrain() {
         ref={canvasRef}
         style={{ width: '100%', height: '100%', display: 'block' }}
         onMouseMove={handleMouseMove}
+        onMouseDown={handleMouseDown}
+        onMouseUp={handleMouseUp}
+        onWheel={handleWheel}
       />
       <div className="constellation__view-toggle">
         {(['constellation', 'brain', 'files'] as const).map(v => (
@@ -319,7 +378,7 @@ export function ObsidianBrain() {
             className={`constellation__view-btn ${centerView === v ? 'constellation__view-btn--active' : ''}`}
             onClick={() => setCenterView(v)}
           >
-            {v.charAt(0).toUpperCase() + v.slice(1)}
+            {v === 'files' ? 'Activity' : v === 'constellation' ? 'Projects' : v.charAt(0).toUpperCase() + v.slice(1)}
           </button>
         ))}
       </div>

@@ -113,6 +113,27 @@ Or: `/plugin marketplace add greensock/gsap-skills`
 
 ---
 
+### marketingskills ⭐ (coreyhaines31) — INSTALLED 2026-04-15
+36 marketing skills: copywriting, SEO, CRO, pricing, launch-strategy, cold-email, paid-ads, content-strategy, social-content, lead-magnets, customer-research, referral-program, and more.
+`cp -r /tmp/marketingskills/skills/* ~/.claude/skills/`
+Source: github.com/coreyhaines31/marketingskills (updated Apr 13, 2026)
+**Use for:** GTM phase across all projects — freelance-system outreach, lool-ai B2B pricing, longevite launch, nutrIA content
+
+### cost-mode — INSTALLED 2026-04-15
+30-60% token cost reduction. Enforces concise responses and smart model routing.
+Activate with `/cost-mode` or "enable cost mode".
+
+### excalidraw-diagram — INSTALLED 2026-04-15
+Creates Excalidraw JSON diagram files for architecture visualization.
+Use when visualizing workflows, system architecture, or portfolio structure.
+
+---
+
+## SESSION LOG — 2026-04-15 (evolve session)
+- Installed: marketingskills (36 skills), cost-mode, excalidraw-diagram
+- All 127 skills now available (36 marketing + 87 GSD + CKM + GSAP + ui-ux-pro-max)
+- `npx skills add` showed tree but didn't install — used direct `cp -r` from cloned repo instead
+
 ## REJECTED / AVOID
 *(Populate as bad experiences accumulate)*
 
