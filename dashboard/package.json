@@ -6,8 +6,8 @@
     "venture-os": "./dist/bin/venture-os.js"
   },
   "scripts": {
-    "dev": "tsx bin/dev.ts",
-    "dev:bridge": "tsx bin/venture-os.ts",
+    "dev": "npm run build:frontend && tsx bin/venture-os.ts",
+    "dev:hmr": "tsx bin/venture-os.ts & cd frontend && npx vite --host 0.0.0.0",
     "dev:frontend": "cd frontend && npm run dev",
     "build:frontend": "cd frontend && npm run build",
     "build": "npm run build:frontend && tsc",
