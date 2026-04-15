@@ -32,13 +32,17 @@ This file captures patterns that repeat across projects. The master agent reads 
 - Mexico City neighborhood-level targeting outperforms generic "Mexico" targeting for local service businesses.
 
 ### Build reality
-- No data yet — will populate as projects complete build phases.
+- Dashboard shell is a reusable architecture. Venture OS → Ozum AI-OS adaptation took 1 session with zero structural changes. See [[concepts/dashboard-shell]].
+- Multi-agent parallel builds require shared type contracts written FIRST — independent agents inventing types causes 70+ compile errors.
+- Build sessions produce artifacts but NOT learnings. 113 commits in 30 days, but the only real knowledge capture was from one /evolve session. The system has a build-first bias that starves the learning layer.
 
 ### GTM reality  
 - No data yet — will populate as projects reach GTM phase.
+- lool-ai and freelance-system are closest to GTM. Upwork has active demand for Claude Code specialists at $1,200-$1,500 per project.
 
 ### Timing
-- No data yet — will populate as projects run.
+- Post-3pm constraint means ~2-3 hour sessions. A full dashboard build fits in 1 session. A CRM Phase 1 is estimated at 2-3 sessions.
+- Portfolio backlog as of 2026-04-15: 10-14 sessions across 6 active projects. Rule: no new intake until 2 are cleared.
 
 ---
 

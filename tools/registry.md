@@ -359,3 +359,18 @@ Zero hallucinations — only answers from what you uploaded.
 **Options:** `dahlinomine/mcp-stripe-bridge-1683` (subscriptions/invoices)
 **Verdict:** AVAILABLE — community Stripe MCP. Handle subscriptions via natural language.
 **Needs:** Stripe account + API key. Queue for revenue phase.
+
+
+### Session log: 2026-04-15 — jp-ai dashboard build
+
+| Tool | Verdict | Notes |
+|---|---|---|
+| GitHub MCP | GOOD | Cloned jp-ai repo, pushed 46-file dashboard commit cleanly |
+| Playwright MCP | GOOD | Verified dashboard renders, took screenshots, checked console errors. Required `sudo rm /etc/apt/sources.list.d/yarn.list` to fix GPG key error blocking `npx playwright install chrome --with-deps` |
+| Brave Search | NOT USED | |
+| Context7 | NOT USED | |
+| Sequential Thinking | NOT USED | Should have been used for dispatch protocol — skipped |
+| Obsidian Vault MCP | NOT USED | MCP servers disconnected mid-session. Vault patched via direct file writes instead |
+| Supabase MCP | NOT USED | JP AI's ozum_memories table still not created |
+| Filesystem MCP | GOOD | Used extensively for reading/writing dashboard files |
+| Agent tool (subagents) | GOOD | 6 parallel agents wrote frontend components simultaneously. Key lesson: shared type contracts must be established FIRST or types drift. See memory: feedback_multiagent_types.md |

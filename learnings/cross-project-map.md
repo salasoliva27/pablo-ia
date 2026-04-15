@@ -46,6 +46,8 @@ Updated at end of every session when new connections are found.
 | Evidence review + voting | [[wiki/espacio-bosques]] ✅ | Any community/DAO product |
 | [[concepts/rls-by-default]] | ALL Supabase tables ✅ | Enforced 2026-04-15 via evolve agent |
 | Dark teal theme | [[wiki/espacio-bosques]] [[wiki/mercado-bot]] dashboard ✅ | Portfolio-wide standard |
+| [[concepts/dashboard-shell]] | Venture OS ✅ → Ozum AI-OS ✅ | Any project needing a dashboard |
+| oklch accent hue as domain signal | Venture OS (180=tech) → JP AI (85=corporate) ✅ | nutrIA (145), lool-ai (280), espacio-bosques (25) |
 
 ## Capacity (April 2026)
 
