@@ -19,7 +19,7 @@ async function main() {
 
   // 2. Start Vite dev server — its output becomes our primary output
   const frontendDir = path.join(root, "frontend");
-  const vite = spawn("npx", ["vite", "--port", "5180"], {
+  const vite = spawn("npx", ["vite", "--port", "5180", "--host", "0.0.0.0"], {
     cwd: frontendDir,
     stdio: "inherit",
     env: { ...process.env },
