@@ -61,7 +61,7 @@ function NotificationBell() {
   );
 }
 
-export function TopBar({ connectionStatus }: { connectionStatus: ConnectionStatus }) {
+export function TopBar({ connectionStatus, onThemeToggle }: { connectionStatus: ConnectionStatus; onThemeToggle?: () => void }) {
   const { gitCommits, agents } = useDashboard();
   const processing = agents.some(a => a.status === 'executing' || a.status === 'thinking');
 
@@ -88,6 +88,19 @@ export function TopBar({ connectionStatus }: { connectionStatus: ConnectionStatu
         )}
       </div>
       <div className="top-bar__right">
+        {onThemeToggle && (
+          <button
+            onClick={onThemeToggle}
+            title="Theme (Ctrl+T)"
+            style={{
+              background: 'none', border: 'none', color: 'var(--color-text-muted)',
+              fontFamily: 'var(--font-family-mono)', fontSize: 12, cursor: 'pointer',
+              padding: '2px 4px',
+            }}
+          >
+            [T]
+          </button>
+        )}
         <StatusRing status={connectionStatus} processing={processing} />
         <NotificationBell />
       </div>

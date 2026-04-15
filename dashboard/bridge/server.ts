@@ -25,6 +25,32 @@ export function startServer(port: number): Promise<http.Server> {
     res.json({ status: "ok", uptime: process.uptime() });
   });
 
+  // Graph data from real filesystem
+  app.get("/api/graph", (_req, res) => {
+    try {
+      const data = buildGraphFromFs();
+      res.json(data);
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
+  // Detect active ports
+  app.get("/api/ports", async (_req, res) => {
+    try {
+      const { execSync } = await import("node:child_process");
+      const out = execSync("ss -tlnp 2>/dev/null || netstat -tlnp 2>/dev/null", { encoding: "utf-8", timeout: 3000 });
+      const ports: number[] = [];
+      for (const m of out.matchAll(/:(\d+)\s/g)) {
+        const p = parseInt(m[1]);
+        if (p >= 3000 && p <= 9999 && !ports.includes(p)) ports.push(p);
+      }
+      res.json({ ports: ports.sort((a, b) => a - b) });
+    } catch {
+      res.json({ ports: [] });
+    }
+  });
+
   // Hook receiver — broadcasts tool events to all WS clients
   app.post("/hooks/post-tool-use", (req, res) => {
     const { tool_name, tool_input, session_id } = req.body;
@@ -38,9 +64,9 @@ export function startServer(port: number): Promise<http.Server> {
     res.json({});
   });
 
-  // SPA fallback — serve index.html for non-API routes
+  // SPA fallback — serve index.html for non-API routes (Express 5 syntax)
   if (fs.existsSync(frontendDist)) {
-    app.get("*", (_req, res) => {
+    app.get("/{*splat}", (_req, res) => {
       res.sendFile(path.join(frontendDist, "index.html"));
     });
   }
@@ -138,6 +164,125 @@ export function startServer(port: number): Promise<http.Server> {
       resolve(server);
     });
   });
+}
+
+interface GraphNode {
+  id: string;
+  label: string;
+  group: string;
+  links: string[];
+}
+
+function buildGraphFromFs(): { nodes: GraphNode[]; edges: { source: string; target: string }[] } {
+  const root = "/workspaces/venture-os";
+  const nodes: GraphNode[] = [];
+  const seen = new Set<string>();
+
+  function addNode(id: string, label: string, group: string, links: string[]) {
+    if (seen.has(id)) return;
+    seen.add(id);
+    nodes.push({ id, label, group, links });
+  }
+
+  // Scan agents
+  const agentsDir = path.join(root, "agents", "core");
+  if (fs.existsSync(agentsDir)) {
+    for (const f of fs.readdirSync(agentsDir)) {
+      if (f.endsWith(".md")) {
+        const name = f.replace(".md", "");
+        addNode(`a-${name}`, name, "agents", []);
+      }
+    }
+  }
+  const domainDir = path.join(root, "agents", "domain");
+  if (fs.existsSync(domainDir)) {
+    for (const f of fs.readdirSync(domainDir)) {
+      if (f.endsWith(".md")) {
+        const name = f.replace(".md", "");
+        addNode(`a-${name}`, name, "agents", []);
+      }
+    }
+  }
+
+  // Scan projects from PROJECTS.md or projects/ dirs
+  for (const stage of ["dev", "uat", "prod"]) {
+    const dir = path.join(root, "projects", stage);
+    if (fs.existsSync(dir)) {
+      for (const f of fs.readdirSync(dir)) {
+        if (f.endsWith(".md")) {
+          const name = f.replace(".md", "");
+          const links = [`a-developer`];
+          addNode(`w-${name}`, name, "wiki", links);
+        }
+      }
+    }
+  }
+
+  // Scan learnings
+  const learningsDir = path.join(root, "learnings");
+  if (fs.existsSync(learningsDir)) {
+    for (const f of fs.readdirSync(learningsDir)) {
+      if (f.endsWith(".md")) {
+        const name = f.replace(".md", "");
+        addNode(`l-${name}`, name, "learnings", []);
+      }
+    }
+  }
+
+  // Scan concepts
+  const conceptsDir = path.join(root, "concepts");
+  if (fs.existsSync(conceptsDir)) {
+    for (const f of fs.readdirSync(conceptsDir)) {
+      if (f.endsWith(".md")) {
+        const name = f.replace(".md", "");
+        addNode(`c-${name}`, name, "concepts", []);
+      }
+    }
+  }
+
+  // Parse [[links]] from files to build edges
+  for (const n of nodes) {
+    const possiblePaths = [
+      path.join(root, "agents", "core", `${n.label}.md`),
+      path.join(root, "agents", "domain", `${n.label}.md`),
+      path.join(root, "learnings", `${n.label}.md`),
+      path.join(root, "concepts", `${n.label}.md`),
+    ];
+    for (const p of possiblePaths) {
+      if (fs.existsSync(p)) {
+        try {
+          const content = fs.readFileSync(p, "utf-8");
+          const wikiLinks = content.match(/\[\[([^\]]+)\]\]/g) || [];
+          for (const link of wikiLinks) {
+            const target = link.slice(2, -2).split("/").pop() || "";
+            // Try to match to an existing node
+            const match = nodes.find(
+              nn => nn.label === target || nn.id === target || nn.label === target.replace(/-/g, " ")
+            );
+            if (match && match.id !== n.id && !n.links.includes(match.id)) {
+              n.links.push(match.id);
+            }
+          }
+        } catch { /* skip unreadable files */ }
+        break;
+      }
+    }
+  }
+
+  // Build edges from links
+  const edges: { source: string; target: string }[] = [];
+  const edgeSet = new Set<string>();
+  for (const n of nodes) {
+    for (const t of n.links) {
+      const key = [n.id, t].sort().join("--");
+      if (!edgeSet.has(key)) {
+        edgeSet.add(key);
+        edges.push({ source: n.id, target: t });
+      }
+    }
+  }
+
+  return { nodes, edges };
 }
 
 function ensureHookConfig(port: number): void {

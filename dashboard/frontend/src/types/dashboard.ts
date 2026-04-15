@@ -123,6 +123,15 @@ export interface FileActivity {
 
 export type CenterView = 'constellation' | 'brain' | 'files';
 
+export interface Document {
+  id: string;
+  path: string;
+  filename: string;
+  language: string;
+  content: string;
+  timestamp: number;
+}
+
 export interface DashboardState {
   // Data
   projects: Project[];
@@ -138,6 +147,7 @@ export interface DashboardState {
   terminalLines: string[];
   calendarSlots: CalendarSlot[];
   fileActivities: FileActivity[];
+  documents: Document[];
   // UI state
   selectedProject: string | null;
   centerView: CenterView;
@@ -145,6 +155,10 @@ export interface DashboardState {
   scoreboardOpen: boolean;
   chatMessages: ChatMessage[];
   chatInput: string;
+  chatThinking: boolean;
+  chatAuth: string | null;
+  activeDocumentId: string | null;
+  rightPanelTab: 'memory' | 'documents';
 }
 
 export interface ChatMessage {
@@ -162,6 +176,8 @@ export interface DashboardActions {
   sendChatMessage: (msg: string) => void;
   dismissNotification: (id: string) => void;
   addTerminalLine: (line: string) => void;
+  setActiveDocument: (id: string | null) => void;
+  setRightPanelTab: (tab: 'memory' | 'documents') => void;
 }
 
 // White-label configuration

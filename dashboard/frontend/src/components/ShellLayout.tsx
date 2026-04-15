@@ -6,8 +6,7 @@ import { ChatPanel } from './ChatPanel';
 import { Constellation } from './Constellation';
 import { ObsidianBrain } from './ObsidianBrain';
 import { FileHeatmapView } from './FileHeatmapView';
-import { MemoryRiver } from './MemoryRiver';
-import { ProjectDrillDown } from './ProjectDrillDown';
+import { RightPanel } from './RightPanel';
 import { ToolPulseBar } from './ToolPulseBar';
 import { BottomPanel } from './BottomPanel';
 import './ShellLayout.css';
@@ -16,7 +15,7 @@ export function ShellLayout() {
   const chatPanel = useRef<ImperativePanelHandle>(null);
   const bottomPanel = useRef<ImperativePanelHandle>(null);
   const contextPanel = useRef<ImperativePanelHandle>(null);
-  const { centerView, selectedProject } = useDashboard();
+  const { centerView } = useDashboard();
 
   useKeyboardShortcuts({ chatPanel, bottomPanel, workspacePanel: contextPanel });
 
@@ -66,12 +65,9 @@ export function ShellLayout() {
 
       <PanelResizeHandle className="resize-handle resize-handle--vertical" />
 
-      {/* Right: Memory River / Project Drill-Down */}
+      {/* Right: Memory / Documents / Project Drill-Down */}
       <Panel ref={contextPanel} defaultSize={30} minSize={15} collapsible collapsedSize={0}>
-        <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-          <MemoryRiver />
-          {selectedProject && <ProjectDrillDown />}
-        </div>
+        <RightPanel />
       </Panel>
     </PanelGroup>
   );

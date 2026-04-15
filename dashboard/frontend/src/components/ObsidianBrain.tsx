@@ -2,34 +2,21 @@ import { useRef, useEffect, useCallback } from 'react';
 import { useDashboard } from '../store';
 import type { BrainNode, BrainEdge } from '../types/dashboard';
 
-const GROUP_COLORS: Record<string, string> = {
-  wiki: '#5fd4d4',      // cyan
-  concepts: '#d4a55f',  // gold
-  learnings: '#a77ddb', // purple
-  agents: '#5fd47a',    // green
-  other: '#888888',
+const GROUP_COLORS: Record<string, [number, number, number]> = {
+  wiki: [95, 212, 212],
+  concepts: [212, 165, 95],
+  learnings: [167, 125, 219],
+  agents: [95, 212, 122],
+  other: [136, 136, 136],
 };
-
-const GROUP_GLOW: Record<string, string> = {
-  wiki: 'rgba(95,212,212,0.4)',
-  concepts: 'rgba(212,165,95,0.4)',
-  learnings: 'rgba(167,125,219,0.4)',
-  agents: 'rgba(95,212,122,0.4)',
-  other: 'rgba(136,136,136,0.2)',
-};
-
-const FIRE_COLOR = '#fff';
-const EDGE_COLOR = 'rgba(255,255,255,0.08)';
-const EDGE_FIRE_COLOR = 'rgba(255,255,255,0.7)';
 
 function runForceStep(nodes: BrainNode[], edges: BrainEdge[], w: number, h: number) {
-  const repulsion = 2800;
-  const springLen = 100;
+  const repulsion = 3200;
+  const springLen = 110;
   const springK = 0.004;
-  const gravity = 0.0003;
-  const damping = 0.92;
+  const gravity = 0.0004;
+  const damping = 0.91;
 
-  // Repulsion between all node pairs
   for (let i = 0; i < nodes.length; i++) {
     for (let j = i + 1; j < nodes.length; j++) {
       const dx = nodes[j].x - nodes[i].x;
@@ -45,7 +32,6 @@ function runForceStep(nodes: BrainNode[], edges: BrainEdge[], w: number, h: numb
     }
   }
 
-  // Spring along edges
   const nodeMap = new Map(nodes.map(n => [n.id, n]));
   for (const e of edges) {
     const a = nodeMap.get(e.source);
@@ -58,112 +44,20 @@ function runForceStep(nodes: BrainNode[], edges: BrainEdge[], w: number, h: numb
     const force = springK * displacement;
     const fx = (dx / dist) * force;
     const fy = (dy / dist) * force;
-    a.vx += fx;
-    a.vy += fy;
-    b.vx -= fx;
-    b.vy -= fy;
+    a.vx += fx; a.vy += fy;
+    b.vx -= fx; b.vy -= fy;
   }
 
-  // Gravity toward center
-  const cx = w / 2;
-  const cy = h / 2;
+  const cx = w / 2, cy = h / 2;
   for (const n of nodes) {
     n.vx += (cx - n.x) * gravity;
     n.vy += (cy - n.y) * gravity;
-  }
-
-  // Apply velocity + damping
-  for (const n of nodes) {
     n.vx *= damping;
     n.vy *= damping;
     n.x += n.vx;
     n.y += n.vy;
-    // Keep in bounds with padding
-    n.x = Math.max(40, Math.min(w - 40, n.x));
-    n.y = Math.max(40, Math.min(h - 40, n.y));
-  }
-}
-
-function drawBrain(ctx: CanvasRenderingContext2D, nodes: BrainNode[], edges: BrainEdge[], w: number, h: number) {
-  ctx.clearRect(0, 0, w, h);
-
-  const nodeMap = new Map(nodes.map(n => [n.id, n]));
-
-  // Draw edges
-  for (const e of edges) {
-    const a = nodeMap.get(e.source);
-    const b = nodeMap.get(e.target);
-    if (!a || !b) continue;
-
-    ctx.beginPath();
-    // Slight curve for organic look
-    const mx = (a.x + b.x) / 2 + (a.y - b.y) * 0.1;
-    const my = (a.y + b.y) / 2 + (b.x - a.x) * 0.1;
-    ctx.moveTo(a.x, a.y);
-    ctx.quadraticCurveTo(mx, my, b.x, b.y);
-    ctx.strokeStyle = e.firing ? EDGE_FIRE_COLOR : EDGE_COLOR;
-    ctx.lineWidth = e.firing ? 2 : 0.8;
-    ctx.stroke();
-
-    // Draw fire pulse traveling along edge
-    if (e.firing && e.fireProgress < 1) {
-      const t = e.fireProgress;
-      const px = (1 - t) * (1 - t) * a.x + 2 * (1 - t) * t * mx + t * t * b.x;
-      const py = (1 - t) * (1 - t) * a.y + 2 * (1 - t) * t * my + t * t * b.y;
-      ctx.beginPath();
-      ctx.arc(px, py, 3, 0, Math.PI * 2);
-      ctx.fillStyle = FIRE_COLOR;
-      ctx.shadowColor = FIRE_COLOR;
-      ctx.shadowBlur = 12;
-      ctx.fill();
-      ctx.shadowBlur = 0;
-    }
-  }
-
-  // Draw nodes
-  for (const n of nodes) {
-    const color = GROUP_COLORS[n.group] || GROUP_COLORS.other;
-    const glow = GROUP_GLOW[n.group] || GROUP_GLOW.other;
-
-    // Glow
-    ctx.beginPath();
-    ctx.arc(n.x, n.y, n.size + 6, 0, Math.PI * 2);
-    ctx.fillStyle = glow;
-    ctx.fill();
-
-    // Node
-    ctx.beginPath();
-    ctx.arc(n.x, n.y, n.size, 0, Math.PI * 2);
-    ctx.fillStyle = color;
-    ctx.shadowColor = color;
-    ctx.shadowBlur = n.size * 2;
-    ctx.fill();
-    ctx.shadowBlur = 0;
-
-    // Label
-    ctx.font = `${Math.max(8, n.size * 0.9)}px JetBrains Mono, monospace`;
-    ctx.fillStyle = 'rgba(255,255,255,0.7)';
-    ctx.textAlign = 'center';
-    ctx.fillText(n.label, n.x, n.y + n.size + 14);
-  }
-
-  // Group labels
-  const groups: Record<string, { x: number; y: number; count: number }> = {};
-  for (const n of nodes) {
-    if (!groups[n.group]) groups[n.group] = { x: 0, y: 0, count: 0 };
-    groups[n.group].x += n.x;
-    groups[n.group].y += n.y;
-    groups[n.group].count++;
-  }
-  for (const [group, data] of Object.entries(groups)) {
-    const cx = data.x / data.count;
-    const cy = data.y / data.count - 30;
-    ctx.font = '10px JetBrains Mono, monospace';
-    ctx.fillStyle = GROUP_COLORS[group] || '#888';
-    ctx.globalAlpha = 0.4;
-    ctx.textAlign = 'center';
-    ctx.fillText(group.toUpperCase(), cx, cy);
-    ctx.globalAlpha = 1;
+    n.x = Math.max(50, Math.min(w - 50, n.x));
+    n.y = Math.max(50, Math.min(h - 50, n.y));
   }
 }
 
@@ -173,28 +67,26 @@ export function ObsidianBrain() {
   const nodesRef = useRef<BrainNode[]>([]);
   const edgesRef = useRef<BrainEdge[]>([]);
   const frameRef = useRef(0);
+  const timeRef = useRef(0);
+  const mouseRef = useRef({ x: -1, y: -1 });
+  const hoveredRef = useRef<string | null>(null);
 
-  // Initialize nodes with proper scaling
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
-    const w = canvas.parentElement?.clientWidth || 800;
-    const h = canvas.parentElement?.clientHeight || 600;
+    if (!canvas || !canvas.parentElement) return;
+    const w = canvas.parentElement.clientWidth * 2;
+    const h = canvas.parentElement.clientHeight * 2;
     canvas.width = w;
     canvas.height = h;
 
-    // Scale initial positions to canvas size
     const scaleX = w / 800;
     const scaleY = h / 600;
     nodesRef.current = brainNodes.map(n => ({
-      ...n,
-      x: n.x * scaleX,
-      y: n.y * scaleY,
+      ...n, x: n.x * scaleX, y: n.y * scaleY,
     }));
     edgesRef.current = brainEdges.map(e => ({ ...e }));
   }, [brainNodes, brainEdges]);
 
-  // Sync firing state from store
   useEffect(() => {
     for (const storeEdge of brainEdges) {
       const local = edgesRef.current.find(e => e.source === storeEdge.source && e.target === storeEdge.target);
@@ -212,24 +104,185 @@ export function ObsidianBrain() {
     if (!ctx) return;
     const w = canvas.width;
     const h = canvas.height;
+    const nodes = nodesRef.current;
+    const edges = edgesRef.current;
+    const t = timeRef.current;
 
-    // Run physics
-    runForceStep(nodesRef.current, edgesRef.current, w, h);
+    runForceStep(nodes, edges, w, h);
 
-    // Update fire progress
-    for (const e of edgesRef.current) {
-      if (e.firing) {
-        e.fireProgress += 0.025;
-        if (e.fireProgress >= 1) {
-          e.firing = false;
-          e.fireProgress = 0;
+    // Background
+    const bgGrad = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w * 0.7);
+    bgGrad.addColorStop(0, 'rgba(18, 14, 28, 1)');
+    bgGrad.addColorStop(0.6, 'rgba(12, 10, 22, 1)');
+    bgGrad.addColorStop(1, 'rgba(6, 5, 14, 1)');
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, w, h);
+
+    // Subtle hex grid for premium feel
+    ctx.strokeStyle = 'rgba(120, 100, 200, 0.025)';
+    ctx.lineWidth = 0.5;
+    const hexR = 30;
+    const hexW = hexR * Math.sqrt(3);
+    for (let row = 0; row < h / (hexR * 1.5) + 1; row++) {
+      for (let col = 0; col < w / hexW + 1; col++) {
+        const cx = col * hexW + (row % 2) * hexW / 2;
+        const cy = row * hexR * 1.5;
+        ctx.beginPath();
+        for (let k = 0; k < 6; k++) {
+          const angle = Math.PI / 3 * k - Math.PI / 6;
+          const px = cx + hexR * Math.cos(angle);
+          const py = cy + hexR * Math.sin(angle);
+          k === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
         }
+        ctx.closePath();
+        ctx.stroke();
       }
     }
 
-    // Draw
-    drawBrain(ctx, nodesRef.current, edgesRef.current, w, h);
+    const nodeMap = new Map(nodes.map(n => [n.id, n]));
+
+    // Draw edges
+    for (const e of edges) {
+      const a = nodeMap.get(e.source);
+      const b = nodeMap.get(e.target);
+      if (!a || !b) continue;
+
+      const mx = (a.x + b.x) / 2 + (a.y - b.y) * 0.12;
+      const my = (a.y + b.y) / 2 + (b.x - a.x) * 0.12;
+
+      const colA = GROUP_COLORS[a.group] || GROUP_COLORS.other;
+      const colB = GROUP_COLORS[b.group] || GROUP_COLORS.other;
+
+      if (e.firing) {
+        // Bright firing edge with gradient
+        const grad = ctx.createLinearGradient(a.x, a.y, b.x, b.y);
+        grad.addColorStop(0, `rgba(${colA[0]}, ${colA[1]}, ${colA[2]}, 0.8)`);
+        grad.addColorStop(1, `rgba(${colB[0]}, ${colB[1]}, ${colB[2]}, 0.8)`);
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.quadraticCurveTo(mx, my, b.x, b.y);
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+
+        // Traveling pulse
+        if (e.fireProgress < 1) {
+          const p = e.fireProgress;
+          const px = (1 - p) * (1 - p) * a.x + 2 * (1 - p) * p * mx + p * p * b.x;
+          const py = (1 - p) * (1 - p) * a.y + 2 * (1 - p) * p * my + p * p * b.y;
+          const pulseGrad = ctx.createRadialGradient(px, py, 0, px, py, 12);
+          pulseGrad.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
+          pulseGrad.addColorStop(0.5, 'rgba(200, 200, 255, 0.3)');
+          pulseGrad.addColorStop(1, 'rgba(200, 200, 255, 0)');
+          ctx.beginPath();
+          ctx.arc(px, py, 12, 0, Math.PI * 2);
+          ctx.fillStyle = pulseGrad;
+          ctx.fill();
+
+          e.fireProgress += 0.02;
+          if (e.fireProgress >= 1) {
+            e.firing = false;
+            e.fireProgress = 0;
+          }
+        }
+      } else {
+        // Normal edge — subtle gradient
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.quadraticCurveTo(mx, my, b.x, b.y);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+        ctx.lineWidth = 0.8;
+        ctx.stroke();
+      }
+    }
+
+    // Draw nodes
+    for (const n of nodes) {
+      const col = GROUP_COLORS[n.group] || GROUP_COLORS.other;
+      const isHovered = hoveredRef.current === n.id;
+      const breathe = 1 + Math.sin(t * 0.003 + n.x * 0.01) * 0.05;
+      const r = (n.size + (isHovered ? 3 : 0)) * breathe;
+
+      // Outer glow
+      const glowGrad = ctx.createRadialGradient(n.x, n.y, r * 0.3, n.x, n.y, r * 4);
+      glowGrad.addColorStop(0, `rgba(${col[0]}, ${col[1]}, ${col[2]}, 0.2)`);
+      glowGrad.addColorStop(0.4, `rgba(${col[0]}, ${col[1]}, ${col[2]}, 0.05)`);
+      glowGrad.addColorStop(1, `rgba(${col[0]}, ${col[1]}, ${col[2]}, 0)`);
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, r * 4, 0, Math.PI * 2);
+      ctx.fillStyle = glowGrad;
+      ctx.fill();
+
+      // Main node — radial gradient for 3D effect
+      const nodeGrad = ctx.createRadialGradient(n.x - r * 0.25, n.y - r * 0.25, r * 0.1, n.x, n.y, r);
+      nodeGrad.addColorStop(0, `rgba(${Math.min(255, col[0] + 60)}, ${Math.min(255, col[1] + 60)}, ${Math.min(255, col[2] + 60)}, 1)`);
+      nodeGrad.addColorStop(0.7, `rgba(${col[0]}, ${col[1]}, ${col[2]}, 0.9)`);
+      nodeGrad.addColorStop(1, `rgba(${Math.max(0, col[0] - 40)}, ${Math.max(0, col[1] - 40)}, ${Math.max(0, col[2] - 40)}, 0.8)`);
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
+      ctx.fillStyle = nodeGrad;
+      ctx.shadowColor = `rgba(${col[0]}, ${col[1]}, ${col[2]}, 0.6)`;
+      ctx.shadowBlur = isHovered ? r * 3 : r * 1.5;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // Specular highlight
+      const specGrad = ctx.createRadialGradient(n.x - r * 0.3, n.y - r * 0.3, 0, n.x - r * 0.3, n.y - r * 0.3, r * 0.5);
+      specGrad.addColorStop(0, 'rgba(255, 255, 255, 0.3)');
+      specGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
+      ctx.fillStyle = specGrad;
+      ctx.fill();
+
+      // Label
+      const fontSize = Math.max(16, r * 1.2);
+      ctx.font = `${fontSize}px JetBrains Mono, monospace`;
+      ctx.fillStyle = isHovered ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.55)';
+      ctx.textAlign = 'center';
+      ctx.fillText(n.label, n.x, n.y + r + fontSize + 4);
+    }
+
+    // Group labels with subtle background
+    const groups: Record<string, { x: number; y: number; count: number }> = {};
+    for (const n of nodes) {
+      if (!groups[n.group]) groups[n.group] = { x: 0, y: 0, count: 0 };
+      groups[n.group].x += n.x;
+      groups[n.group].y += n.y;
+      groups[n.group].count++;
+    }
+    for (const [group, data] of Object.entries(groups)) {
+      const gx = data.x / data.count;
+      const gy = data.y / data.count - 40;
+      const col = GROUP_COLORS[group] || GROUP_COLORS.other;
+      ctx.font = '18px JetBrains Mono, monospace';
+      ctx.fillStyle = `rgba(${col[0]}, ${col[1]}, ${col[2]}, 0.25)`;
+      ctx.textAlign = 'center';
+      ctx.letterSpacing = '3px';
+      ctx.fillText(group.toUpperCase(), gx, gy);
+    }
+
+    timeRef.current += 16;
     frameRef.current = requestAnimationFrame(animate);
+  }, []);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const mx = (e.clientX - rect.left) * scaleX;
+    const my = (e.clientY - rect.top) * scaleY;
+    mouseRef.current = { x: mx, y: my };
+
+    let found: string | null = null;
+    for (const n of nodesRef.current) {
+      const dist = Math.sqrt((mx - n.x) ** 2 + (my - n.y) ** 2);
+      if (dist < n.size * 3) { found = n.id; break; }
+    }
+    hoveredRef.current = found;
+    canvas.style.cursor = found ? 'pointer' : 'grab';
   }, []);
 
   useEffect(() => {
@@ -241,21 +294,24 @@ export function ObsidianBrain() {
     return () => cancelAnimationFrame(frameRef.current);
   }, [animate, centerView]);
 
-  // Handle resize
   useEffect(() => {
     function onResize() {
       const canvas = canvasRef.current;
-      if (!canvas || !canvas.parentElement) return;
-      canvas.width = canvas.parentElement.clientWidth;
-      canvas.height = canvas.parentElement.clientHeight;
+      if (!canvas?.parentElement) return;
+      canvas.width = canvas.parentElement.clientWidth * 2;
+      canvas.height = canvas.parentElement.clientHeight * 2;
     }
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
   return (
-    <div style={{ width: '100%', height: '100%', position: 'relative', background: 'var(--color-bg-secondary)' }}>
-      <canvas ref={canvasRef} className="brain-canvas" />
+    <div style={{ width: '100%', height: '100%', position: 'relative', background: '#060510' }}>
+      <canvas
+        ref={canvasRef}
+        style={{ width: '100%', height: '100%', display: 'block' }}
+        onMouseMove={handleMouseMove}
+      />
       <div className="constellation__view-toggle">
         {(['constellation', 'brain', 'files'] as const).map(v => (
           <button

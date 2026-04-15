@@ -1,11 +1,79 @@
 import { useRef, useEffect, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { useDashboard } from '../store';
+import type { ChatMessage } from '../types/dashboard';
+
+function ToolCallCard({ content }: { content: string }) {
+  const [expanded, setExpanded] = useState(false);
+  // Parse "Permission needed: ToolName\nInput: {...}"
+  const lines = content.split('\n');
+  const toolLine = lines[0]?.replace('Permission needed: ', '') || 'Tool Call';
+  const inputLine = lines.slice(1).join('\n');
+
+  return (
+    <div className="chat-panel__tool-card">
+      <button
+        className="chat-panel__tool-card-header"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <span className="chat-panel__tool-card-icon">{expanded ? 'v' : '>'}</span>
+        <span className="chat-panel__tool-card-name">{toolLine}</span>
+      </button>
+      {expanded && inputLine && (
+        <pre className="chat-panel__tool-card-body">{inputLine}</pre>
+      )}
+    </div>
+  );
+}
+
+function MessageContent({ msg }: { msg: ChatMessage }) {
+  if (msg.role === 'system') {
+    // Check if it's a permission/tool call
+    if (msg.content.startsWith('Permission needed:')) {
+      return <ToolCallCard content={msg.content} />;
+    }
+    return <span>{msg.content}</span>;
+  }
+
+  if (msg.role === 'user') {
+    return <span>{msg.content}</span>;
+  }
+
+  // Assistant messages get full markdown rendering
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={{
+        code({ className, children, ...props }) {
+          const match = /language-(\w+)/.exec(className || '');
+          const isInline = !match && !className;
+          if (isInline) {
+            return <code className="chat-inline-code" {...props}>{children}</code>;
+          }
+          return (
+            <div className="chat-code-block">
+              {match && <div className="chat-code-block__lang">{match[1]}</div>}
+              <pre><code className={className} {...props}>{children}</code></pre>
+            </div>
+          );
+        },
+        a({ href, children, ...props }) {
+          return <a href={href} target="_blank" rel="noopener noreferrer" {...props}>{children}</a>;
+        },
+        table({ children, ...props }) {
+          return <div className="chat-table-wrap"><table {...props}>{children}</table></div>;
+        },
+      }}
+    >
+      {msg.content}
+    </ReactMarkdown>
+  );
+}
 
 export function ChatPanel() {
   const dashboard = useDashboard();
-  const { chatMessages, agents, sendChatMessage } = dashboard;
-  const chatThinking = (dashboard as any).chatThinking as boolean;
-  const chatAuth = (dashboard as any).chatAuth as string | null;
+  const { chatMessages, chatThinking, chatAuth, agents, sendChatMessage } = dashboard;
   const [input, setInput] = useState('');
   const [showAgents, setShowAgents] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -50,7 +118,7 @@ export function ChatPanel() {
       <div className="chat-panel__messages">
         {chatMessages.map(msg => (
           <div key={msg.id} className={`chat-panel__msg chat-panel__msg--${msg.role}`}>
-            {msg.content}
+            <MessageContent msg={msg} />
           </div>
         ))}
         {chatThinking && (

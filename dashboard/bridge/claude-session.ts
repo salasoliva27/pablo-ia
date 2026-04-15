@@ -126,12 +126,21 @@ export class ClaudeSession {
       }
 
       case "assistant": {
-        // Extract text from content blocks
+        // Extract text and tool_use from content blocks
         const content = event.message?.content;
         if (Array.isArray(content)) {
           for (const block of content) {
             if (block.type === "text" && block.text) {
               this.send({ type: "claude_message", message: block.text });
+            } else if (block.type === "tool_use") {
+              // Forward tool_use blocks so frontend can detect file operations
+              this.send({
+                type: "tool_event",
+                toolName: block.name || "unknown",
+                input: block.input || {},
+                sessionId: this.sessionId || "",
+                timestamp: Date.now(),
+              });
             }
           }
         } else if (typeof content === "string") {

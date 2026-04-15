@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
-import type { DashboardState, DashboardActions, Project, ToolStatus, BrainNode, BrainEdge, Notification, Learning, CalendarSlot, FileActivity, CenterView } from './types/dashboard';
+import type { DashboardState, DashboardActions, Project, ToolStatus, BrainNode, BrainEdge, Notification, Learning, CalendarSlot, FileActivity, CenterView, Document } from './types/dashboard';
 import type { ServerMessage } from './types/bridge';
 
 // ── Static Data (real project state, not simulated) ────────
@@ -46,6 +46,23 @@ function resolveToolId(toolName: string): string | null {
     if (toolName.startsWith(prefix)) return id;
   }
   return null;
+}
+
+const EXT_LANG: Record<string, string> = {
+  '.ts': 'typescript', '.tsx': 'typescript', '.js': 'javascript', '.jsx': 'javascript',
+  '.py': 'python', '.rs': 'rust', '.go': 'go', '.java': 'java',
+  '.css': 'css', '.scss': 'scss', '.html': 'html', '.htm': 'html',
+  '.json': 'json', '.yaml': 'yaml', '.yml': 'yaml', '.toml': 'toml',
+  '.md': 'markdown', '.mdx': 'markdown', '.sql': 'sql', '.sh': 'bash',
+  '.bash': 'bash', '.zsh': 'bash', '.sol': 'solidity',
+  '.svg': 'svg', '.xml': 'xml', '.graphql': 'graphql',
+  '.env': 'dotenv', '.txt': 'text', '.csv': 'csv',
+  '.png': 'image', '.jpg': 'image', '.jpeg': 'image', '.gif': 'image', '.webp': 'image',
+};
+
+function detectLanguage(filePath: string): string {
+  const ext = filePath.slice(filePath.lastIndexOf('.')).toLowerCase();
+  return EXT_LANG[ext] || 'text';
 }
 
 const NOTIFICATIONS: Notification[] = [
@@ -213,6 +230,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     terminalLines: TERMINAL_INITIAL,
     calendarSlots: makeCalendar(),
     fileActivities: makeFileActivities(),
+    documents: [],
     selectedProject: null,
     centerView: 'constellation',
     commandPaletteOpen: false,
@@ -222,8 +240,41 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     ],
     chatInput: '',
     chatThinking: false,
-    chatAuth: null as string | null,
+    chatAuth: null,
+    activeDocumentId: null,
+    rightPanelTab: 'memory',
   });
+
+  // ── Fetch real graph data from bridge API ────────────
+  useEffect(() => {
+    fetch('/api/graph')
+      .then(r => r.json())
+      .then((data: { nodes: { id: string; label: string; group: string; links: string[] }[]; edges: { source: string; target: string }[] }) => {
+        if (!data.nodes || data.nodes.length === 0) return; // Keep fallback if API empty
+        const groupAngles: Record<string, number> = { wiki: 0, concepts: Math.PI / 2, learnings: Math.PI, agents: (3 * Math.PI) / 2 };
+        const cx = 400, cy = 300;
+        const nodes: BrainNode[] = data.nodes.map((n) => {
+          const group = (n.group as BrainNode['group']) || 'other';
+          const base = groupAngles[group] || 0;
+          const groupNodes = data.nodes.filter(r => r.group === n.group);
+          const gi = groupNodes.indexOf(n);
+          const spread = 0.8;
+          const angle = base + (gi - groupNodes.length / 2) * spread * 0.3;
+          const radius = 120 + Math.random() * 100;
+          return {
+            id: n.id, label: n.label, group,
+            connections: n.links.length,
+            x: cx + Math.cos(angle) * radius + (Math.random() - 0.5) * 60,
+            y: cy + Math.sin(angle) * radius + (Math.random() - 0.5) * 60,
+            vx: 0, vy: 0,
+            size: Math.max(4, 3 + n.links.length * 1.5),
+          };
+        });
+        const edges: BrainEdge[] = data.edges.map(e => ({ source: e.source, target: e.target, firing: false, fireProgress: 0 }));
+        setState(s => ({ ...s, brainNodes: nodes, brainEdges: edges }));
+      })
+      .catch(() => { /* keep hardcoded fallback */ });
+  }, []);
 
   // ── Process real WebSocket events from bridge ────────────
   // This is called by App.tsx when a WebSocket message arrives
@@ -246,7 +297,33 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
             brainEdges[idx] = { ...brainEdges[idx], firing: true, fireProgress: 0 };
           }
 
-          return { ...s, tools, terminalLines, sessionEvents, brainEdges };
+          // Detect document creation from Write/Edit tool calls
+          const input = msg.input as Record<string, unknown> | undefined;
+          let documents = s.documents;
+          let activeDocumentId = s.activeDocumentId;
+          let rightPanelTab = s.rightPanelTab;
+
+          if (input && (msg.toolName === 'Write' || msg.toolName === 'Edit')) {
+            const filePath = (input.file_path || input.path || '') as string;
+            const content = (input.content || input.new_string || '') as string;
+            if (filePath && content) {
+              const filename = filePath.split('/').pop() || filePath;
+              const lang = detectLanguage(filePath);
+              const docId = `doc-${filePath}`;
+              const existing = documents.findIndex(d => d.id === docId);
+              const doc: Document = { id: docId, path: filePath, filename, language: lang, content, timestamp: Date.now() };
+              if (existing >= 0) {
+                documents = [...documents];
+                documents[existing] = doc;
+              } else {
+                documents = [doc, ...documents].slice(0, 50);
+              }
+              activeDocumentId = docId;
+              rightPanelTab = 'documents';
+            }
+          }
+
+          return { ...s, tools, terminalLines, sessionEvents, brainEdges, documents, activeDocumentId, rightPanelTab };
         });
 
         // Deactivate tool pulse after 800ms
@@ -271,15 +348,11 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       }
 
       case 'session_start': {
+        // Update auth badge in header — don't add a chat message for it
         setState(s => ({
           ...s,
           chatThinking: true,
           chatAuth: (msg as any).auth || 'unknown',
-          chatMessages: [...s.chatMessages, {
-            id: uid(), role: 'system',
-            content: `Session started (${(msg as any).auth || 'unknown'})`,
-            timestamp: Date.now(),
-          }],
         }));
         break;
       }
@@ -329,15 +402,12 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
 
       case 'session_end': {
         hasActiveSession.current = false;
+        // Don't clutter chat with "Session ended" — it's a -p mode artifact.
+        // The session auto-continues via --continue on next message.
         setState(s => ({
           ...s,
           chatThinking: false,
-          chatMessages: [...s.chatMessages, {
-            id: uid(), role: 'system',
-            content: `Session ended.${msg.cost ? ` Cost: $${msg.cost.toFixed(4)}` : ''}`,
-            timestamp: Date.now(),
-          }],
-          terminalLines: [...s.terminalLines, '[session] ended'].slice(-100),
+          terminalLines: [...s.terminalLines, '[session] turn complete'].slice(-100),
         }));
         break;
       }
@@ -381,6 +451,8 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const toggleScoreboard = useCallback(() => setState(s => ({ ...s, scoreboardOpen: !s.scoreboardOpen })), []);
   const dismissNotification = useCallback((id: string) => setState(s => ({ ...s, notifications: s.notifications.map(n => n.id === id ? { ...n, read: true } : n) })), []);
   const addTerminalLine = useCallback((line: string) => setState(s => ({ ...s, terminalLines: [...s.terminalLines, line].slice(-100) })), []);
+  const setActiveDocument = useCallback((id: string | null) => setState(s => ({ ...s, activeDocumentId: id })), []);
+  const setRightPanelTab = useCallback((tab: 'memory' | 'documents') => setState(s => ({ ...s, rightPanelTab: tab })), []);
 
   // Listen for keyboard shortcut custom events
   useEffect(() => {
@@ -455,7 +527,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const actions: DashboardActions = { selectProject, setCenterView, toggleCommandPalette, toggleScoreboard, sendChatMessage, dismissNotification, addTerminalLine };
+  const actions: DashboardActions = { selectProject, setCenterView, toggleCommandPalette, toggleScoreboard, sendChatMessage, dismissNotification, addTerminalLine, setActiveDocument, setRightPanelTab };
 
   return (
     <DashboardContext.Provider value={{ ...state, ...actions, _handleBridgeMessage: handleBridgeMessage, _registerWsSend: registerWsSend } as any}>

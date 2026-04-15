@@ -1,19 +1,50 @@
 .resize-handle {
-  background: var(--border-color);
-  transition: background 0.15s ease;
+  background: rgba(255, 255, 255, 0.03);
+  transition: background 0.2s ease;
+  position: relative;
+}
+
+.resize-handle::after {
+  content: '';
+  position: absolute;
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  transition: background 0.2s ease;
+}
+
+.resize-handle--vertical::after {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 2px;
+  height: 24px;
+}
+
+.resize-handle--horizontal::after {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 24px;
+  height: 2px;
 }
 
 .resize-handle:hover,
 .resize-handle[data-resize-handle-active] {
-  background: oklch(0.75 0.18 180 / 0.5);
+  background: rgba(100, 220, 220, 0.06);
+}
+
+.resize-handle:hover::after,
+.resize-handle[data-resize-handle-active]::after {
+  background: oklch(0.78 0.16 180 / 0.6);
+  box-shadow: 0 0 8px oklch(0.78 0.16 180 / 0.3);
 }
 
 .resize-handle--vertical {
-  width: 4px;
+  width: 5px;
   cursor: col-resize;
 }
 
 .resize-handle--horizontal {
-  height: 4px;
+  height: 5px;
   cursor: row-resize;
 }
