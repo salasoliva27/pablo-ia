@@ -1,5 +1,19 @@
 {
   "permissions": {
     "defaultMode": "bypassPermissions"
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /workspaces/venture-os/scripts/mcp-health.sh",
+            "timeout": 10,
+            "statusMessage": "Checking MCP servers..."
+          }
+        ]
+      }
+    ]
   }
 }
