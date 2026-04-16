@@ -186,21 +186,45 @@ function SessionUsage() {
 
   const totalCalls = tools.reduce((sum, t) => sum + t.callCount, 0);
   const msgs = chatMessages.filter(m => m.role === 'user').length;
-  const m = Math.floor(elapsed / 60);
-  const s = elapsed % 60;
+  const h = Math.floor(elapsed / 3600);
+  const m = Math.floor((elapsed % 3600) / 60);
 
   return (
     <div className="session-usage" title="Session duration and usage">
-      <span className="session-usage__time">{m}:{s.toString().padStart(2, '0')}</span>
-      <span className="session-usage__sep">|</span>
+      <span className="session-usage__time">{h}h {m.toString().padStart(2, '0')}m</span>
+      <span className="session-usage__sep">&middot;</span>
       <span className="session-usage__stat">{msgs} msg{msgs !== 1 ? 's' : ''}</span>
-      <span className="session-usage__sep">|</span>
+      <span className="session-usage__sep">&middot;</span>
       <span className="session-usage__stat">{totalCalls} calls</span>
     </div>
   );
 }
 
-export function TopBar({ connectionStatus, onThemeToggle, lastMessage }: { connectionStatus: ConnectionStatus; onThemeToggle?: () => void; lastMessage: ServerMessage | null }) {
+function ContextUsage() {
+  const { chatMessages, tools } = useDashboard();
+
+  // Rough token estimate: ~1 token per 4 chars of content, plus overhead per message/tool call
+  const BASE_TOKENS = 20_000; // system prompt + CLAUDE.md
+  const CONTEXT_LIMIT = 1_000_000; // Opus 4.6 1M
+  const msgTokens = chatMessages.reduce((sum, m) => {
+    const contentTokens = Math.ceil(m.content.length / 4);
+    const overhead = m.role === 'assistant' ? 200 : 100;
+    return sum + contentTokens + overhead;
+  }, 0);
+  const toolTokens = tools.reduce((sum, t) => sum + t.callCount * 800, 0);
+  const totalTokens = BASE_TOKENS + msgTokens + toolTokens;
+  const pct = Math.min(99, Math.round((totalTokens / CONTEXT_LIMIT) * 100));
+
+  const color = pct > 80 ? 'oklch(0.75 0.2 25)' : pct > 50 ? 'oklch(0.8 0.15 85)' : 'var(--color-text-muted)';
+
+  return (
+    <span style={{ fontSize: 10, fontFamily: 'var(--font-family-mono)', color }} title={`~${Math.round(totalTokens / 1000)}k / 1M tokens`}>
+      {pct}%
+    </span>
+  );
+}
+
+export function TopBar({ connectionStatus, onThemeToggle, lastMessage, onCredentials }: { connectionStatus: ConnectionStatus; onThemeToggle?: () => void; lastMessage: ServerMessage | null; onCredentials?: () => void }) {
   const { gitCommits, agents } = useDashboard();
   const processing = agents.some(a => a.status === 'executing' || a.status === 'thinking');
 
@@ -221,8 +245,8 @@ export function TopBar({ connectionStatus, onThemeToggle, lastMessage }: { conne
           </div>
         ))}
         {repoCommits.size === 0 && (
-          <span style={{ fontSize: 10, color: 'var(--color-text-muted)', fontFamily: 'var(--font-family-mono)' }}>
-            waiting for commits...
+          <span style={{ fontSize: 10, color: 'var(--color-text-muted)', fontFamily: 'var(--font-family-mono)', display: 'flex', alignItems: 'center', gap: 8 }}>
+            waiting for commits... <ContextUsage />
           </span>
         )}
       </div>
@@ -241,6 +265,17 @@ export function TopBar({ connectionStatus, onThemeToggle, lastMessage }: { conne
           </button>
         )}
         <SessionUsage />
+        {onCredentials && (
+          <button
+            onClick={onCredentials}
+            title="Credentials"
+            className="top-bar__icon-btn"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
+            </svg>
+          </button>
+        )}
         <DevIndicator lastMessage={lastMessage} />
         <StatusRing status={connectionStatus} processing={processing} />
         <NotificationBell />

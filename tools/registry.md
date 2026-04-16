@@ -1,5 +1,5 @@
 # TOOLS REGISTRY
-## Janus IA | Last updated: 2026-04-03
+## Janus IA | Last updated: 2026-04-16
 
 Single source of truth for all MCP tools across Janus IA.
 Updated after every session where a tool is used.
@@ -44,9 +44,11 @@ Mexico/LATAM queries return good results. Core tool for research agent.
 - [2026-03-30] — janus — BAD (for now): Removed from .mcp.json. `@alanse/mcp-server-google-workspace` tries to auth on every startup because OAuth tokens aren't persisted between Codespace sessions. This opens Chrome with an OAuth flow that fails (redirect_uri_mismatch). Gmail already works via `mcp__claude_ai_Gmail` integration. Re-enable only when: tokens can be persisted in dotfiles OR a service account approach is configured.
 
 ### Memory MCP (Supabase)
-**Verdict:** UNTESTED — needs Supabase setup + setup.sql
-**Install:** Custom server at mcp-servers/memory/
-**Keys:** `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
+**Verdict:** GOOD — fixed 2026-04-16, dependencies were missing
+**Install:** Custom server at mcp-servers/memory/ — run `npm install` in that dir after fresh Codespace
+**Keys:** `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (both set), `VOYAGE_API_KEY` (set, for semantic search)
+**Known issue:** `npm install` must be run in `/workspaces/janus-ia/mcp-servers/memory/` on every new Codespace — node_modules not committed
+- [2026-04-16] — janus — FIXED: Was failing with ERR_MODULE_NOT_FOUND. Root cause: node_modules not installed. `npm install` fixed it. `janus_memories` table has 21 rows, `memories` table has 32.
 - Full-text search works without VOYAGE_API_KEY; semantic search optional upgrade
 
 ### Playwright MCP
@@ -213,10 +215,16 @@ Zero hallucinations — only answers from what you uploaded.
 - [2026-04-13] — janus — GOOD: Installed successfully. Hooks registered via marketplace plugin.
 
 ### mcpvault (obsidian-vault MCP)
-**Verdict:** UNTESTED — in .mcp.json, needs first use to validate
-**Package:** `@bitbonsai/mcpvault`
-**Vault path:** /workspaces/venture-os
+**Verdict:** SITUATIONAL — connects but fragile. Fails on directory listing, individual note reads may fail.
+**Package:** `@bitbonsai/mcpvault` v0.11.0
+**Vault path:** /workspaces/janus-ia (was /workspaces/venture-os — fixed 2026-04-16)
 **Why:** Read/write vault markdown from Codespace. 14 tools. Enables Claude to navigate wiki/ and [[wiki links]] programmatically.
+**Known issues:**
+1. Root listing crashes if node_modules/ has symlinks (ENOENT). The vault root shares space with project code.
+2. `read_note` and `search_notes` returned empty/error even when files exist at the specified path.
+3. MCP disconnects mid-session and doesn't reconnect — requires session restart.
+**Workaround:** Use direct file reads (`Read` tool) for vault content until this MCP stabilizes. Write vault updates via direct file writes.
+- [2026-04-16] — janus — SITUATIONAL: Path fixed from venture-os to janus-ia. `claude mcp list` shows Connected, but read_note("wiki/espacio-bosques.md") returns "File not found" despite file existing. search_notes returns []. Need to investigate @bitbonsai/mcpvault file resolution.
 - [2026-04-13] — janus — REGISTERED: Added to .mcp.json. First use will validate.
 
 ### obra/knowledge-graph
@@ -226,7 +234,7 @@ Zero hallucinations — only answers from what you uploaded.
 - [2026-04-13] — janus — REGISTERED: Added to .mcp.json. First use will validate.
 
 ### Supabase MCP
-**Verdict:** PENDING — blocked on SUPABASE_ACCESS_TOKEN + SUPABASE_PROJECT_REF in dotfiles
+**Verdict:** GOOD — verified working 2026-04-16. list_tables returns 6 tables. execute_sql works.
 **Type:** HTTP MCP (remote)
 **URL:** https://mcp.supabase.com/mcp
 **Required env:** SUPABASE_ACCESS_TOKEN (get from supabase.com/dashboard/account/tokens), SUPABASE_PROJECT_REF=rycybujjedtofghigyxm
@@ -326,8 +334,8 @@ Zero hallucinations — only answers from what you uploaded.
 ### Notion (Claude-native) ⚠️
 **Verdict:** AVAILABLE — search tool loaded but not tested. Needs Jano to connect.
 
-### Memory MCP ❌
-**Verdict:** BROKEN — path `/workspaces/janus-ia/` doesn't exist, should be `/workspaces/venture-os/`. Fix blocked by .mcp.json edit permissions. **Jano action: edit .mcp.json line with janus-ia → venture-os.**
+### Memory MCP ✅
+**Verdict:** FIXED 2026-04-16 — dependencies were missing (`npm install` in mcp-servers/memory/). Now connects. Path is correct at `/workspaces/janus-ia/mcp-servers/memory/index.js`.
 
 ### n8n MCP ❌
 **Verdict:** NON-FUNCTIONAL — configured but `N8N_API_KEY` and `N8N_BASE_URL` not in env. **Jano action: add to dotfiles if n8n is being used.**
@@ -335,8 +343,8 @@ Zero hallucinations — only answers from what you uploaded.
 ### Cloudflare MCP ❌
 **Verdict:** NON-FUNCTIONAL — configured but `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` not in env. **Jano action: add to dotfiles when R2 media storage is needed.**
 
-### Obsidian Vault MCP ✅
-**Verdict:** VERIFIED WORKING — search_notes, read_note, write_note, patch_note all functional. Vault rooted at /workspaces/venture-os.
+### Obsidian Vault MCP ⚠️
+**Verdict:** PARTIALLY WORKING — connects but read_note/search_notes fail on actual files. Path fixed to /workspaces/janus-ia. Directory listing broken (symlink errors). Needs investigation of @bitbonsai/mcpvault file resolution.
 
 ### WhatsApp MCP ⭐ QUEUED
 **Best option:** `verygoodplugins/whatsapp-mcp` (Go bridge + Python MCP, well-maintained, updated Apr 12)
@@ -374,3 +382,19 @@ Zero hallucinations — only answers from what you uploaded.
 | Supabase MCP | NOT USED | JP AI's ozum_memories table still not created |
 | Filesystem MCP | GOOD | Used extensively for reading/writing dashboard files |
 | Agent tool (subagents) | GOOD | 6 parallel agents wrote frontend components simultaneously. Key lesson: shared type contracts must be established FIRST or types drift. See memory: feedback_multiagent_types.md |
+
+### Session log: 2026-04-16 — system health check + dashboard features
+
+| Tool | Verdict | Notes |
+|---|---|---|
+| Sequential Thinking | GOOD | Used for task planning. First time dispatch protocol step 0 was actually followed. |
+| Supabase MCP | GOOD | list_tables returned 6 tables. janus_memories: 21 rows, memories: 32 rows. |
+| GitHub MCP | GOOD | list_issues returned dependabot PRs. |
+| Brave Search | GOOD | Web search health check passed. |
+| Obsidian Vault MCP | BROKEN | Path fixed venture-os→janus-ia. Connects but read_note/search_notes fail. list_directory crashes on symlinks. Disconnected mid-session after pkill. |
+| Memory MCP | FIXED | Was failing ERR_MODULE_NOT_FOUND. `npm install` in mcp-servers/memory/ fixed it. Now shows Connected in `claude mcp list`. |
+| Playwright MCP | CRASHED | Used successfully for screenshot verification earlier. Crashed when browser process died. Disconnected and didn't reconnect. |
+| React Flow (@xyflow/react) | GOOD | New dependency. Built interactive ProcedureMap component. Zoom/pan/minimap/click-to-detail all work. |
+| Context7 | NOT USED | Should have been used for React Flow docs lookup. |
+| Gmail | NOT USED | |
+| Google Calendar | NOT USED | CalendarPanel built with bridge API endpoint, falls back to local data. |

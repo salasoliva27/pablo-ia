@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
-import type { DashboardState, DashboardActions, Project, ToolStatus, BrainNode, BrainEdge, Notification, Learning, CalendarSlot, FileActivity, CenterView, Document, AgentInfo, MemoryEntry } from './types/dashboard';
+import type { DashboardState, DashboardActions, Project, ToolStatus, BrainNode, BrainEdge, Notification, Learning, CalendarSlot, FileActivity, CenterView, Document, AgentInfo, MemoryEntry, SessionChatState, ChatMessage } from './types/dashboard';
 import type { ServerMessage } from './types/bridge';
 
 // ── Static Data (real project state, not simulated) ────────
@@ -15,7 +15,8 @@ const PROJECTS: Project[] = [
 // Tools with configuration status — needs-key tools will prompt user
 const TOOLS: ToolStatus[] = [
   { id: 'github', name: 'GitHub MCP', shortName: 'GH', callCount: 0, lastCall: 0, active: false, configured: 'ready' },
-  { id: 'supabase', name: 'Supabase MCP', shortName: 'SB', callCount: 0, lastCall: 0, active: false, configured: 'ready', envVar: 'SUPABASE_URL' },
+  { id: 'supabase', name: 'Supabase MCP', shortName: 'SB', callCount: 0, lastCall: 0, active: false, configured: 'ready', envVar: 'SUPABASE_URL', consoleType: 'sql' },
+  { id: 'snowflake', name: 'Snowflake', shortName: 'SF', callCount: 0, lastCall: 0, active: false, configured: 'needs-key', envVar: 'SNOWFLAKE_ACCOUNT', consoleType: 'sql' },
   { id: 'playwright', name: 'Playwright', shortName: 'PW', callCount: 0, lastCall: 0, active: false, configured: 'ready' },
   { id: 'brave', name: 'Brave Search', shortName: 'BR', callCount: 0, lastCall: 0, active: false, configured: 'ready', envVar: 'BRAVE_API_KEY' },
   { id: 'obsidian', name: 'Obsidian Vault', shortName: 'OB', callCount: 0, lastCall: 0, active: false, configured: 'ready' },
@@ -232,6 +233,46 @@ export function useDashboard() {
 let _idCounter = 0;
 const uid = () => `ev-${++_idCounter}-${Date.now()}`;
 
+// ── Per-session chat helpers ────────────────────────────
+
+const DEFAULT_SESSION = 'session-0';
+
+function emptySessionChat(initMessages?: ChatMessage[]): SessionChatState {
+  return {
+    messages: initMessages || [],
+    thinking: false,
+    status: 'idle',
+    thinkingStart: null,
+    siblingUpdates: [],
+  };
+}
+
+/** Get or create a session's chat state */
+function getOrCreate(sessions: Record<string, SessionChatState>, sid: string): SessionChatState {
+  return sessions[sid] || emptySessionChat();
+}
+
+/** Update a specific session's chat state immutably */
+function updateSession(
+  sessions: Record<string, SessionChatState>,
+  sid: string,
+  updater: (s: SessionChatState) => SessionChatState,
+): Record<string, SessionChatState> {
+  const current = getOrCreate(sessions, sid);
+  return { ...sessions, [sid]: updater(current) };
+}
+
+/** Derive legacy flat fields from session-0 for backward compat */
+function deriveLegacy(sessions: Record<string, SessionChatState>) {
+  const s0 = sessions[DEFAULT_SESSION] || emptySessionChat();
+  return {
+    chatMessages: s0.messages,
+    chatThinking: s0.thinking,
+    chatStatus: s0.status,
+    chatThinkingStart: s0.thinkingStart,
+  };
+}
+
 // Persist key session state across reloads
 const SESSION_STORAGE_KEY = 'venture-os-session';
 function loadPersistedState(): Partial<DashboardState> | null {
@@ -253,6 +294,7 @@ function persistState(s: DashboardState) {
       memories: s.memories,
       sessionEvents: s.sessionEvents.slice(0, 30),
       agentCounts: s.agentCounts,
+      projectCounts: s.projectCounts,
       documents: s.documents.slice(0, 20),
       tools: s.tools.map(t => ({ id: t.id, callCount: t.callCount })),
       _savedAt: Date.now(),
@@ -294,7 +336,14 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       centerView: 'constellation',
       commandPaletteOpen: false,
       scoreboardOpen: false,
-      chatMessages: (p?.chatMessages as any[]) || [
+      chatSessions: {
+        [DEFAULT_SESSION]: emptySessionChat(
+          (p?.chatMessages as ChatMessage[]) || [
+            { id: 'sys-1', role: 'system', content: 'Initializing...', timestamp: Date.now() },
+          ],
+        ),
+      },
+      chatMessages: (p?.chatMessages as ChatMessage[]) || [
         { id: 'sys-1', role: 'system', content: 'Initializing...', timestamp: Date.now() },
       ],
       chatInput: '',
@@ -305,6 +354,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       activeDocumentId: null,
       rightPanelTab: 'memory',
       agentCounts: (p?.agentCounts as Record<string, number>) || {},
+      projectCounts: (p?.projectCounts as Record<string, number>) || {},
     };
   });
 
@@ -358,7 +408,8 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
             return t;
           });
           const terminalLines = [...s.terminalLines, `[tool] ${msg.toolName} called`].slice(-100);
-          const sessionEvents = [{ id: uid(), type: 'tool' as const, label: msg.toolName, timestamp: Date.now() }, ...s.sessionEvents].slice(0, 50);
+          const toolDetail = msg.input ? (typeof msg.input === 'string' ? msg.input : JSON.stringify(msg.input)).slice(0, 120) : undefined;
+          const sessionEvents = [{ id: uid(), type: 'tool' as const, label: msg.toolName, detail: toolDetail, timestamp: Date.now() }, ...s.sessionEvents].slice(0, 50);
 
           // Fire a brain edge if the tool maps to a known concept
           const brainEdges = s.brainEdges.map(e => ({ ...e }));
@@ -385,6 +436,19 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
               // Credit the first (primary) agent
               const primary = ownerAgents[0];
               agentCounts[primary] = (agentCounts[primary] || 0) + 1;
+            }
+          }
+
+          // Increment project counts — scan tool input for project references
+          const projectCounts = { ...s.projectCounts };
+          const inputStr = msg.input ? (typeof msg.input === 'string' ? msg.input : JSON.stringify(msg.input)) : '';
+          for (const proj of s.projects) {
+            if (
+              inputStr.includes(proj.name) ||
+              inputStr.includes(proj.id) ||
+              (proj.repo && inputStr.includes(proj.repo))
+            ) {
+              projectCounts[proj.id] = (projectCounts[proj.id] || 0) + 1;
             }
           }
 
@@ -505,7 +569,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
             }
           }
 
-          return { ...s, tools, terminalLines, sessionEvents, brainEdges, memories, learnings, documents, activeDocumentId, rightPanelTab, agentCounts };
+          return { ...s, tools, terminalLines, sessionEvents, brainEdges, memories, learnings, documents, activeDocumentId, rightPanelTab, agentCounts, projectCounts };
         });
 
         // Deactivate tool pulse after 800ms
@@ -523,7 +587,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       case 'fs_event': {
         setState(s => {
           const terminalLines = [...s.terminalLines, `[fs] ${msg.event}: ${msg.path}`].slice(-100);
-          const sessionEvents = [{ id: uid(), type: 'edit' as const, label: `${msg.event}: ${msg.path.split('/').pop()}`, timestamp: Date.now() }, ...s.sessionEvents].slice(0, 50);
+          const sessionEvents = [{ id: uid(), type: 'edit' as const, label: `${msg.event}: ${msg.path.split('/').pop()}`, detail: msg.path, timestamp: Date.now() }, ...s.sessionEvents].slice(0, 50);
           return { ...s, terminalLines, sessionEvents };
         });
         break;
@@ -548,89 +612,137 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       }
 
       case 'session_start': {
-        // Update auth badge in header — don't add a chat message for it
-        setState(s => ({
-          ...s,
-          chatThinking: true,
-          chatAuth: (msg as any).auth || 'unknown',
-          chatStatus: 'thinking',
-          chatThinkingStart: Date.now(),
-        }));
+        const sid = (msg as any).sessionId || DEFAULT_SESSION;
+        setState(s => {
+          const chatSessions = updateSession(s.chatSessions, sid, ss => ({
+            ...ss, thinking: true, status: 'thinking', thinkingStart: Date.now(),
+          }));
+          return { ...s, chatSessions, chatAuth: (msg as any).auth || 'unknown', ...deriveLegacy(chatSessions) };
+        });
         break;
       }
 
       case 'claude_message': {
-        // Claude session output — only show readable text, filter out system/hook JSON
+        const sid = (msg as any).sessionId || DEFAULT_SESSION;
         const raw = msg.message;
-        let displayed = false;
+        let text: string | null = null;
+
         if (typeof raw === 'string') {
           const trimmed = raw.trim();
-          // Skip raw JSON blobs, XML-like system tags
           const isSystem = trimmed.startsWith('{') || trimmed.startsWith('<command') || trimmed.startsWith('<objective') || trimmed.startsWith('<execution') || trimmed.startsWith('<process');
-          if (!isSystem && trimmed.length > 0) {
-            displayed = true;
-            setState(s => ({
-              ...s,
-              chatThinking: false,
-              chatStatus: 'streaming',
-              chatMessages: [...s.chatMessages, { id: uid(), role: 'assistant', content: trimmed, timestamp: Date.now() }],
-            }));
-          }
+          if (!isSystem && trimmed.length > 0) text = trimmed;
         } else if (raw && typeof raw === 'object') {
           const obj = raw as Record<string, unknown>;
           if (obj.type !== 'system' && obj.type !== 'result' && obj.subtype !== 'hook_started') {
-            const text = (obj.content as string) || (obj.text as string);
-            if (text && typeof text === 'string' && !text.startsWith('{')) {
-              displayed = true;
-              setState(s => ({
-                ...s,
-                chatThinking: false,
-                chatStatus: 'streaming',
-                chatMessages: [...s.chatMessages, { id: uid(), role: 'assistant', content: text, timestamp: Date.now() }],
-              }));
-            }
+            const t = (obj.content as string) || (obj.text as string);
+            if (t && typeof t === 'string' && !t.startsWith('{')) text = t;
           }
         }
-        // Even if message was filtered, clear thinking state — Claude is responding
-        if (!displayed) {
-          setState(s => s.chatThinking ? { ...s, chatThinking: false, chatStatus: 'streaming' } : s);
-        }
+
+        setState(s => {
+          const chatSessions = updateSession(s.chatSessions, sid, ss => ({
+            ...ss,
+            thinking: false,
+            status: 'streaming',
+            messages: text
+              ? [...ss.messages, { id: uid(), role: 'assistant' as const, content: text, timestamp: Date.now() }]
+              : ss.messages,
+          }));
+          return { ...s, chatSessions, ...deriveLegacy(chatSessions) };
+        });
         break;
       }
 
       case 'permission_request': {
-        // Show permission request in chat for user to approve
-        setState(s => ({
-          ...s,
-          chatMessages: [...s.chatMessages, {
-            id: uid(), role: 'system',
-            content: `Permission needed: ${msg.toolName}\nInput: ${JSON.stringify(msg.input).slice(0, 200)}`,
-            timestamp: Date.now(),
-          }],
-        }));
+        const sid = (msg as any).sessionId || DEFAULT_SESSION;
+        setState(s => {
+          const chatSessions = updateSession(s.chatSessions, sid, ss => ({
+            ...ss,
+            messages: [...ss.messages, {
+              id: uid(), role: 'system' as const,
+              content: `Permission needed: ${msg.toolName}\nInput: ${JSON.stringify(msg.input).slice(0, 200)}`,
+              timestamp: Date.now(),
+            }],
+          }));
+          return { ...s, chatSessions, ...deriveLegacy(chatSessions) };
+        });
         break;
       }
 
       case 'session_end': {
-        hasActiveSession.current = false;
-        setState(s => ({
-          ...s,
-          chatThinking: false,
-          chatStatus: 'done',
-          chatThinkingStart: null,
-          terminalLines: [...s.terminalLines, '[session] turn complete'].slice(-100),
-        }));
+        const sid = (msg as any).sessionId || DEFAULT_SESSION;
+        if (sid === DEFAULT_SESSION) hasActiveSession.current = false;
+        // Track which sessions have active processes
+        activeSessionIds.current.delete(sid);
+        setState(s => {
+          const chatSessions = updateSession(s.chatSessions, sid, ss => ({
+            ...ss, thinking: false, status: 'done', thinkingStart: null,
+          }));
+          // Broadcast sibling summary — tell other sessions what this one just did
+          const lastMsgs = getOrCreate(chatSessions, sid).messages;
+          const lastAssistant = [...lastMsgs].reverse().find(m => m.role === 'assistant');
+          if (lastAssistant) {
+            const summary = lastAssistant.content.length > 200
+              ? lastAssistant.content.slice(0, 197) + '...'
+              : lastAssistant.content;
+            const updated = { ...chatSessions };
+            for (const [otherId, otherState] of Object.entries(updated)) {
+              if (otherId === sid) continue;
+              updated[otherId] = {
+                ...otherState,
+                siblingUpdates: [
+                  { sessionId: sid, summary, timestamp: Date.now() },
+                  ...otherState.siblingUpdates,
+                ].slice(0, 10),
+              };
+            }
+            return {
+              ...s, chatSessions: updated,
+              terminalLines: [...s.terminalLines, `[session:${sid}] turn complete`].slice(-100),
+              ...deriveLegacy(updated),
+            };
+          }
+          return {
+            ...s, chatSessions,
+            terminalLines: [...s.terminalLines, `[session:${sid}] turn complete`].slice(-100),
+            ...deriveLegacy(chatSessions),
+          };
+        });
+        break;
+      }
+
+      case 'sibling_summary': {
+        // Explicit sibling summary from bridge
+        const sid = (msg as any).sessionId || DEFAULT_SESSION;
+        const siblingId = (msg as any).siblingId;
+        const summary = (msg as any).summary;
+        if (siblingId && summary) {
+          setState(s => {
+            const chatSessions = updateSession(s.chatSessions, sid, ss => ({
+              ...ss,
+              siblingUpdates: [
+                { sessionId: siblingId, summary, timestamp: Date.now() },
+                ...ss.siblingUpdates,
+              ].slice(0, 10),
+            }));
+            return { ...s, chatSessions, ...deriveLegacy(chatSessions) };
+          });
+        }
         break;
       }
 
       case 'error': {
-        setState(s => ({
-          ...s,
-          chatThinking: false,
-          chatStatus: 'idle',
-          chatThinkingStart: null,
-          terminalLines: [...s.terminalLines, `[error] ${msg.message}`].slice(-100),
-        }));
+        const sid = (msg as any).sessionId || DEFAULT_SESSION;
+        setState(s => {
+          const chatSessions = updateSession(s.chatSessions, sid, ss => ({
+            ...ss, thinking: false, status: 'idle', thinkingStart: null,
+          }));
+          return {
+            ...s, chatSessions,
+            terminalLines: [...s.terminalLines, `[error] ${msg.message}`].slice(-100),
+            ...deriveLegacy(chatSessions),
+          };
+        });
         break;
       }
     }
@@ -640,6 +752,9 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const bridgeHandlerRef = useRef(handleBridgeMessage);
   bridgeHandlerRef.current = handleBridgeMessage;
 
+  // Track which sessions have active processes (for fork sessions)
+  const activeSessionIds = useRef(new Set<string>());
+
   // WebSocket send function — injected by App.tsx
   const wsSendRef = useRef<((msg: any) => void) | null>(null);
   const wsRegistered = useRef(false);
@@ -647,12 +762,13 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     wsSendRef.current = send;
     if (!wsRegistered.current) {
       wsRegistered.current = true;
-      setState(s => ({
-        ...s,
-        chatMessages: [...s.chatMessages, {
-          id: uid(), role: 'system', content: 'Ready.', timestamp: Date.now(),
-        }],
-      }));
+      const readyMsg: ChatMessage = { id: uid(), role: 'system', content: 'Ready.', timestamp: Date.now() };
+      setState(s => {
+        const chatSessions = updateSession(s.chatSessions, DEFAULT_SESSION, ss => ({
+          ...ss, messages: [...ss.messages, readyMsg],
+        }));
+        return { ...s, chatSessions, ...deriveLegacy(chatSessions) };
+      });
     }
   }, []);
   const hasActiveSession = useRef(false);
@@ -681,28 +797,33 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     };
   }, [toggleCommandPalette, toggleScoreboard]);
 
-  const sendChatMessage = useCallback((content: string) => {
+  const sendChatMessage = useCallback((content: string, sessionId: string = DEFAULT_SESSION) => {
     if (!content.trim()) return;
     const trimmed = content.trim();
+    const sid = sessionId;
 
     // If editing, truncate from the edit point first, then add the new message
     const editIdx = editingFromIdx.current;
     editingFromIdx.current = null;
 
+    const userMsg: ChatMessage = { id: uid(), role: 'user', content: trimmed, timestamp: Date.now() };
+
     setState(s => {
-      const base = editIdx !== null ? s.chatMessages.slice(0, editIdx) : s.chatMessages;
-      return {
-        ...s,
-        chatMessages: [...base, { id: uid(), role: 'user', content: trimmed, timestamp: Date.now() }],
-        chatInput: '',
-        chatStatus: editIdx !== null ? 'idle' as const : s.chatStatus,
-        chatThinking: editIdx !== null ? false : s.chatThinking,
-        chatThinkingStart: editIdx !== null ? null : s.chatThinkingStart,
-      };
+      const chatSessions = updateSession(s.chatSessions, sid, ss => {
+        const base = editIdx !== null ? ss.messages.slice(0, editIdx) : ss.messages;
+        return {
+          ...ss,
+          messages: [...base, userMsg],
+          status: editIdx !== null ? 'idle' as const : ss.status,
+          thinking: editIdx !== null ? false : ss.thinking,
+          thinkingStart: editIdx !== null ? null : ss.thinkingStart,
+        };
+      });
+      return { ...s, chatSessions, chatInput: '', ...deriveLegacy(chatSessions) };
     });
 
     // Reset session when editing so next response starts fresh
-    if (editIdx !== null) {
+    if (editIdx !== null && sid === DEFAULT_SESSION) {
       hasActiveSession.current = false;
     }
 
@@ -715,17 +836,17 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         const tools = tool
           ? s.tools.map(t => t.id === tool.id ? { ...t, configured: 'ready' as const } : t)
           : s.tools;
-        return {
-          ...s,
-          tools,
-          chatMessages: [...s.chatMessages, {
-            id: uid(), role: 'system',
-            content: tool
-              ? `Stored ${envName} for ${tool.name}. Adding to dotfiles repo. ${tool.name} is now ready.`
-              : `Stored ${envName}. Adding to dotfiles repo.`,
-            timestamp: Date.now(),
-          }],
+        const sysMsg: ChatMessage = {
+          id: uid(), role: 'system',
+          content: tool
+            ? `Stored ${envName} for ${tool.name}. Adding to dotfiles repo. ${tool.name} is now ready.`
+            : `Stored ${envName}. Adding to dotfiles repo.`,
+          timestamp: Date.now(),
         };
+        const chatSessions = updateSession(s.chatSessions, sid, ss => ({
+          ...ss, messages: [...ss.messages, sysMsg],
+        }));
+        return { ...s, tools, chatSessions, ...deriveLegacy(chatSessions) };
       });
       return;
     }
@@ -733,94 +854,135 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     // Everything else → send through bridge WebSocket as a Claude session
     const send = wsSendRef.current;
     if (!send) {
-      setState(s => ({
-        ...s,
-        chatMessages: [...s.chatMessages, {
-          id: uid(), role: 'system',
-          content: 'Bridge not connected. Waiting for connection...',
-          timestamp: Date.now(),
-        }],
-      }));
+      setState(s => {
+        const sysMsg: ChatMessage = { id: uid(), role: 'system', content: 'Bridge not connected. Waiting for connection...', timestamp: Date.now() };
+        const chatSessions = updateSession(s.chatSessions, sid, ss => ({
+          ...ss, messages: [...ss.messages, sysMsg],
+        }));
+        return { ...s, chatSessions, ...deriveLegacy(chatSessions) };
+      });
       return;
     }
 
     // Message interruption: if agent is mid-response, interrupt and re-inject
-    const currentStatus = state.chatStatus;
+    const sessionChat = state.chatSessions[sid];
+    const currentStatus = sessionChat?.status;
     if (currentStatus === 'thinking' || currentStatus === 'streaming') {
-      // Interrupt current generation
-      send({ type: 'interrupt', sessionId: 'session-0' });
+      send({ type: 'interrupt', sessionId: sid });
 
-      // Add system indicator
-      setState(s => ({
-        ...s,
-        chatMessages: [...s.chatMessages, {
-          id: uid(), role: 'system',
-          content: 'Incorporating your message...',
-          timestamp: Date.now(),
-        }],
-      }));
+      const sysMsg: ChatMessage = { id: uid(), role: 'system', content: 'Incorporating your message...', timestamp: Date.now() };
+      setState(s => {
+        const chatSessions = updateSession(s.chatSessions, sid, ss => ({
+          ...ss, messages: [...ss.messages, sysMsg],
+        }));
+        return { ...s, chatSessions, ...deriveLegacy(chatSessions) };
+      });
 
-      // Re-send with injected context after brief delay for interrupt to land
       setTimeout(() => {
         send({
           type: 'follow_up',
           prompt: `[User interrupted with additional context: ${trimmed}]\n\nPlease incorporate the above into your response and continue.`,
-          sessionId: 'session-0',
+          sessionId: sid,
         });
       }, 300);
 
-      setState(s => ({ ...s, chatThinking: true, chatStatus: 'thinking', chatThinkingStart: Date.now() }));
+      setState(s => {
+        const chatSessions = updateSession(s.chatSessions, sid, ss => ({
+          ...ss, thinking: true, status: 'thinking', thinkingStart: Date.now(),
+        }));
+        return { ...s, chatSessions, ...deriveLegacy(chatSessions) };
+      });
       return;
     }
 
-    setState(s => ({ ...s, chatThinking: true, chatStatus: 'thinking', chatThinkingStart: Date.now() }));
+    setState(s => {
+      const chatSessions = updateSession(s.chatSessions, sid, ss => ({
+        ...ss, thinking: true, status: 'thinking', thinkingStart: Date.now(),
+      }));
+      return { ...s, chatSessions, ...deriveLegacy(chatSessions) };
+    });
 
-    if (!hasActiveSession.current) {
-      // Start a new Claude session
-      send({ type: 'start', prompt: trimmed, cwd: '/workspaces/janus-ia', sessionId: 'session-0' });
-      hasActiveSession.current = true;
+    const isMainSession = sid === DEFAULT_SESSION;
+    const isActive = isMainSession ? hasActiveSession.current : activeSessionIds.current.has(sid);
+
+    if (!isActive) {
+      // Include sibling context for forked sessions
+      let enrichedPrompt = trimmed;
+      if (!isMainSession && sessionChat?.siblingUpdates?.length) {
+        const siblingContext = sessionChat.siblingUpdates
+          .slice(0, 3)
+          .map(u => `[Sibling ${u.sessionId}: ${u.summary}]`)
+          .join('\n');
+        enrichedPrompt = `[Context from sibling sessions]\n${siblingContext}\n[End sibling context]\n\n${trimmed}`;
+      }
+      send({ type: 'start', prompt: enrichedPrompt, cwd: '/workspaces/janus-ia', sessionId: sid });
+      if (isMainSession) hasActiveSession.current = true;
+      else activeSessionIds.current.add(sid);
     } else {
-      // Follow up on existing session
-      send({ type: 'follow_up', prompt: trimmed, sessionId: 'session-0' });
+      send({ type: 'follow_up', prompt: trimmed, sessionId: sid });
     }
-  }, []);
+  }, [state.chatSessions]);
 
-  const stopResponse = useCallback(() => {
+  const stopResponse = useCallback((sessionId: string = DEFAULT_SESSION) => {
     const send = wsSendRef.current;
     if (send) {
-      send({ type: 'interrupt', sessionId: 'session-0' });
+      send({ type: 'interrupt', sessionId });
     }
-    hasActiveSession.current = false;
-    setState(s => ({
-      ...s,
-      chatThinking: false,
-      chatStatus: 'idle',
-      chatThinkingStart: null,
-      chatMessages: [...s.chatMessages, { id: uid(), role: 'system', content: 'Response stopped.', timestamp: Date.now() }],
-    }));
+    if (sessionId === DEFAULT_SESSION) hasActiveSession.current = false;
+    else activeSessionIds.current.delete(sessionId);
+
+    const sysMsg: ChatMessage = { id: uid(), role: 'system', content: 'Response stopped.', timestamp: Date.now() };
+    setState(s => {
+      const chatSessions = updateSession(s.chatSessions, sessionId, ss => ({
+        ...ss, thinking: false, status: 'idle', thinkingStart: null,
+        messages: [...ss.messages, sysMsg],
+      }));
+      return { ...s, chatSessions, ...deriveLegacy(chatSessions) };
+    });
   }, []);
 
   // Track which message is being edited — truncation happens on send, not on click
   const editingFromIdx = useRef<number | null>(null);
 
-  const editMessage = useCallback((messageId: string): string | null => {
+  const editMessage = useCallback((messageId: string, sessionId: string = DEFAULT_SESSION): string | null => {
     let editContent: string | null = null;
     setState(s => {
-      const idx = s.chatMessages.findIndex(m => m.id === messageId);
-      if (idx < 0 || s.chatMessages[idx].role !== 'user') return s;
-      editContent = s.chatMessages[idx].content;
+      const session = getOrCreate(s.chatSessions, sessionId);
+      const idx = session.messages.findIndex(m => m.id === messageId);
+      if (idx < 0 || session.messages[idx].role !== 'user') return s;
+      editContent = session.messages[idx].content;
       editingFromIdx.current = idx;
       return s; // Don't mutate yet — wait for submit
     });
     return editContent;
   }, []);
 
+  const getSessionChat = useCallback((sessionId: string): SessionChatState => {
+    return state.chatSessions[sessionId] || emptySessionChat();
+  }, [state.chatSessions]);
+
   const forkChat = useCallback((parentSessionId: string, label: string): string => {
     const newSessionId = `session-${Date.now()}`;
     const send = wsSendRef.current;
 
-    // Copy current messages as fork context
-    const forkMessageIndex = state.chatMessages.length;
+    // Copy parent messages as fork context
+    const parentSession = state.chatSessions[parentSessionId] || emptySessionChat();
+    const forkMessageIndex = parentSession.messages.length;
+
+    // Initialize the new session with a copy of parent messages + system note
+    const forkNote: ChatMessage = {
+      id: uid(), role: 'system',
+      content: `Forked from ${parentSessionId} as "${label}". This session shares context but runs independently.`,
+      timestamp: Date.now(),
+    };
+
+    setState(s => {
+      const chatSessions = {
+        ...s.chatSessions,
+        [newSessionId]: emptySessionChat([...parentSession.messages, forkNote]),
+      };
+      return { ...s, chatSessions };
+    });
 
     if (send) {
       send({
@@ -834,13 +996,13 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
 
     // Dispatch custom event so WindowShell can create the window
     window.dispatchEvent(new CustomEvent('venture-os:fork-chat', {
-      detail: { sessionId: newSessionId, parentSessionId, label, depth: 1, messages: [...state.chatMessages] },
+      detail: { sessionId: newSessionId, parentSessionId, label, depth: 1, messages: [...parentSession.messages] },
     }));
 
     return newSessionId;
-  }, [state.chatMessages]);
+  }, [state.chatSessions]);
 
-  const actions: DashboardActions = { selectProject, selectBrainNode, setCenterView, toggleCommandPalette, toggleScoreboard, sendChatMessage, stopResponse, editMessage, dismissNotification, addTerminalLine, setActiveDocument, setRightPanelTab, forkChat };
+  const actions: DashboardActions = { selectProject, selectBrainNode, setCenterView, toggleCommandPalette, toggleScoreboard, sendChatMessage, stopResponse, editMessage, getSessionChat, dismissNotification, addTerminalLine, setActiveDocument, setRightPanelTab, forkChat };
 
   return (
     <DashboardContext.Provider value={{ ...state, ...actions, _handleBridgeMessage: handleBridgeMessage, _registerWsSend: registerWsSend } as any}>

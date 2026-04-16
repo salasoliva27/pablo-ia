@@ -30,7 +30,11 @@
 - **RLS performance**: `auth.uid()` in policies re-evaluates per row. Use `(select auth.uid())` to evaluate once as subquery. Fixed 4 policies across eb_ and nutria_ tables.
 - **npm audit**: `mcp-servers/memory/` had 3 vulnerabilities (hono, path-to-regexp). Fixed with `npm audit fix`.
 - **Dependabot**: Was DISABLED on all 6 repos. Enabled alerts + auto-fix PRs across portfolio.
-- **Memory MCP**: Path in `.mcp.json` still references `/workspaces/janus-ia/` — needs manual fix to `/workspaces/venture-os/`.
+- **Memory MCP v2**: Rebuilt 2026-04-16 with 6 tools (remember, recall, forget, list_memories, capture_correction, capture_session_summary) and 7 types (session, decision, learning, outcome, correction, feedback, pattern). ilike fallback when full-text search returns nothing.
+- **Obsidian vault MCP**: Path fixed 2026-04-16 to `/workspaces/janus-ia`. BUT: still partially broken — read_note/search_notes fail on existing files, list_directory crashes on symlinks. @bitbonsai/mcpvault v0.11.0 doesn't handle project repos well. **Workaround: use direct file reads/writes.** The vault IS the filesystem.
+- **Memory MCP dependencies**: node_modules not committed for `mcp-servers/memory/`. Must run `npm install` on every new Codespace. Add to Codespace postCreateCommand or document clearly.
+- **MCP disconnects are permanent per session**: If an MCP tool crashes or is killed, it disconnects from the current session and does NOT reconnect. Requires `/compact` or new session. Don't kill MCP processes mid-session.
+- **React Flow (@xyflow/react)**: Excellent for interactive procedure/workflow diagrams in React. v12+, ~50KB gzip. Built-in zoom/pan/minimap/controls. Custom node types with Handle components for edges. Used for dashboard ProcedureMap. Production bundle increased from ~418KB to ~605KB.
 - **CI**: espacio-bosques GitHub Actions Tests workflow ALL RED since Apr 7. Must investigate before demo.
 - **Skills ceiling**: 127 skills installed (36 marketing, 87 GSD, CKM, GSAP, ui-ux-pro-max, cost-mode, excalidraw). No more high-value skills found — current tooling is comprehensive.
 

@@ -6,7 +6,7 @@ import { CommandPalette } from './components/CommandPalette';
 import { PortfolioScoreboard } from './components/PortfolioScoreboard';
 import { CrossProjectFlash } from './components/CrossProjectFlash';
 import { ThemeEngine, useThemeInit } from './components/ThemeEngine';
-import { KeyVault, KeyVaultButton } from './components/KeyVault';
+import { Credentials } from './components/Credentials';
 import { LearningToast } from './components/LearningToast';
 import { DashboardProvider, useBridgeHandler, useRegisterWsSend } from './store';
 import { useWebSocket } from './hooks/useWebSocket';
@@ -44,7 +44,7 @@ function DashboardInner() {
   const handleBridgeMessage = useBridgeHandler();
   const registerWsSend = useRegisterWsSend();
   const [themeOpen, setThemeOpen] = useState(false);
-  const [vaultOpen, setVaultOpen] = useState(false);
+  const [credentialsOpen, setCredentialsOpen] = useState(false);
 
   useThemeInit();
 
@@ -76,7 +76,7 @@ function DashboardInner() {
 
   return (
     <div className="shell-outer">
-      <TopBar connectionStatus={status} onThemeToggle={() => setThemeOpen(true)} lastMessage={lastMessage} />
+      <TopBar connectionStatus={status} onThemeToggle={() => setThemeOpen(true)} lastMessage={lastMessage} onCredentials={() => setCredentialsOpen(true)} />
       <div className="shell-panels">
         <WindowManagerProvider>
           <WindowShell />
@@ -86,8 +86,7 @@ function DashboardInner() {
       <PortfolioScoreboard />
       <CrossProjectFlash />
       {themeOpen && <ThemeEngine onClose={() => setThemeOpen(false)} />}
-      {vaultOpen && <KeyVault onClose={() => setVaultOpen(false)} />}
-      <KeyVaultButton onClick={() => setVaultOpen(true)} />
+      {credentialsOpen && <Credentials onClose={() => setCredentialsOpen(false)} />}
       <LearningToast />
       <ReloadBanner />
     </div>

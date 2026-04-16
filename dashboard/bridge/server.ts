@@ -169,6 +169,213 @@ export function startServer(port: number): Promise<http.Server> {
     }
   });
 
+  // SQL Console API — execute read queries against configured data tools.
+  // Supabase: uses Management API /database/query (needs SUPABASE_ACCESS_TOKEN + SUPABASE_PROJECT_REF).
+  // Snowflake: returns a not-wired error (wiring deferred to phase 4).
+  app.post("/api/sql/execute", async (req, res) => {
+    const { tool, query } = req.body || {};
+    if (typeof query !== "string" || !query.trim()) {
+      res.status(400).json({ ok: false, error: "Missing query" });
+      return;
+    }
+    if (tool !== "supabase" && tool !== "snowflake") {
+      res.status(400).json({ ok: false, error: `Unknown tool: ${tool}` });
+      return;
+    }
+
+    if (tool === "snowflake") {
+      res.status(501).json({
+        ok: false,
+        error: "Snowflake execution not wired yet — add snowflake-sdk + SNOWFLAKE_* creds (phase 4).",
+      });
+      return;
+    }
+
+    try {
+      const token = process.env.SUPABASE_ACCESS_TOKEN;
+      const ref = process.env.SUPABASE_PROJECT_REF;
+      if (!token) {
+        res.status(400).json({ ok: false, error: "SUPABASE_ACCESS_TOKEN not set — open the Key Vault to add it." });
+        return;
+      }
+      if (!ref) {
+        res.status(400).json({ ok: false, error: "SUPABASE_PROJECT_REF not set — open the Key Vault to add it." });
+        return;
+      }
+
+      const t0 = Date.now();
+      const resp = await fetch(`https://api.supabase.com/v1/projects/${ref}/database/query`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ query }),
+      });
+      const elapsed = Date.now() - t0;
+      const text = await resp.text();
+      let body: unknown;
+      try { body = JSON.parse(text); } catch { body = text; }
+
+      if (!resp.ok) {
+        res.status(resp.status).json({ ok: false, error: body, elapsed });
+        return;
+      }
+      // Management API returns an array of rows for SELECT, or [] / empty for DDL.
+      const rows = Array.isArray(body) ? body : [];
+      const columns = rows.length > 0 ? Object.keys(rows[0] as Record<string, unknown>) : [];
+      res.json({ ok: true, rows, columns, rowCount: rows.length, elapsed });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: String(err) });
+    }
+  });
+
+  // Credentials test — validates a credential entry against its provider's API.
+  // Accepts { entryId, fields: { envVar: value } }. Values missing in the body
+  // fall back to process.env so "already set" credentials can still be tested.
+  app.post("/api/credentials/test", async (req, res) => {
+    const { entryId, fields } = (req.body || {}) as { entryId?: string; fields?: Record<string, string> };
+    if (!entryId || typeof entryId !== "string") {
+      res.status(400).json({ ok: false, error: "Missing entryId" });
+      return;
+    }
+    const resolve = (envVar: string): string | undefined => {
+      const v = fields?.[envVar];
+      if (typeof v === "string" && v.trim()) return v.trim();
+      const env = process.env[envVar];
+      return env && env.trim() ? env.trim() : undefined;
+    };
+    const missing = (names: string[]): string[] => names.filter(n => !resolve(n));
+
+    try {
+      switch (entryId) {
+        case "anthropic": {
+          const miss = missing(["ANTHROPIC_API_KEY"]);
+          if (miss.length) return void res.json({ ok: false, error: `Missing: ${miss.join(", ")}` });
+          const r = await fetch("https://api.anthropic.com/v1/models?limit=1", {
+            headers: { "x-api-key": resolve("ANTHROPIC_API_KEY")!, "anthropic-version": "2023-06-01" },
+          });
+          const body = await r.text();
+          if (!r.ok) return void res.json({ ok: false, status: r.status, error: `Anthropic /v1/models returned ${r.status}`, details: body.slice(0, 500) });
+          return void res.json({ ok: true, message: "Anthropic API key valid." });
+        }
+        case "openai": {
+          const miss = missing(["OPENAI_API_KEY"]);
+          if (miss.length) return void res.json({ ok: false, error: `Missing: ${miss.join(", ")}` });
+          const r = await fetch("https://api.openai.com/v1/models", {
+            headers: { Authorization: `Bearer ${resolve("OPENAI_API_KEY")}` },
+          });
+          const body = await r.text();
+          if (!r.ok) return void res.json({ ok: false, status: r.status, error: `OpenAI /v1/models returned ${r.status}`, details: body.slice(0, 500) });
+          return void res.json({ ok: true, message: "OpenAI API key valid." });
+        }
+        case "github": {
+          const miss = missing(["GITHUB_TOKEN"]);
+          if (miss.length) return void res.json({ ok: false, error: `Missing: ${miss.join(", ")}` });
+          const r = await fetch("https://api.github.com/user", {
+            headers: {
+              Authorization: `Bearer ${resolve("GITHUB_TOKEN")}`,
+              Accept: "application/vnd.github+json",
+              "User-Agent": "janus-credentials-test",
+            },
+          });
+          const body = await r.text();
+          if (!r.ok) return void res.json({ ok: false, status: r.status, error: `GitHub /user returned ${r.status}`, details: body.slice(0, 500) });
+          let login = "unknown";
+          try { login = (JSON.parse(body) as { login?: string }).login || "unknown"; } catch {}
+          return void res.json({ ok: true, message: `GitHub token valid (user: ${login}).` });
+        }
+        case "brave": {
+          const miss = missing(["BRAVE_API_KEY"]);
+          if (miss.length) return void res.json({ ok: false, error: `Missing: ${miss.join(", ")}` });
+          const r = await fetch("https://api.search.brave.com/res/v1/web/search?q=test&count=1", {
+            headers: { "X-Subscription-Token": resolve("BRAVE_API_KEY")!, Accept: "application/json" },
+          });
+          const body = await r.text();
+          if (!r.ok) return void res.json({ ok: false, status: r.status, error: `Brave search returned ${r.status}`, details: body.slice(0, 500) });
+          return void res.json({ ok: true, message: "Brave Search key valid." });
+        }
+        case "firecrawl": {
+          const miss = missing(["FIRECRAWL_API_KEY"]);
+          if (miss.length) return void res.json({ ok: false, error: `Missing: ${miss.join(", ")}` });
+          const r = await fetch("https://api.firecrawl.dev/v1/team/credit-usage", {
+            headers: { Authorization: `Bearer ${resolve("FIRECRAWL_API_KEY")}` },
+          });
+          const body = await r.text();
+          if (!r.ok) return void res.json({ ok: false, status: r.status, error: `Firecrawl credit check returned ${r.status}`, details: body.slice(0, 500) });
+          return void res.json({ ok: true, message: "Firecrawl key valid." });
+        }
+        case "supabase-project": {
+          const miss = missing(["SUPABASE_URL", "SUPABASE_ANON_KEY"]);
+          if (miss.length) return void res.json({ ok: false, error: `Missing: ${miss.join(", ")}` });
+          const url = resolve("SUPABASE_URL")!.replace(/\/+$/, "");
+          const anon = resolve("SUPABASE_ANON_KEY")!;
+          const r = await fetch(`${url}/rest/v1/`, {
+            headers: { apikey: anon, Authorization: `Bearer ${anon}` },
+          });
+          if (!r.ok && r.status !== 404) {
+            const body = await r.text();
+            return void res.json({ ok: false, status: r.status, error: `Supabase REST returned ${r.status}`, details: body.slice(0, 500) });
+          }
+          // Optional: service-role key — if provided, test it too via same endpoint.
+          const sr = resolve("SUPABASE_SERVICE_ROLE_KEY");
+          if (sr) {
+            const r2 = await fetch(`${url}/rest/v1/`, { headers: { apikey: sr, Authorization: `Bearer ${sr}` } });
+            if (!r2.ok && r2.status !== 404) {
+              const body2 = await r2.text();
+              return void res.json({ ok: false, status: r2.status, error: `Service role key rejected (${r2.status})`, details: body2.slice(0, 500) });
+            }
+          }
+          return void res.json({ ok: true, message: "Supabase project URL + keys valid." });
+        }
+        case "supabase-mgmt": {
+          const miss = missing(["SUPABASE_ACCESS_TOKEN", "SUPABASE_PROJECT_REF"]);
+          if (miss.length) return void res.json({ ok: false, error: `Missing: ${miss.join(", ")}` });
+          const r = await fetch(`https://api.supabase.com/v1/projects/${resolve("SUPABASE_PROJECT_REF")}`, {
+            headers: { Authorization: `Bearer ${resolve("SUPABASE_ACCESS_TOKEN")}` },
+          });
+          const body = await r.text();
+          if (!r.ok) return void res.json({ ok: false, status: r.status, error: `Supabase Management returned ${r.status}`, details: body.slice(0, 500) });
+          return void res.json({ ok: true, message: "Supabase management token + project ref valid." });
+        }
+        case "google-calendar": {
+          const miss = missing(["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REFRESH_TOKEN"]);
+          if (miss.length) return void res.json({ ok: false, error: `Missing: ${miss.join(", ")}` });
+          const r = await fetch("https://oauth2.googleapis.com/token", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: new URLSearchParams({
+              client_id: resolve("GOOGLE_CLIENT_ID")!,
+              client_secret: resolve("GOOGLE_CLIENT_SECRET")!,
+              refresh_token: resolve("GOOGLE_REFRESH_TOKEN")!,
+              grant_type: "refresh_token",
+            }),
+          });
+          const body = await r.text();
+          if (!r.ok) return void res.json({ ok: false, status: r.status, error: `Google token refresh returned ${r.status}`, details: body.slice(0, 500) });
+          return void res.json({ ok: true, message: "Google OAuth refresh token valid." });
+        }
+        case "whatsapp-send": {
+          const miss = missing(["WHATSAPP_ACCESS_TOKEN", "WHATSAPP_BUSINESS_ACCOUNT_ID"]);
+          if (miss.length) return void res.json({ ok: false, error: `Missing: ${miss.join(", ")}` });
+          const r = await fetch(`https://graph.facebook.com/v20.0/${resolve("WHATSAPP_BUSINESS_ACCOUNT_ID")}?fields=id,name`, {
+            headers: { Authorization: `Bearer ${resolve("WHATSAPP_ACCESS_TOKEN")}` },
+          });
+          const body = await r.text();
+          if (!r.ok) return void res.json({ ok: false, status: r.status, error: `Meta Graph returned ${r.status}`, details: body.slice(0, 500) });
+          return void res.json({ ok: true, message: "WhatsApp send credentials valid." });
+        }
+        default:
+          return void res.json({
+            ok: false,
+            error: `No automatic test wired for "${entryId}". Ask in chat to verify this one manually.`,
+          });
+      }
+    } catch (err) {
+      res.status(500).json({ ok: false, error: String(err) });
+    }
+  });
+
   // Hook receiver — broadcasts tool events to all WS clients
   app.post("/hooks/post-tool-use", (req, res) => {
     const { tool_name, tool_input, session_id } = req.body;

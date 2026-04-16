@@ -53,6 +53,7 @@ export interface ToolStatus {
   configured: 'ready' | 'needs-key' | 'needs-auth' | 'unknown';
   envVar?: string; // e.g. BRAVE_API_KEY
   authUrl?: string; // e.g. OAuth flow URL
+  consoleType?: 'sql'; // tools with a console open a workbench on click (e.g. supabase, snowflake)
 }
 
 export interface MemoryEntry {
@@ -106,6 +107,7 @@ export interface SessionEvent {
   id: string;
   type: 'edit' | 'commit' | 'dispatch' | 'memory' | 'tool' | 'push';
   label: string;
+  detail?: string;
   timestamp: number;
   project?: string;
 }
@@ -174,15 +176,19 @@ export interface DashboardState {
   centerView: CenterView;
   commandPaletteOpen: boolean;
   scoreboardOpen: boolean;
-  chatMessages: ChatMessage[];
+  /** Per-session chat — keyed by sessionId */
+  chatSessions: Record<string, SessionChatState>;
   chatInput: string;
-  chatThinking: boolean;
   chatAuth: string | null;
+  // Legacy compat — derived from chatSessions['session-0']
+  chatMessages: ChatMessage[];
+  chatThinking: boolean;
   chatStatus: 'idle' | 'thinking' | 'streaming' | 'done';
   chatThinkingStart: number | null;
   activeDocumentId: string | null;
   rightPanelTab: 'memory' | 'documents' | 'editor';
   agentCounts: Record<string, number>;
+  projectCounts: Record<string, number>;
 }
 
 export interface ChatMessage {
@@ -192,15 +198,26 @@ export interface ChatMessage {
   timestamp: number;
 }
 
+/** Per-session chat state — each fork gets its own message list + status */
+export interface SessionChatState {
+  messages: ChatMessage[];
+  thinking: boolean;
+  status: 'idle' | 'thinking' | 'streaming' | 'done';
+  thinkingStart: number | null;
+  /** Sibling summaries — what other forks are doing */
+  siblingUpdates: { sessionId: string; summary: string; timestamp: number }[];
+}
+
 export interface DashboardActions {
   selectProject: (id: string | null) => void;
   selectBrainNode: (id: string | null) => void;
   setCenterView: (view: CenterView) => void;
   toggleCommandPalette: () => void;
   toggleScoreboard: () => void;
-  sendChatMessage: (msg: string) => void;
-  stopResponse: () => void;
-  editMessage: (messageId: string) => string | null;
+  sendChatMessage: (msg: string, sessionId?: string) => void;
+  stopResponse: (sessionId?: string) => void;
+  editMessage: (messageId: string, sessionId?: string) => string | null;
+  getSessionChat: (sessionId: string) => SessionChatState;
   dismissNotification: (id: string) => void;
   addTerminalLine: (line: string) => void;
   setActiveDocument: (id: string | null) => void;

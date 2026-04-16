@@ -83,7 +83,7 @@ export function ProjectDrillDown() {
           <div className="drill-down__section-title">Legal Flags</div>
           <ul className="drill-down__list">
             {project.legalFlags.map(f => (
-              <li key={f} className="drill-down__list-item" style={{ color: 'oklch(0.75 0.20 85)' }}>{f}</li>
+              <li key={f} className="drill-down__list-item" style={{ color: 'var(--color-text-secondary)' }}>{f}</li>
             ))}
           </ul>
         </div>

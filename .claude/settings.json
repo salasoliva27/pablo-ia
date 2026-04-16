@@ -8,9 +8,20 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash /workspaces/venture-os/scripts/mcp-health.sh",
-            "timeout": 10,
-            "statusMessage": "Checking MCP servers..."
+            "command": "bash /workspaces/janus-ia/scripts/preflight.sh",
+            "timeout": 15,
+            "statusMessage": "Running session pre-flight..."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /workspaces/janus-ia/scripts/session-stop-gate.sh",
+            "timeout": 10
           }
         ]
       }

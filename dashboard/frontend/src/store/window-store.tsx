@@ -1,89 +1,58 @@
 import { createContext, useContext, useReducer, useEffect, type ReactNode } from 'react';
-import type { WindowState, WindowLayout, WindowAction, SlotId } from '../types/window';
-import { slotBounds } from '../types/window';
+import type { WindowState, WindowLayout, WindowAction } from '../types/window';
 
-const STORAGE_KEY = 'venture-os-window-layout-v2';
+const STORAGE_KEY = 'venture-os-window-layout-v5';
 const TOPBAR_HEIGHT = 40;
 const TASKBAR_HEIGHT = 34;
 
 function vw() { return typeof window !== 'undefined' ? window.innerWidth : 1920; }
 function vh() { return typeof window !== 'undefined' ? window.innerHeight - TOPBAR_HEIGHT - TASKBAR_HEIGHT : 900; }
 
-// ── Recompute pixel bounds for all windows from slots + column/row sizes ──
-
-function recomputeBounds(layout: WindowLayout): WindowLayout {
-  const w = vw(), h = vh();
-  return {
-    ...layout,
-    windows: layout.windows.map(win => {
-      if (win.maximized) return { ...win, x: 0, y: 0, width: w, height: h };
-      if (!win.slot) return win; // safety: skip windows without slot
-      const b = slotBounds(win.slot, layout.columnWidths, layout.rowHeights, w, h);
-      return { ...win, ...b };
-    }),
-  };
-}
-
-// ── Default layout ──
+// ── Default tiled layout (looks like a grid but every window is independent) ──
 
 function defaultLayout(): WindowLayout {
-  const base: WindowLayout = {
+  const w = vw(), h = vh();
+  // 3-column, 2-row tiling as starting positions
+  const c0 = Math.round(w * 0.22);
+  const c1 = Math.round(w * 0.48);
+  const c2 = w - c0 - c1;
+  const r0 = Math.round(h * 0.65);
+  const r1 = h - r0;
+
+  return {
     nextZIndex: 10,
-    borderLocked: true,
-    columnWidths: [0.22, 0.48, 0.30],
-    rowHeights: [0.65, 0.35],
     windows: [
-      { id: 'win-chat', title: 'Chat', type: 'chat', slot: 'left-top' as SlotId,
-        x: 0, y: 0, width: 0, height: 0, minWidth: 200, minHeight: 150,
-        zIndex: 4, minimized: false, maximized: false, visible: true, closable: false, sessionId: 'session-0' },
-      { id: 'win-center', title: 'System', type: 'center', slot: 'center-top' as SlotId,
-        x: 0, y: 0, width: 0, height: 0, minWidth: 200, minHeight: 150,
-        zIndex: 3, minimized: false, maximized: false, visible: true, closable: false },
-      { id: 'win-bottom', title: 'Activity', type: 'bottom', slot: 'center-bottom' as SlotId,
-        x: 0, y: 0, width: 0, height: 0, minWidth: 200, minHeight: 100,
-        zIndex: 2, minimized: false, maximized: false, visible: true, closable: false },
-      { id: 'win-right', title: 'Context', type: 'right', slot: 'right-top' as SlotId,
-        x: 0, y: 0, width: 0, height: 0, minWidth: 200, minHeight: 150,
-        zIndex: 1, minimized: false, maximized: false, visible: true, closable: false },
+      { id: 'win-chat', title: 'Chat', type: 'chat',
+        x: 0, y: 0, width: c0, height: h,
+        minWidth: 200, minHeight: 150,
+        zIndex: 4, minimized: false, maximized: false, visible: true, closable: true, persistent: true, sessionId: 'session-0' },
+      { id: 'win-center', title: 'System', type: 'center',
+        x: c0, y: 0, width: c1, height: r0,
+        minWidth: 200, minHeight: 150,
+        zIndex: 3, minimized: false, maximized: false, visible: true, closable: true, persistent: true },
+      { id: 'win-bottom', title: 'Activity', type: 'bottom',
+        x: c0, y: r0, width: c1, height: r1,
+        minWidth: 200, minHeight: 100,
+        zIndex: 2, minimized: false, maximized: false, visible: true, closable: true, persistent: true },
+      { id: 'win-right', title: 'Context', type: 'right',
+        x: c0 + c1, y: 0, width: c2, height: h,
+        minWidth: 200, minHeight: 150,
+        zIndex: 1, minimized: false, maximized: false, visible: true, closable: true, persistent: true },
     ],
   };
-  return recomputeBounds(base);
 }
 
 // ── Reducer ──
 
 function windowReducer(state: WindowLayout, action: WindowAction): WindowLayout {
   switch (action.type) {
-    case 'SNAP': {
-      // Move window to a slot. If slot is occupied, do nothing (use TAKEOVER instead).
-      const occupant = state.windows.find(w => w.slot === action.slot && w.id !== action.id && !w.minimized);
-      if (occupant) return state;
-      const nz = state.nextZIndex + 1;
-      const updated = {
-        ...state, nextZIndex: nz,
+    case 'MOVE':
+      return {
+        ...state,
         windows: state.windows.map(w =>
-          w.id === action.id ? { ...w, slot: action.slot, maximized: false, zIndex: nz } : w
+          w.id === action.id ? { ...w, x: action.x, y: action.y } : w
         ),
       };
-      return recomputeBounds(updated);
-    }
-
-    case 'TAKEOVER': {
-      // Swap: move window to target slot, push occupant to the mover's old slot
-      const mover = state.windows.find(w => w.id === action.id);
-      if (!mover) return state;
-      const occupant = state.windows.find(w => w.slot === action.slot && w.id !== action.id && !w.minimized);
-      const nz = state.nextZIndex + 1;
-      const updated = {
-        ...state, nextZIndex: nz,
-        windows: state.windows.map(w => {
-          if (w.id === action.id) return { ...w, slot: action.slot, maximized: false, zIndex: nz };
-          if (occupant && w.id === occupant.id) return { ...w, slot: mover.slot };
-          return w;
-        }),
-      };
-      return recomputeBounds(updated);
-    }
 
     case 'RESIZE':
       return {
@@ -102,6 +71,24 @@ function windowReducer(state: WindowLayout, action: WindowAction): WindowLayout 
         ),
       };
 
+    case 'RESIZE_BATCH': {
+      const map = new Map(action.updates.map(u => [u.id, u]));
+      return {
+        ...state,
+        windows: state.windows.map(w => {
+          const u = map.get(w.id);
+          if (!u) return w;
+          return {
+            ...w,
+            x: u.x, y: u.y,
+            width: Math.max(u.width, w.minWidth),
+            height: Math.max(u.height, w.minHeight),
+            maximized: false,
+          };
+        }),
+      };
+    }
+
     case 'MINIMIZE':
       return {
         ...state,
@@ -112,41 +99,54 @@ function windowReducer(state: WindowLayout, action: WindowAction): WindowLayout 
 
     case 'RESTORE': {
       const nz = state.nextZIndex + 1;
-      const updated = {
+      return {
         ...state, nextZIndex: nz,
         windows: state.windows.map(w =>
-          w.id === action.id ? { ...w, minimized: false, zIndex: nz } : w
-        ),
-      };
-      return recomputeBounds(updated);
-    }
-
-    case 'TOGGLE_MINIMIZE': {
-      const win = state.windows.find(w => w.id === action.id);
-      if (!win) return state;
-      if (win.minimized) {
-        const nz = state.nextZIndex + 1;
-        const updated = {
-          ...state, nextZIndex: nz,
-          windows: state.windows.map(w =>
-            w.id === action.id ? { ...w, minimized: false, zIndex: nz } : w
-          ),
-        };
-        return recomputeBounds(updated);
-      }
-      return {
-        ...state,
-        windows: state.windows.map(w =>
-          w.id === action.id ? { ...w, minimized: true } : w
+          w.id === action.id ? { ...w, minimized: false, maximized: false, visible: true, zIndex: nz } : w
         ),
       };
     }
 
-    case 'CLOSE':
+    case 'MAXIMIZE': {
+      const nz = state.nextZIndex + 1;
       return {
-        ...state,
-        windows: state.windows.filter(w => w.id !== action.id || !w.closable),
+        ...state, nextZIndex: nz,
+        windows: state.windows.map(w => {
+          if (w.id !== action.id) return w;
+          if (w.maximized) {
+            // Restore to pre-max bounds
+            const b = w.preMaxBounds || { x: 50, y: 50, width: 600, height: 400 };
+            return { ...w, maximized: false, zIndex: nz, ...b, preMaxBounds: undefined };
+          }
+          return {
+            ...w, maximized: true, zIndex: nz,
+            preMaxBounds: { x: w.x, y: w.y, width: w.width, height: w.height },
+            x: 0, y: 0, width: vw(), height: vh(),
+          };
+        }),
       };
+    }
+
+    case 'FLOAT': {
+      // Restore to a centered, reasonable floating size
+      const nz = state.nextZIndex + 1;
+      const w = vw(), h = vh();
+      const floatW = Math.round(w * 0.45);
+      const floatH = Math.round(h * 0.55);
+      const idx = state.windows.findIndex(win => win.id === action.id);
+      const offsetX = Math.round((w - floatW) / 2) + (idx * 30);
+      const offsetY = Math.round((h - floatH) / 2) + (idx * 30);
+      return {
+        ...state, nextZIndex: nz,
+        windows: state.windows.map(win =>
+          win.id === action.id
+            ? { ...win, maximized: false, minimized: false, zIndex: nz,
+                x: offsetX, y: offsetY, width: floatW, height: floatH,
+                preMaxBounds: undefined }
+            : win
+        ),
+      };
+    }
 
     case 'FOCUS': {
       const nz = state.nextZIndex + 1;
@@ -158,45 +158,31 @@ function windowReducer(state: WindowLayout, action: WindowAction): WindowLayout 
       };
     }
 
-    case 'MAXIMIZE': {
-      const nz = state.nextZIndex + 1;
-      const updated = {
-        ...state, nextZIndex: nz,
-        windows: state.windows.map(w => {
-          if (w.id !== action.id) return w;
-          if (w.maximized) {
-            return { ...w, maximized: false, zIndex: nz };
-          }
-          return {
-            ...w, maximized: true, zIndex: nz,
-            preMaxBounds: { slot: w.slot },
-            x: 0, y: 0, width: vw(), height: vh(),
-          };
-        }),
+    case 'CLOSE': {
+      // Persistent windows (core 4) are hidden so the taskbar can reopen them.
+      // Non-persistent windows (forked chats, SQL consoles) are removed entirely.
+      const target = state.windows.find(w => w.id === action.id);
+      if (!target || !target.closable) return state;
+      if (target.persistent) {
+        return {
+          ...state,
+          windows: state.windows.map(w =>
+            w.id === action.id ? { ...w, visible: false, minimized: false } : w
+          ),
+        };
+      }
+      return {
+        ...state,
+        windows: state.windows.filter(w => w.id !== action.id),
       };
-      return recomputeBounds(updated);
     }
 
     case 'ADD': {
       const nz = state.nextZIndex + 1;
-      const newLayout = {
+      return {
         ...state, nextZIndex: nz,
         windows: [...state.windows, { ...action.window, zIndex: nz }],
       };
-      return recomputeBounds(newLayout);
-    }
-
-    case 'TOGGLE_BORDER_LOCK':
-      return { ...state, borderLocked: !state.borderLocked };
-
-    case 'RESIZE_COLUMNS': {
-      const updated = { ...state, columnWidths: action.columnWidths };
-      return recomputeBounds(updated);
-    }
-
-    case 'RESIZE_ROWS': {
-      const updated = { ...state, rowHeights: action.rowHeights };
-      return recomputeBounds(updated);
     }
 
     case 'RESET':
@@ -210,21 +196,19 @@ function windowReducer(state: WindowLayout, action: WindowAction): WindowLayout 
 // ── Persistence ──
 
 function loadLayout(): WindowLayout {
-  // Clear stale v1 key
-  try { localStorage.removeItem('venture-os-window-layout'); } catch { /* ignore */ }
+  // Clear all old keys
+  try {
+    localStorage.removeItem('venture-os-window-layout');
+    localStorage.removeItem('venture-os-window-layout-v2');
+    localStorage.removeItem('venture-os-window-layout-v3');
+  } catch { /* ignore */ }
 
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as WindowLayout;
-      // Validate structure: must have columnWidths, rowHeights, and all windows must have slot
-      if (
-        parsed.windows?.length > 0 &&
-        Array.isArray(parsed.columnWidths) && parsed.columnWidths.length === 3 &&
-        Array.isArray(parsed.rowHeights) && parsed.rowHeights.length === 2 &&
-        parsed.windows.every((w: any) => typeof w.slot === 'string')
-      ) {
-        return recomputeBounds(parsed);
+      if (parsed.windows?.length > 0) {
+        return parsed;
       }
     }
   } catch { /* fall through */ }
@@ -253,9 +237,9 @@ export function WindowManagerProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => { saveLayout(layout); }, [layout]);
 
-  // Recompute on window resize
+  // Recalc default positions on browser resize
   useEffect(() => {
-    const onResize = () => dispatch({ type: 'RESET' }); // simplest: reset to recalc
+    const onResize = () => dispatch({ type: 'RESET' });
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);

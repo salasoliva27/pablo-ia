@@ -134,6 +134,12 @@ Use when visualizing workflows, system architecture, or portfolio structure.
 - All 127 skills now available (36 marketing + 87 GSD + CKM + GSAP + ui-ux-pro-max)
 - `npx skills add` showed tree but didn't install — used direct `cp -r` from cloned repo instead
 
+## SESSION LOG — 2026-04-16 (system health check)
+- No skills were invoked this session despite frontend-design and feature-dev being available and relevant
+- GSD (/gsd:do) was not used for the ProcedureMap + Calendar build — should have been
+- frontend-design SKILL.md was not read before building UI components
+- **Lesson:** Skills only compound if the dispatch protocol actually runs Step 3 (LOOKUP)
+
 ## REJECTED / AVOID
 *(Populate as bad experiences accumulate)*
 

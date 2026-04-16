@@ -14,8 +14,9 @@ import { CalendarPanel } from './CalendarPanel';
 import { RightPanel } from './RightPanel';
 import { ToolPulseBar } from './ToolPulseBar';
 import { BottomPanel } from './BottomPanel';
-import { lineageColor, ALL_SLOTS } from '../types/window';
-import type { WindowState, SlotId } from '../types/window';
+import { SQLConsole } from './SQLConsole';
+import { lineageColor } from '../types/window';
+import type { WindowState } from '../types/window';
 
 function CenterContent() {
   const { centerView } = useDashboard();
@@ -58,6 +59,8 @@ function renderWindowContent(win: WindowState) {
       return <RightPanel />;
     case 'calendar':
       return <CalendarPanel />;
+    case 'sql-console':
+      return <SQLConsole tool={win.consoleTool || 'supabase'} />;
     default:
       return <div style={{ padding: 16, color: 'var(--color-text-muted)' }}>Window: {win.type}</div>;
   }
@@ -77,16 +80,17 @@ export function WindowShell() {
       const color = lineageColor(depth);
       const parentLabel = 'Main';
 
-      // Find first empty slot for the forked chat
-      const occupiedSlots = new Set(layout.windows.filter(w => !w.minimized).map(w => w.slot));
-      const emptySlot = ALL_SLOTS.find(s => !occupiedSlots.has(s)) || 'left-bottom' as SlotId;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight - 40 - 34;
 
       const newWin: WindowState = {
         id: `win-chat-${detail.sessionId}`,
         title: detail.label || `Fork`,
         type: 'chat',
-        slot: emptySlot,
-        x: 0, y: 0, width: 0, height: 0, // computed by recomputeBounds
+        x: Math.round(vw * 0.2) + (layout.windows.length * 30),
+        y: Math.round(vh * 0.1) + (layout.windows.length * 30),
+        width: Math.round(vw * 0.4),
+        height: Math.round(vh * 0.5),
         minWidth: 200,
         minHeight: 150,
         zIndex: 0,
@@ -108,8 +112,51 @@ export function WindowShell() {
     }
 
     window.addEventListener('venture-os:fork-chat', handleFork);
-    return () => window.removeEventListener('venture-os:fork-chat', handleFork);
-  }, [dispatch]);
+
+    function handleOpenSqlConsole(e: Event) {
+      const detail = (e as CustomEvent).detail as { tool?: 'supabase' | 'snowflake' };
+      const tool = detail?.tool === 'snowflake' ? 'snowflake' : 'supabase';
+      const winId = `win-sql-${tool}`;
+
+      const existing = layout.windows.find(w => w.id === winId);
+      if (existing) {
+        // Focus + restore if minimized
+        dispatch({ type: 'RESTORE', id: winId });
+        dispatch({ type: 'FOCUS', id: winId });
+        return;
+      }
+
+      const vw = window.innerWidth;
+      const vh = window.innerHeight - 40 - 34;
+      const w = Math.round(vw * 0.55);
+      const h = Math.round(vh * 0.65);
+
+      const newWin: WindowState = {
+        id: winId,
+        title: `${tool === 'supabase' ? 'Supabase' : 'Snowflake'} SQL`,
+        type: 'sql-console',
+        consoleTool: tool,
+        x: Math.round((vw - w) / 2) + (layout.windows.length * 20),
+        y: Math.round((vh - h) / 2) + (layout.windows.length * 20),
+        width: w,
+        height: h,
+        minWidth: 420,
+        minHeight: 280,
+        zIndex: 0,
+        minimized: false,
+        maximized: false,
+        visible: true,
+        closable: true,
+      };
+      dispatch({ type: 'ADD', window: newWin });
+    }
+    window.addEventListener('venture-os:open-sql-console', handleOpenSqlConsole);
+
+    return () => {
+      window.removeEventListener('venture-os:fork-chat', handleFork);
+      window.removeEventListener('venture-os:open-sql-console', handleOpenSqlConsole);
+    };
+  }, [dispatch, layout.windows]);
 
   return (
     <div className="wm-shell">

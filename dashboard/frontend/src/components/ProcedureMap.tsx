@@ -392,19 +392,13 @@ export function ProcedureMap() {
           variant={BackgroundVariant.Dots}
           gap={24}
           size={1}
-          color="rgba(95, 212, 212, 0.06)"
+          className="pm-bg"
         />
         <Controls
           showInteractive={false}
           className="pm-controls"
         />
         <MiniMap
-          nodeColor={(n) => {
-            if (n.type === 'agent') return '#5fd47a';
-            if (n.type === 'phase') return 'transparent';
-            return '#5fd4d4';
-          }}
-          maskColor="rgba(6, 5, 20, 0.85)"
           className="pm-minimap"
         />
         <Panel position="top-left" className="pm-title-panel">

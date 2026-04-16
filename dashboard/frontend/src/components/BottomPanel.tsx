@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { useDashboard } from '../store';
 import { CalendarPanel } from './CalendarPanel';
+import { SQLConsole } from './SQLConsole';
 
-type Tab = 'timeline' | 'calendar' | 'learnings' | 'terminal' | 'workspace';
+type Tab = 'timeline' | 'calendar' | 'learnings' | 'terminal' | 'workspace' | 'console';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'timeline', label: 'Timeline' },
@@ -10,6 +11,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'learnings', label: 'Learnings' },
   { id: 'terminal', label: 'Terminal' },
   { id: 'workspace', label: 'Workspace' },
+  { id: 'console', label: 'Console' },
 ];
 
 const EVENT_COLORS: Record<string, string> = {
@@ -58,13 +60,14 @@ function SessionTimeline() {
       {sessionEvents.slice(0, 50).map((ev, i) => {
         const color = EVENT_COLORS[ev.type] || '#888';
         return (
-          <div key={ev.id} className="session-timeline__card" style={{ borderLeftColor: color }}>
+          <div key={ev.id} className="session-timeline__card" style={{ borderLeftColor: color }} title={ev.detail || ev.label}>
             <div className="session-timeline__card-header">
               <span className="session-timeline__card-icon" style={{ background: color }}>{EVENT_ICONS[ev.type] || '?'}</span>
               <span className="session-timeline__card-type">{ev.type}</span>
               <span className="session-timeline__card-time">{timeAgoShort(ev.timestamp)}</span>
             </div>
             <div className="session-timeline__card-label">{ev.label}</div>
+            {ev.detail && <div className="session-timeline__card-detail">{ev.detail}</div>}
             {ev.project && <div className="session-timeline__card-project">{ev.project}</div>}
           </div>
         );
@@ -187,8 +190,8 @@ function FileHeatmap() {
             style={{
               width,
               height: Math.max(20, 16 + intensity * 24),
-              background: f.repoColor.replace(')', ` / ${0.15 + heat * 0.4})`).replace('oklch', 'oklch'),
-              backgroundColor: `rgba(255,255,255,${0.03 + intensity * 0.12})`,
+              background: f.repoColor.replace(')', ` / ${0.15 + heat * 0.4})`),
+              backgroundColor: `color-mix(in oklch, var(--color-text-primary) ${(3 + intensity * 12).toFixed(1)}%, transparent)`,
             }}
             title={`${f.repo}/${f.path}\n${f.changes} changes`}
           >
@@ -304,7 +307,7 @@ function WorkspacePreview() {
         {activePort ? (
           <iframe
             src={getPortUrl(activePort)}
-            style={{ width: '100%', height: '100%', border: 'none', background: 'white', borderRadius: 4 }}
+            style={{ width: '100%', height: '100%', border: 'none', background: 'var(--color-bg-primary)', borderRadius: 4 }}
             title={`Port ${activePort}`}
           />
         ) : (
@@ -321,6 +324,38 @@ function WorkspacePreview() {
   );
 }
 
+function ConsoleTab() {
+  const [tool, setTool] = useState<'supabase' | 'snowflake'>('supabase');
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div style={{
+        display: 'flex', gap: 4, padding: '4px 8px',
+        borderBottom: '1px solid var(--border-color)', flexShrink: 0,
+      }}>
+        {(['supabase', 'snowflake'] as const).map(t => (
+          <button
+            key={t}
+            onClick={() => setTool(t)}
+            style={{
+              background: tool === t ? 'var(--color-accent)' : 'var(--color-bg-surface)',
+              color: tool === t ? 'var(--color-bg-primary)' : 'var(--color-text-muted)',
+              border: '1px solid var(--border-color)',
+              borderRadius: 4, padding: '2px 10px', fontSize: 10,
+              fontFamily: 'var(--font-family-mono)', cursor: 'pointer',
+              textTransform: 'lowercase',
+            }}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+      <div style={{ flex: 1, minHeight: 0 }}>
+        <SQLConsole key={tool} tool={tool} />
+      </div>
+    </div>
+  );
+}
+
 export function BottomPanel() {
   const [activeTab, setActiveTab] = useState<Tab>('timeline');
 
@@ -330,6 +365,7 @@ export function BottomPanel() {
     learnings: <LearningFeed />,
     terminal: <TerminalPreview />,
     workspace: <WorkspacePreview />,
+    console: <ConsoleTab />,
   };
 
   return (

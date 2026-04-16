@@ -5,9 +5,26 @@ tags: [projects, portfolio, status]
 updated: 2026-04-13
 ---
 # PROJECTS REGISTRY
-## Last updated: 2026-04-13
+## Last updated: 2026-04-16
 
 This is the heartbeat of Janus IA. Every project is registered here. The master agent reads this at the start of every session.
+
+---
+
+## PLATFORM
+
+### janus-ia (this repo)
+- **Repo:** github.com/salasoliva27/janus-ia
+- **Type:** Orchestration platform — coordinates all venture projects
+- **Stage:** Active development
+- **Dashboard:** React 18 + Vite + Express 5 + WebSocket bridge on port 3100
+  - Center views: Projects (constellation), Brain (force graph), **Procedures (React Flow interactive map)**, Activity
+  - Bottom panel tabs: Timeline, **Calendar (Google Calendar integration)**, Learnings, Terminal, Workspace
+  - Window manager with drag/resize/minimize/maximize
+  - Real-time tool pulse from Claude session hooks
+- **MCP tools status (2026-04-16):** GitHub GOOD, Brave GOOD, Supabase GOOD, Sequential Thinking GOOD, Playwright GOOD (fragile), Memory MCP FIXED, Obsidian Vault PARTIAL, Context7 CONFIGURED
+- **Dashboard changes (2026-04-16):** Added ProcedureMap (interactive dispatch protocol visualization with React Flow), CalendarPanel (week/month views with Google Calendar API), renamed Capacity→Calendar
+- **Infrastructure fixes (2026-04-16):** Memory MCP npm install, vault MCP path fix, tools/registry.md updated with real health check data
 
 ---
 

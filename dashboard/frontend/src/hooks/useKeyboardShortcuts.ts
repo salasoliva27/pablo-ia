@@ -2,25 +2,34 @@ import { useEffect } from 'react';
 import { useWindowManager } from '../store/window-store';
 
 export function useKeyboardShortcuts() {
-  const { dispatch } = useWindowManager();
+  const { layout, dispatch } = useWindowManager();
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       const mod = e.metaKey || e.ctrlKey;
       if (!mod) return;
 
+      function toggleMinimize(id: string) {
+        const win = layout.windows.find(w => w.id === id);
+        if (win?.minimized) {
+          dispatch({ type: 'RESTORE', id });
+        } else {
+          dispatch({ type: 'MINIMIZE', id });
+        }
+      }
+
       switch (e.key) {
         case 'b':
           e.preventDefault();
-          dispatch({ type: 'TOGGLE_MINIMIZE', id: 'win-chat' });
+          toggleMinimize('win-chat');
           break;
         case 'j':
           e.preventDefault();
-          dispatch({ type: 'TOGGLE_MINIMIZE', id: 'win-bottom' });
+          toggleMinimize('win-bottom');
           break;
         case '\\':
           e.preventDefault();
-          dispatch({ type: 'TOGGLE_MINIMIZE', id: 'win-right' });
+          toggleMinimize('win-right');
           break;
         case 'k':
           e.preventDefault();
@@ -37,5 +46,5 @@ export function useKeyboardShortcuts() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [dispatch]);
+  }, [dispatch, layout.windows]);
 }

@@ -100,7 +100,16 @@ interface ChatPanelProps {
 
 export function ChatPanel({ sessionId = 'session-0', lineageLabel, lineageColor }: ChatPanelProps) {
   const dashboard = useDashboard();
-  const { chatMessages, chatThinking, chatAuth, chatStatus, chatThinkingStart, sendChatMessage, stopResponse, editMessage, forkChat } = dashboard;
+  const { chatAuth, sendChatMessage, stopResponse, editMessage, forkChat, getSessionChat } = dashboard;
+
+  // Read from this session's own chat state
+  const sessionChat = getSessionChat(sessionId);
+  const messages = sessionChat.messages;
+  const chatThinking = sessionChat.thinking;
+  const chatStatus = sessionChat.status;
+  const chatThinkingStart = sessionChat.thinkingStart;
+  const siblingUpdates = sessionChat.siblingUpdates;
+
   const [input, setInput] = useState('');
   const [hoveredMsgId, setHoveredMsgId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -108,12 +117,12 @@ export function ChatPanel({ sessionId = 'session-0', lineageLabel, lineageColor 
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatMessages]);
+  }, [messages]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!input.trim()) return;
-    sendChatMessage(input);
+    sendChatMessage(input, sessionId);
     setInput('');
   }
 
@@ -125,7 +134,7 @@ export function ChatPanel({ sessionId = 'session-0', lineageLabel, lineageColor 
   }
 
   function handleEditMessage(msgId: string) {
-    const content = editMessage(msgId);
+    const content = editMessage(msgId, sessionId);
     if (content !== null) {
       setInput(content);
       setTimeout(() => inputRef.current?.focus(), 50);
@@ -145,7 +154,8 @@ export function ChatPanel({ sessionId = 'session-0', lineageLabel, lineageColor 
     sendChatMessage(
       `Run /evolve until ${t}. Use all available session time. When a session runs out, write a handoff to .planning/evolve/handoff.md with remaining time and what was done. ` +
       `When the next session starts, read the handoff and continue from where you left off. ` +
-      `Consolidate memory, assess gaps, discover and install tools. Keep cycling until ${t}.`
+      `Consolidate memory, assess gaps, discover and install tools. Keep cycling until ${t}.`,
+      sessionId,
     );
   }
 
@@ -207,9 +217,21 @@ export function ChatPanel({ sessionId = 'session-0', lineageLabel, lineageColor 
         </div>
       </div>
 
+      {/* Sibling awareness bar */}
+      {siblingUpdates.length > 0 && (
+        <div className="chat-panel__sibling-bar">
+          {siblingUpdates.slice(0, 2).map((u, i) => (
+            <div key={i} className="chat-panel__sibling-update">
+              <span className="chat-panel__sibling-id">{u.sessionId.replace('session-', 'S')}</span>
+              <span className="chat-panel__sibling-summary">{u.summary.length > 80 ? u.summary.slice(0, 77) + '...' : u.summary}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Messages */}
       <div className="chat-panel__messages">
-        {chatMessages.map(msg => (
+        {messages.map(msg => (
           <div
             key={msg.id}
             className={`chat-panel__msg chat-panel__msg--${msg.role}`}
@@ -260,13 +282,13 @@ export function ChatPanel({ sessionId = 'session-0', lineageLabel, lineageColor 
             <button
               type="button"
               className="chat-panel__stop-btn"
-              onClick={stopResponse}
+              onClick={() => stopResponse(sessionId)}
               title="Stop response"
             >
-              <svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor">
-                <rect x="3" y="3" width="18" height="18" rx="2" />
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <rect x="6" y="6" width="12" height="12" rx="2" />
               </svg>
-              <span>stop</span>
+              <span>Stop</span>
             </button>
           )}
         </div>
@@ -287,9 +309,9 @@ export function ChatPanel({ sessionId = 'session-0', lineageLabel, lineageColor 
               disabled={!input.trim()}
               title="Send message"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="22" y1="2" x2="11" y2="13" />
-                <polygon points="22 2 15 22 11 13 2 9 22 2" />
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M5 12h14" />
+                <path d="M12 5l7 7-7 7" />
               </svg>
             </button>
           </div>

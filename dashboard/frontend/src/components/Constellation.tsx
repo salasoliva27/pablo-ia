@@ -4,7 +4,7 @@ import type { CenterView } from '../types/dashboard';
 const STAGE_ICON: Record<string, string> = { idea: '\u2727', dev: '\u2692', uat: '\u2691', prod: '\u2713' };
 
 export function Constellation() {
-  const { projects, agents, sessionEvents, selectProject, centerView, setCenterView } = useDashboard();
+  const { projects, agents, sessionEvents, selectProject, centerView, setCenterView, projectCounts } = useDashboard();
 
   // Determine which projects are currently active (agent working on them)
   const activeMap = new Map<string, { agent: string; phase: string; message: string; status: string }>();
@@ -45,6 +45,7 @@ export function Constellation() {
           {projects.map(p => {
           const active = activeMap.get(p.id);
           const isActive = !!active;
+          const count = projectCounts[p.id] || 0;
 
           return (
             <div
@@ -61,6 +62,9 @@ export function Constellation() {
                   {STAGE_ICON[p.stage] || '\u2727'}
                 </span>
                 <span className={`project-grid__health project-grid__health--${p.health}`} />
+                {count > 0 && (
+                  <span className="project-grid__count">{count}</span>
+                )}
               </div>
 
               <div className="project-grid__name">{p.displayName}</div>

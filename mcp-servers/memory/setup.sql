@@ -10,8 +10,8 @@ create table if not exists memories (
   id            uuid primary key default gen_random_uuid(),
   workspace     text not null,                          -- venture-os | lool-ai | freelance-system | espacio-bosques
   project       text,                                   -- optional sub-project name
-  type          text not null default 'session'         -- session | decision | learning | outcome
-                  check (type in ('session', 'decision', 'learning', 'outcome')),
+  type          text not null default 'learning'         -- session | decision | learning | outcome | correction | feedback | pattern
+                  check (type in ('session', 'decision', 'learning', 'outcome', 'correction', 'feedback', 'pattern')),
   content       text not null,
   metadata      jsonb not null default '{}',
   embedding     vector(512),                            -- voyage-3-lite (null until VOYAGE_API_KEY is set)

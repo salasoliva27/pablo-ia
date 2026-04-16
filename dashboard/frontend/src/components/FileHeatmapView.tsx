@@ -68,9 +68,9 @@ export function FileHeatmapView() {
             const fill = t.callCount / maxCalls;
             return (
               <div key={t.id} className={`activity-view__tool ${t.active ? 'activity-view__tool--active' : ''}`}>
-                <div className="activity-view__tool-ring" style={{ '--fill': fill, '--tool-color': t.configured === 'ready' ? 'oklch(0.72 0.18 180)' : 'oklch(0.55 0.08 60)' } as React.CSSProperties}>
+                <div className="activity-view__tool-ring" style={{ '--fill': fill, '--tool-color': t.configured === 'ready' ? 'var(--color-accent)' : 'var(--color-text-muted)' } as React.CSSProperties}>
                   <svg viewBox="0 0 36 36" className="activity-view__tool-svg">
-                    <circle cx="18" cy="18" r="15.5" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="3" />
+                    <circle cx="18" cy="18" r="15.5" fill="none" stroke="var(--border-color)" strokeWidth="3" />
                     <circle cx="18" cy="18" r="15.5" fill="none" stroke="var(--tool-color)" strokeWidth="3"
                       strokeDasharray={`${fill * 97.4} ${97.4 - fill * 97.4}`}
                       strokeDashoffset="24.35"

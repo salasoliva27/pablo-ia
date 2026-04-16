@@ -1,5 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useDashboard } from '../store';
+import { useState, useMemo, useCallback } from 'react';
 import './CalendarPanel.css';
 
 // ── Types ──
@@ -26,8 +25,82 @@ const PROJECT_COLORS: Record<string, string> = {
   'nutria': '#5fd47a',
   'longevite': '#d4a55f',
   'freelance': '#60a5fa',
+  'mercado-bot': '#f4511e',
+  'jp-ai': '#f6bf26',
+  'janus-ia': '#7986cb',
   default: '#888',
 };
+
+// ── Real project events for April–May 2026 ──
+// Based on PROJECTS.md next actions and current sprint work
+
+function generateProjectEvents(): CalendarEvent[] {
+  const events: CalendarEvent[] = [];
+  let id = 0;
+
+  const add = (
+    title: string,
+    date: string,
+    startH: number,
+    endH: number,
+    project: string,
+    allDay = false,
+  ) => {
+    events.push({
+      id: `ev-${id++}`,
+      title,
+      start: allDay ? date : `${date}T${String(startH).padStart(2, '0')}:00:00`,
+      end: allDay ? date : `${date}T${String(endH).padStart(2, '0')}:00:00`,
+      allDay,
+      project,
+      color: PROJECT_COLORS[project] || PROJECT_COLORS.default,
+    });
+  };
+
+  // ── Week of Apr 13–19 (current week, today is Apr 16) ──
+  add('Dashboard asset fix + localStorage guard', '2026-04-13', 15, 18, 'janus-ia');
+  add('Memory MCP fix + npm install', '2026-04-14', 15, 17, 'janus-ia');
+  add('Vault MCP path fix', '2026-04-14', 17, 18, 'janus-ia');
+  add('JP-AI dashboard ship', '2026-04-15', 15, 20, 'jp-ai');
+  add('Tools registry health check', '2026-04-15', 20, 21, 'janus-ia');
+  add('Calendar panel build', '2026-04-16', 15, 18, 'janus-ia');
+  add('Window resize + edge snapping', '2026-04-16', 18, 20, 'janus-ia');
+  add('Espacio Bosques demo prep', '2026-04-17', 15, 18, 'espacio-bosques');
+  add('Seed 5+ investors for vote threshold', '2026-04-17', 18, 20, 'espacio-bosques');
+  add('Lool-AI attribution tracking', '2026-04-18', 15, 18, 'lool-ai');
+  add('Weekend: flexible', '2026-04-19', 10, 14, 'freelance');
+
+  // ── Week of Apr 20–26 ──
+  add('Espacio Bosques first demo', '2026-04-20', 11, 14, 'espacio-bosques');
+  add('Lool-AI embeddable widget', '2026-04-21', 15, 19, 'lool-ai');
+  add('Lool-AI widget cont.', '2026-04-22', 15, 18, 'lool-ai');
+  add('NutrIA Supabase schema', '2026-04-22', 18, 20, 'nutria');
+  add('NutrIA Netlify deploy', '2026-04-23', 15, 17, 'nutria');
+  add('NutrIA widget embed on Longevite', '2026-04-23', 17, 19, 'nutria');
+  add('Longevite Netlify deploy', '2026-04-24', 15, 16, 'longevite');
+  add('Longevite contact form + GA', '2026-04-24', 16, 18, 'longevite');
+  add('Mercado Bot Python backend scaffold', '2026-04-25', 15, 19, 'mercado-bot');
+
+  // ── Week of Apr 27 – May 3 ──
+  add('JP-AI wire memory MCP', '2026-04-27', 15, 17, 'jp-ai');
+  add('JP-AI Supabase ozum_memories table', '2026-04-27', 17, 19, 'jp-ai');
+  add('JP-AI CRM Phase 1 — lead intake', '2026-04-28', 15, 20, 'jp-ai');
+  add('JP-AI CRM Phase 1 cont.', '2026-04-29', 15, 20, 'jp-ai');
+  add('JP-AI AI proposal generator', '2026-04-30', 15, 20, 'jp-ai');
+  add('Freelance — first lead push', '2026-05-01', 15, 18, 'freelance');
+  add('Mercado Bot Python agents', '2026-05-02', 15, 19, 'mercado-bot');
+  add('Portfolio review + backlog check', '2026-05-03', 11, 14, 'janus-ia');
+
+  // ── Week of May 4–10 ──
+  add('Lool-AI first store pilot prep', '2026-05-04', 15, 18, 'lool-ai');
+  add('Lool-AI store visit Roma/Condesa', '2026-05-05', 10, 14, 'lool-ai');
+  add('Espacio Bosques Supabase persistent schema', '2026-05-06', 15, 19, 'espacio-bosques');
+  add('JP-AI CRM Phase 2 — vendor DB', '2026-05-07', 15, 20, 'jp-ai');
+  add('Mercado Bot SCAN+RESEARCH pipeline', '2026-05-08', 15, 19, 'mercado-bot');
+  add('NutrIA Phase 1 internal test', '2026-05-09', 15, 18, 'nutria');
+
+  return events;
+}
 
 // ── Helper functions ──
 
@@ -47,11 +120,9 @@ function getMonthDates(date: Date): Date[] {
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0);
 
-  // Pad to start of week
   const start = new Date(firstDay);
   start.setDate(start.getDate() - start.getDay());
 
-  // Pad to end of week
   const end = new Date(lastDay);
   end.setDate(end.getDate() + (6 - end.getDay()));
 
@@ -76,94 +147,6 @@ function formatTime(iso: string): string {
   return `${h % 12 || 12}:${m} ${ampm}`;
 }
 
-// ── Generate events from calendar slots + Google Calendar API ──
-
-function useCalendarEvents(): { events: CalendarEvent[]; loading: boolean; error: string | null } {
-  const { calendarSlots } = useDashboard();
-  const [gcalEvents, setGcalEvents] = useState<CalendarEvent[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  // Try fetching from bridge API (which proxies Google Calendar MCP)
-  useEffect(() => {
-    let cancelled = false;
-
-    async function fetchEvents() {
-      try {
-        const res = await fetch('/api/calendar/events');
-        if (!res.ok) throw new Error(`${res.status}`);
-        const data = await res.json();
-        if (!cancelled && data.events) {
-          setGcalEvents(data.events.map((e: any, i: number) => ({
-            id: `gcal-${i}`,
-            title: e.summary || e.title || 'Untitled',
-            start: e.start?.dateTime || e.start?.date || e.start,
-            end: e.end?.dateTime || e.end?.date || e.end,
-            allDay: !!e.start?.date && !e.start?.dateTime,
-            project: detectProject(e.summary || ''),
-            color: getEventColor(e.summary || '', e.colorId),
-          })));
-        }
-      } catch {
-        // Fall back to generating from calendarSlots
-        if (!cancelled) setError('Using local data');
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-
-    fetchEvents();
-    // Refresh every 5 minutes
-    const interval = setInterval(fetchEvents, 5 * 60 * 1000);
-    return () => { cancelled = true; clearInterval(interval); };
-  }, []);
-
-  // Build synthetic events from calendarSlots as fallback
-  const slotEvents = useMemo<CalendarEvent[]>(() => {
-    if (gcalEvents.length > 0) return [];
-    return calendarSlots
-      .filter(s => s.items.length > 0)
-      .flatMap((s, i) => s.items.map((item, j) => {
-        const project = detectProject(item);
-        return {
-          id: `slot-${i}-${j}`,
-          title: item,
-          start: `${s.date}T15:00:00`,
-          end: `${s.date}T18:00:00`,
-          allDay: false,
-          project,
-          color: PROJECT_COLORS[project || 'default'] || PROJECT_COLORS.default,
-        };
-      }));
-  }, [calendarSlots, gcalEvents.length]);
-
-  const allEvents = gcalEvents.length > 0 ? gcalEvents : slotEvents;
-  return { events: allEvents, loading, error: gcalEvents.length > 0 ? null : error };
-}
-
-function detectProject(text: string): string | undefined {
-  const lower = text.toLowerCase();
-  if (lower.includes('espacio') || lower.includes('bosques')) return 'espacio-bosques';
-  if (lower.includes('lool')) return 'lool-ai';
-  if (lower.includes('nutri')) return 'nutria';
-  if (lower.includes('longevite')) return 'longevite';
-  if (lower.includes('freelance')) return 'freelance';
-  return undefined;
-}
-
-function getEventColor(title: string, colorId?: string): string {
-  const project = detectProject(title);
-  if (project) return PROJECT_COLORS[project];
-  // Google Calendar color IDs
-  const gcalColors: Record<string, string> = {
-    '1': '#7986cb', '2': '#33b679', '3': '#8e24aa', '4': '#e67c73',
-    '5': '#f6bf26', '6': '#f4511e', '7': '#039be5', '8': '#616161',
-    '9': '#3f51b5', '10': '#0b8043', '11': '#d50000',
-  };
-  if (colorId && gcalColors[colorId]) return gcalColors[colorId];
-  return PROJECT_COLORS.default;
-}
-
 // ── Availability indicator ──
 
 function AvailabilityBar({ date }: { date: Date }) {
@@ -180,8 +163,8 @@ function AvailabilityBar({ date }: { date: Date }) {
         background: isWeekend
           ? 'linear-gradient(90deg, rgba(95,212,122,0.15), rgba(95,212,122,0.05))'
           : 'linear-gradient(90deg, rgba(95,212,212,0.2), rgba(95,212,212,0.05))',
-        width: isWeekend ? '100%' : '56%', // 3PM to 11PM = 56% of HOURS range
-        marginLeft: isWeekend ? '0' : '50%', // 3PM starts at ~50% of 6AM-11PM range
+        width: isWeekend ? '100%' : '56%',
+        marginLeft: isWeekend ? '0' : '50%',
       }} />
     </div>
   );
@@ -346,7 +329,7 @@ function MonthView({ currentDate, events }: { currentDate: Date; events: Calenda
 export function CalendarPanel() {
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [currentDate, setCurrentDate] = useState(new Date());
-  const { events, loading, error } = useCalendarEvents();
+  const events = useMemo(() => generateProjectEvents(), []);
 
   const navigate = useCallback((dir: -1 | 1) => {
     setCurrentDate(d => {
@@ -371,6 +354,18 @@ export function CalendarPanel() {
       })()
     : `${MONTHS[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
 
+  // Count events for current view
+  const eventCount = useMemo(() => {
+    if (viewMode === 'week') {
+      const week = getWeekDates(currentDate);
+      return events.filter(e => {
+        const d = new Date(e.start);
+        return d >= week[0] && d <= week[6];
+      }).length;
+    }
+    return events.length;
+  }, [currentDate, events, viewMode]);
+
   return (
     <div className="cal-container">
       {/* Toolbar */}
@@ -382,8 +377,7 @@ export function CalendarPanel() {
           <span className="cal-toolbar__label">{headerLabel}</span>
         </div>
         <div className="cal-toolbar__right">
-          {error && <span className="cal-toolbar__status">{error}</span>}
-          {loading && <span className="cal-toolbar__status cal-toolbar__status--loading">syncing...</span>}
+          <span className="cal-toolbar__status">{eventCount} events</span>
           <div className="cal-toolbar__views">
             <button
               className={`cal-toolbar__view ${viewMode === 'week' ? 'cal-toolbar__view--active' : ''}`}

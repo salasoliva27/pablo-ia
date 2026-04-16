@@ -1,0 +1,10 @@
+{
+  "forwardPorts": [3100],
+  "portsAttributes": {
+    "3100": {
+      "label": "Venture OS Dashboard",
+      "onAutoForward": "openBrowser",
+      "visibility": "public"
+    }
+  }
+}

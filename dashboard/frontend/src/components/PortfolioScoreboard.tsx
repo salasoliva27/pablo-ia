@@ -54,7 +54,7 @@ export function PortfolioScoreboard() {
             {p.legalFlags.length > 0 && (
               <div className="scoreboard__metric">
                 <span className="scoreboard__metric-label">Legal</span>
-                <span style={{ color: 'oklch(0.75 0.20 85)' }}>{p.legalFlags.length} flag(s)</span>
+                <span style={{ color: 'var(--color-text-secondary)' }}>{p.legalFlags.length} flag(s)</span>
               </div>
             )}
 

@@ -66,14 +66,14 @@
     },
     "obsidian-vault": {
       "command": "npx",
-      "args": ["-y", "@bitbonsai/mcpvault@latest", "/workspaces/venture-os"],
+      "args": ["-y", "@bitbonsai/mcpvault@latest", "/workspaces/janus-ia"],
       "env": {}
     },
     "knowledge-graph": {
       "command": "npx",
       "args": ["-y", "obra-knowledge-graph"],
       "env": {
-        "KG_VAULT_PATH": "/workspaces/venture-os"
+        "KG_VAULT_PATH": "/workspaces/janus-ia"
       }
     },
     "supabase": {

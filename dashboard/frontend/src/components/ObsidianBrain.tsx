@@ -115,11 +115,21 @@ export function ObsidianBrain() {
 
     runForceStep(nodes, edges, w, h);
 
-    // Background
+    const root = document.documentElement;
+    const isLight = root.getAttribute('data-theme-tone') === 'light';
+    const cs = getComputedStyle(root);
+    const bgInset = cs.getPropertyValue('--color-bg-inset').trim() || (isLight ? '#f1eee6' : '#06050e');
+    const bgPrimary = cs.getPropertyValue('--color-bg-primary').trim() || (isLight ? '#f7f4ec' : '#120e1c');
+    const bgSurface = cs.getPropertyValue('--color-bg-surface').trim() || bgPrimary;
+    const textPrimary = cs.getPropertyValue('--color-text-primary').trim() || (isLight ? '#1a1a1a' : '#ffffff');
+    const textMuted = cs.getPropertyValue('--color-text-muted').trim() || (isLight ? '#666' : '#888');
+    const accent = cs.getPropertyValue('--color-accent').trim() || '#5fd4d4';
+
+    // Background — radial gradient using theme tokens
     const bgGrad = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w * 0.7);
-    bgGrad.addColorStop(0, 'rgba(18, 14, 28, 1)');
-    bgGrad.addColorStop(0.6, 'rgba(12, 10, 22, 1)');
-    bgGrad.addColorStop(1, 'rgba(6, 5, 14, 1)');
+    bgGrad.addColorStop(0, bgSurface);
+    bgGrad.addColorStop(0.6, bgPrimary);
+    bgGrad.addColorStop(1, bgInset);
     ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, w, h);
 
@@ -131,8 +141,10 @@ export function ObsidianBrain() {
     ctx.scale(z, z);
     ctx.translate(-w / 2, -h / 2);
 
-    // Subtle hex grid for premium feel
-    ctx.strokeStyle = 'rgba(120, 100, 200, 0.025)';
+    // Subtle hex grid — purple wash on dark, soft ink on light
+    ctx.strokeStyle = isLight
+      ? `color-mix(in srgb, ${textMuted} 18%, transparent)`
+      : 'rgba(120, 100, 200, 0.025)';
     ctx.lineWidth = 0.5;
     const hexR = 30;
     const hexW = hexR * Math.sqrt(3);
@@ -178,15 +190,21 @@ export function ObsidianBrain() {
         ctx.lineWidth = 2.5;
         ctx.stroke();
 
-        // Traveling pulse
+        // Traveling pulse — bright on dark, accent on light
         if (e.fireProgress < 1) {
           const p = e.fireProgress;
           const px = (1 - p) * (1 - p) * a.x + 2 * (1 - p) * p * mx + p * p * b.x;
           const py = (1 - p) * (1 - p) * a.y + 2 * (1 - p) * p * my + p * p * b.y;
           const pulseGrad = ctx.createRadialGradient(px, py, 0, px, py, 12);
-          pulseGrad.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
-          pulseGrad.addColorStop(0.5, 'rgba(200, 200, 255, 0.3)');
-          pulseGrad.addColorStop(1, 'rgba(200, 200, 255, 0)');
+          if (isLight) {
+            pulseGrad.addColorStop(0, `color-mix(in srgb, ${accent} 95%, transparent)`);
+            pulseGrad.addColorStop(0.5, `color-mix(in srgb, ${accent} 35%, transparent)`);
+            pulseGrad.addColorStop(1, `color-mix(in srgb, ${accent} 0%, transparent)`);
+          } else {
+            pulseGrad.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
+            pulseGrad.addColorStop(0.5, 'rgba(200, 200, 255, 0.3)');
+            pulseGrad.addColorStop(1, 'rgba(200, 200, 255, 0)');
+          }
           ctx.beginPath();
           ctx.arc(px, py, 12, 0, Math.PI * 2);
           ctx.fillStyle = pulseGrad;
@@ -199,11 +217,11 @@ export function ObsidianBrain() {
           }
         }
       } else {
-        // Normal edge — subtle gradient
+        // Normal edge — subtle, theme-aware
         ctx.beginPath();
         ctx.moveTo(a.x, a.y);
         ctx.quadraticCurveTo(mx, my, b.x, b.y);
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+        ctx.strokeStyle = isLight ? 'rgba(0, 0, 0, 0.10)' : 'rgba(255, 255, 255, 0.06)';
         ctx.lineWidth = 0.8;
         ctx.stroke();
       }
@@ -227,31 +245,36 @@ export function ObsidianBrain() {
       ctx.fill();
 
       // Main node — radial gradient for 3D effect
+      // On light themes: deepen instead of brightening so saturated bubbles read against pale bg.
+      const lift = isLight ? -25 : 60;
+      const dip = isLight ? 60 : 40;
       const nodeGrad = ctx.createRadialGradient(n.x - r * 0.25, n.y - r * 0.25, r * 0.1, n.x, n.y, r);
-      nodeGrad.addColorStop(0, `rgba(${Math.min(255, col[0] + 60)}, ${Math.min(255, col[1] + 60)}, ${Math.min(255, col[2] + 60)}, 1)`);
-      nodeGrad.addColorStop(0.7, `rgba(${col[0]}, ${col[1]}, ${col[2]}, 0.9)`);
-      nodeGrad.addColorStop(1, `rgba(${Math.max(0, col[0] - 40)}, ${Math.max(0, col[1] - 40)}, ${Math.max(0, col[2] - 40)}, 0.8)`);
+      nodeGrad.addColorStop(0, `rgba(${Math.min(255, Math.max(0, col[0] + lift))}, ${Math.min(255, Math.max(0, col[1] + lift))}, ${Math.min(255, Math.max(0, col[2] + lift))}, 1)`);
+      nodeGrad.addColorStop(0.7, `rgba(${col[0]}, ${col[1]}, ${col[2]}, ${isLight ? 1 : 0.9})`);
+      nodeGrad.addColorStop(1, `rgba(${Math.max(0, col[0] - dip)}, ${Math.max(0, col[1] - dip)}, ${Math.max(0, col[2] - dip)}, ${isLight ? 0.95 : 0.8})`);
       ctx.beginPath();
       ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
       ctx.fillStyle = nodeGrad;
-      ctx.shadowColor = `rgba(${col[0]}, ${col[1]}, ${col[2]}, 0.6)`;
+      ctx.shadowColor = `rgba(${col[0]}, ${col[1]}, ${col[2]}, ${isLight ? 0.45 : 0.6})`;
       ctx.shadowBlur = isHovered ? r * 3 : r * 1.5;
       ctx.fill();
       ctx.shadowBlur = 0;
 
-      // Specular highlight
+      // Specular highlight — softer on light themes (white-on-pale would vanish)
       const specGrad = ctx.createRadialGradient(n.x - r * 0.3, n.y - r * 0.3, 0, n.x - r * 0.3, n.y - r * 0.3, r * 0.5);
-      specGrad.addColorStop(0, 'rgba(255, 255, 255, 0.3)');
+      specGrad.addColorStop(0, isLight ? 'rgba(255, 255, 255, 0.55)' : 'rgba(255, 255, 255, 0.3)');
       specGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
       ctx.beginPath();
       ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
       ctx.fillStyle = specGrad;
       ctx.fill();
 
-      // Label
+      // Label — theme-aware text color
       const fontSize = Math.max(16, r * 1.2);
       ctx.font = `${fontSize}px JetBrains Mono, monospace`;
-      ctx.fillStyle = isHovered ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.55)';
+      ctx.fillStyle = isHovered
+        ? textPrimary
+        : `color-mix(in srgb, ${textPrimary} 60%, transparent)`;
       ctx.textAlign = 'center';
       ctx.fillText(n.label, n.x, n.y + r + fontSize + 4);
     }
@@ -269,7 +292,11 @@ export function ObsidianBrain() {
       const gy = data.y / data.count - 40;
       const col = GROUP_COLORS[group] || GROUP_COLORS.other;
       ctx.font = '18px JetBrains Mono, monospace';
-      ctx.fillStyle = `rgba(${col[0]}, ${col[1]}, ${col[2]}, 0.25)`;
+      // On light themes the saturated colors at 0.25 vanish — bump opacity and darken.
+      const labelTint = isLight
+        ? `rgba(${Math.max(0, col[0] - 80)}, ${Math.max(0, col[1] - 80)}, ${Math.max(0, col[2] - 80)}, 0.55)`
+        : `rgba(${col[0]}, ${col[1]}, ${col[2]}, 0.25)`;
+      ctx.fillStyle = labelTint;
       ctx.textAlign = 'center';
       ctx.letterSpacing = '3px';
       ctx.fillText(group.toUpperCase(), gx, gy);
@@ -362,7 +389,7 @@ export function ObsidianBrain() {
   }, []);
 
   return (
-    <div style={{ width: '100%', height: '100%', position: 'relative', background: '#060510' }}>
+    <div style={{ width: '100%', height: '100%', position: 'relative', background: 'var(--color-bg-inset)' }}>
       <canvas
         ref={canvasRef}
         style={{ width: '100%', height: '100%', display: 'block' }}
