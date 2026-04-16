@@ -17,6 +17,7 @@ function recomputeBounds(layout: WindowLayout): WindowLayout {
     ...layout,
     windows: layout.windows.map(win => {
       if (win.maximized) return { ...win, x: 0, y: 0, width: w, height: h };
+      if (!win.slot) return win; // safety: skip windows without slot
       const b = slotBounds(win.slot, layout.columnWidths, layout.rowHeights, w, h);
       return { ...win, ...b };
     }),
@@ -209,11 +210,20 @@ function windowReducer(state: WindowLayout, action: WindowAction): WindowLayout 
 // ── Persistence ──
 
 function loadLayout(): WindowLayout {
+  // Clear stale v1 key
+  try { localStorage.removeItem('venture-os-window-layout'); } catch { /* ignore */ }
+
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as WindowLayout;
-      if (parsed.windows?.length > 0 && parsed.columnWidths) {
+      // Validate structure: must have columnWidths, rowHeights, and all windows must have slot
+      if (
+        parsed.windows?.length > 0 &&
+        Array.isArray(parsed.columnWidths) && parsed.columnWidths.length === 3 &&
+        Array.isArray(parsed.rowHeights) && parsed.rowHeights.length === 2 &&
+        parsed.windows.every((w: any) => typeof w.slot === 'string')
+      ) {
         return recomputeBounds(parsed);
       }
     }
