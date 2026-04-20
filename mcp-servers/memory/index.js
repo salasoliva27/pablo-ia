@@ -19,6 +19,7 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js'
 import { createClient } from '@supabase/supabase-js'
+import neo4j from 'neo4j-driver'
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -27,6 +28,37 @@ const supabase = createClient(
 
 const VOYAGE_KEY = process.env.VOYAGE_API_KEY
 const VECTOR_DIMS = 512
+
+// Neo4j is optional — the brain graph is a projection of Supabase + vault.
+// If creds are missing, graph_query simply errors; the rest of the server
+// works normally.
+const neo4jDriver = process.env.NEO4J_URI && process.env.NEO4J_USER && process.env.NEO4J_PASSWORD
+  ? neo4j.driver(process.env.NEO4J_URI, neo4j.auth.basic(process.env.NEO4J_USER, process.env.NEO4J_PASSWORD))
+  : null
+
+// Convert Neo4j types to plain JSON (Integer → number, DateTime → ISO string, etc.)
+function neo4jValueToJson(v) {
+  if (v === null || v === undefined) return v
+  if (neo4j.isInt(v)) return v.toNumber()
+  if (neo4j.isDate?.(v) || neo4j.isDateTime?.(v) || neo4j.isLocalDateTime?.(v) ||
+      neo4j.isTime?.(v) || neo4j.isLocalTime?.(v) || neo4j.isDuration?.(v)) {
+    return v.toString()
+  }
+  if (Array.isArray(v)) return v.map(neo4jValueToJson)
+  if (typeof v === 'object') {
+    // Neo4j Node / Relationship / Path
+    if (v.labels && v.properties) {
+      return { _type: 'Node', labels: v.labels, id: neo4jValueToJson(v.identity), properties: neo4jValueToJson(v.properties) }
+    }
+    if (v.type && v.start && v.end && v.properties) {
+      return { _type: 'Rel', type: v.type, start: neo4jValueToJson(v.start), end: neo4jValueToJson(v.end), properties: neo4jValueToJson(v.properties) }
+    }
+    const out = {}
+    for (const [k, val] of Object.entries(v)) out[k] = neo4jValueToJson(val)
+    return out
+  }
+  return v
+}
 
 async function generateEmbedding(text) {
   if (!VOYAGE_KEY) return null
@@ -134,6 +166,19 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       }
     },
     {
+      name: 'graph_query',
+      description: 'Run a read-only Cypher query against the Neo4j brain graph (projection of vault + memories). Use for structural questions: "which projects are blocked by which concepts", "patterns referenced by N projects that aren\'t promoted to concepts/ yet", "learnings that contradict each other", "most-connected concept". Read-only — mutating queries (CREATE, MERGE, DELETE, SET, REMOVE) are rejected.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          cypher: { type: 'string', description: 'A read-only Cypher query. Common node labels: Project, Concept, Learning, Pattern, Session, Correction, Feedback, Decision, Agent, Module, Tag. Common edges: REFERENCES, MENTIONS, TAGGED.' },
+          params: { type: 'object', description: 'Optional parameters for the query (e.g. { project: "lool-ai" })' },
+          limit: { type: 'number', default: 50, description: 'Max rows to return (default 50, hard cap 500)' }
+        },
+        required: ['cypher']
+      }
+    },
+    {
       name: 'capture_session_summary',
       description: 'Store a comprehensive session summary. Call this at the END of every session to capture what happened.',
       inputSchema: {
@@ -177,7 +222,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params
 
   if (name === 'remember') {
-    const { content, workspace, project = null, type = 'learning', tags = [], metadata = {} } = args
+    const { content, workspace, type = 'learning', tags = [], metadata = {} } = args
+    // Never store NULL project. If caller omits it, default to the workspace name
+    // (portfolio-meta convention). Backfilled 2026-04-20 after diagnostic found
+    // 64% of rows had NULL project, degrading recall precision.
+    const project = args.project || workspace
     const embedding = await generateEmbedding(content)
     const enrichedMetadata = { ...metadata, tags }
 
@@ -190,7 +239,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     if (error) throw new Error(`Supabase insert error: ${error.message}`)
 
     const mode = embedding ? 'semantic' : 'text-search'
-    return { content: [{ type: 'text', text: `Memory stored [${mode}] [${type}]: ${data.id}` }] }
+    return { content: [{ type: 'text', text: `Memory stored [${mode}] [${type}] [${project}]: ${data.id}` }] }
   }
 
   if (name === 'recall') {
@@ -295,7 +344,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   }
 
   if (name === 'capture_correction') {
-    const { original, correction, context, workspace, project = null } = args
+    const { original, correction, context, workspace } = args
+    const project = args.project || workspace
     const content = `CORRECTION:\nOriginal behavior: ${original}\nUser said: ${correction}\nContext: ${context}\nRule: ${correction}`
     const embedding = await generateEmbedding(content)
 
@@ -313,7 +363,36 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       .single()
 
     if (error) throw new Error(`Supabase insert error: ${error.message}`)
-    return { content: [{ type: 'text', text: `Correction captured: ${data.id}\nWill apply in future sessions.` }] }
+    return { content: [{ type: 'text', text: `Correction captured [${project}]: ${data.id}\nWill apply in future sessions.` }] }
+  }
+
+  if (name === 'graph_query') {
+    if (!neo4jDriver) {
+      throw new Error('Neo4j is not configured. Set NEO4J_URI / NEO4J_USER / NEO4J_PASSWORD in the MCP server env.')
+    }
+    const { cypher, params = {}, limit = 50 } = args
+    // Enforce read-only. Reject any mutating keyword at the statement level.
+    const forbidden = /\b(CREATE|MERGE|DELETE|DETACH|SET|REMOVE|DROP|CALL\s+\{[^}]*\b(create|merge|delete|set|remove)|CALL\s+apoc\.(refactor|create|merge|do\.(when|case))|LOAD\s+CSV|USING\s+PERIODIC)\b/i
+    if (forbidden.test(cypher)) {
+      throw new Error('graph_query is read-only. Use the projector script to mutate the graph.')
+    }
+    const capped = Math.min(Math.max(1, limit), 500)
+    const session = neo4jDriver.session({ defaultAccessMode: neo4j.session.READ })
+    try {
+      // Append LIMIT if the user didn't (best-effort safety)
+      const hasLimit = /\blimit\s+\d+\s*;?\s*$/i.test(cypher.trim())
+      const finalCypher = hasLimit ? cypher : `${cypher.replace(/;\s*$/, '')}\nLIMIT ${capped}`
+      const res = await session.run(finalCypher, params)
+      const rows = res.records.map(r => {
+        const o = {}
+        r.keys.forEach(k => { o[k] = neo4jValueToJson(r.get(k)) })
+        return o
+      })
+      const summary = `${rows.length} row${rows.length === 1 ? '' : 's'}`
+      return { content: [{ type: 'text', text: `${summary}\n\n${JSON.stringify(rows, null, 2)}` }] }
+    } finally {
+      await session.close()
+    }
   }
 
   if (name === 'capture_session_summary') {
