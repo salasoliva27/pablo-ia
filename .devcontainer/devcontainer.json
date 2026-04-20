@@ -6,5 +6,29 @@
       "onAutoForward": "openBrowser",
       "visibility": "public"
     }
+  },
+  "customizations": {
+    "codespaces": {
+      "repositories": {
+        "salasoliva27/dotfiles": {
+          "permissions": {
+            "contents": "write",
+            "metadata": "read"
+          }
+        },
+        "salasoliva27/lool-ai-dev": {
+          "permissions": "write-all"
+        },
+        "salasoliva27/espacio-bosques-dev": {
+          "permissions": "write-all"
+        },
+        "salasoliva27/nutria-app-dev": {
+          "permissions": "write-all"
+        },
+        "salasoliva27/longevite-therapeutics-dev": {
+          "permissions": "write-all"
+        }
+      }
+    }
   }
 }

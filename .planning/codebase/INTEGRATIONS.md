@@ -1,5 +1,7 @@
 # External Integrations
 
+> ⚠️ **STALE — auto-generated snapshot.** Written 2026-04-13 when this repo was `venture-os`. Path references to `/workspaces/venture-os/` are wrong (repo is now `/workspaces/janus-ia/`). Table-prefix `bosques_*` was never accurate — the correct prefix is `eb_*` (see [[learnings/supabase-registry]]). The self-contradicting note on line 144 ("still references old /workspaces/janus-ia/ path — needs fix") is inverted: janus-ia IS the correct path. For current MCP status read [[tools/registry]]; for Supabase see [[learnings/supabase-registry]]. Do not quote specifics as current fact.
+
 **Analysis Date:** 2026-04-13
 
 ## APIs & External Services

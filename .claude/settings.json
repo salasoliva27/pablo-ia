@@ -33,6 +33,11 @@
             "type": "command",
             "command": "bash /workspaces/janus-ia/scripts/dispatch-reminder.sh",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash /workspaces/janus-ia/scripts/correction-reminder.sh",
+            "timeout": 5
           }
         ]
       }

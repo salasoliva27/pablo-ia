@@ -43,6 +43,15 @@ Mexico/LATAM queries return good results. Core tool for research agent.
 **Keys:** `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
 - [2026-03-30] — janus — BAD (for now): Removed from .mcp.json. `@alanse/mcp-server-google-workspace` tries to auth on every startup because OAuth tokens aren't persisted between Codespace sessions. This opens Chrome with an OAuth flow that fails (redirect_uri_mismatch). Gmail already works via `mcp__claude_ai_Gmail` integration. Re-enable only when: tokens can be persisted in dotfiles OR a service account approach is configured.
 
+### Google Drive CLI (scripts/gdrive)
+**Verdict:** GOOD — autonomous Drive control via OAuth refresh token (no browser popups after one-time auth)
+**Install:** Ships with this repo at `scripts/gdrive`. Python 3 + `requests` only.
+**Keys:** `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN` (mint via `scripts/gdrive auth` once, then persist in `salasoliva27/dotfiles/.env`)
+**Why it exists:** The `claude_ai_Google_Drive` integration MCP exposes read + create_file only — no create_folder, no delete, no move. This CLI fills the gap so any session can autonomously create/delete/move/share Drive content under `/Janus AI/`.
+**Commands:** `auth`, `ls`, `mkdir` (recursive), `mv`, `rm` (`--purge` for hard-delete), `upload`, `download`, `find`, `id`, `share`.
+**Paths:** slash-delimited, rooted at My Drive. Use `""` or `"/"` for root.
+- [2026-04-17] — janus — CREATED: Built because autonomous Drive folder management was blocked. OAuth 2.0 installed/web client flow with long-lived refresh token cached in env. Access tokens minted on-demand, cached in-process.
+
 ### Memory MCP (Supabase)
 **Verdict:** GOOD — fixed 2026-04-16, dependencies were missing
 **Install:** Custom server at mcp-servers/memory/ — run `npm install` in that dir after fresh Codespace
@@ -257,8 +266,8 @@ Zero hallucinations — only answers from what you uploaded.
 *(Populate with nuanced verdicts)*
 
 ## Vault connections
-- [[CLAUDE]] · [[learnings/mcp-registry]]
-- [[agents/core/developer]] · [[agents/core/ux]] · [[agents/core/security]]
+- [[CLAUDE]] · [[skills/registry]]
+- [[agents/core/developer]] · [[agents/core/ux]] · [[agents/core/security]] · [[agents/core/evolve]]
 
 ---
 

@@ -1,5 +1,7 @@
 # Technology Stack
 
+> ⚠️ **STALE — auto-generated snapshot.** Written 2026-04-13 when this repo was `venture-os`. All `/workspaces/venture-os/` path references should read `/workspaces/janus-ia/`. For the current dependency state of each product, read its `package.json` or [[PROJECTS]]. Do not quote specifics as current fact.
+
 **Analysis Date:** 2026-04-13
 
 ## Languages

@@ -1,5 +1,7 @@
 # Coding Conventions
 
+> ⚠️ **STALE — auto-generated snapshot.** Written 2026-04-14 when this repo was `venture-os`. Path references are stale. Conventions described (PascalCase components, camelCase utilities, kebab-case shell scripts) still hold, but verify against live source before treating as policy. For the current coding rules read [[CLAUDE]].
+
 **Analysis Date:** 2026-04-14
 
 ## Naming Patterns

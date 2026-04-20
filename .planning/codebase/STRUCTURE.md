@@ -1,5 +1,7 @@
 # Codebase Structure
 
+> ⚠️ **STALE — auto-generated snapshot.** Written 2026-04-13 when the repo root was `venture-os/`. The tree below shows the old name; actual path is `/workspaces/janus-ia/` with identical layout. For the live structure run `ls -1` at repo root or read [[PROJECTS]]. Do not quote this file's tree as current fact.
+
 **Analysis Date:** 2026-04-13
 
 ## Directory Layout

@@ -232,6 +232,12 @@ Flag if Jano is about to commit to new work.
 **Corrections:** Do any stored corrections apply to what you're about to do?
 Apply them silently. Don't repeat past mistakes.
 
+**Graph:** Run one structural query against the Neo4j brain to surface recent growth or drift. Default:
+```
+mcp__janus-memory__graph_query(cypher="MATCH (p:Project)<-[:MENTIONS]-(m) WHERE m.date >= date() - duration('P7D') RETURN p.id, count(m) AS recent_activity ORDER BY recent_activity DESC LIMIT 10")
+```
+If the request names a specific project/concept, swap in a targeted query (e.g. `MATCH (p:Project {id:"lool-ai"})<-[:MENTIONS]-(m) RETURN m.date, m.preview ORDER BY m.date DESC LIMIT 10`). The graph is the only view that sees typed structure across vault + memories — use it to catch patterns the prose misses.
+
 This synthesis runs in ~10 seconds. It is NOT optional.
 
 #### 1d — Session state
@@ -486,8 +492,38 @@ The learning database is the compounding value of this system. Never skip it.
 | Content type | Where |
 |---|---|
 | All code, configs, markdown, CSVs | GitHub (this repo or project repo) |
-| Client deliverables, shared docs | Google Drive (/VentureOS/[project-name]/) |
-| AI-generated images, videos, campaign media | Cloudflare R2 (bucket: janus-media/[project-name]/) |
+| Client deliverables, shared docs (DOCX/PDF/Slides) | Google Drive (`/Janus_AI/[project-name]/`) |
+| AI-generated images and video (review copies) | Google Drive (`/Janus_AI/_media/[project-name]/`) |
+| Public-facing media URLs (CDN delivery) | Cloudflare R2 (bucket: `janus-media/[project-name]/`) |
+| Screenshots from UX verification | local `outputs/screenshots/[project]/` (committed to git) |
+
+**Google Drive is owned by Jano (`salasoliva27@gmail.com`)** and managed non-interactively from any session via `scripts/gdrive`. Do NOT ask Jano to create folders manually — the script handles `mkdir -p`, `mv`, `rm`, `upload`, `download`, `share`. Root folder is `Janus_AI/` (underscore, not space). Existing subfolders: `espacio-bosques/`, `freelance-system/`, `jp-ai/`, `longevite/`, `lool-ai/`, `mercado-bot/`, `nutria/`, `portfolio/`, `_media/<project>/`.
+
+**CLI reference (from any session):**
+```
+scripts/gdrive mkdir  "Janus_AI/<project>/<subpath>"   # recursive
+scripts/gdrive upload <local-file> "Janus_AI/<project>/<subpath>"
+scripts/gdrive ls     "Janus_AI/<project>"
+scripts/gdrive mv     "Janus_AI/old" "Janus_AI/new"
+scripts/gdrive rm     "Janus_AI/<project>/stale.pdf"   # trashes; add --purge to hard-delete
+scripts/gdrive share  "Janus_AI/<project>/file.pdf" someone@email --role reader
+```
+
+**Agent workflow — after generating any binary artifact (PDF, DOCX, XLSX, MP4, PNG, etc.):**
+```
+scripts/gdrive-save <local-path>
+```
+This infers the project from the path (`outputs/documents/<project>/<file>` → `Janus_AI/<project>/`), uploads, and appends a row to `outputs/_drive-index/<project>.md`. The local copy stays in `outputs/` for the session (needed for subsequent reads), but binaries are gitignored — Drive is the durable store. Never commit PDFs/DOCX/XLSX/MP4/images to git.
+
+**Dashboard chat uploads** auto-mirror to `Janus_AI/_uploads/<YYYY-MM-DD>/` via the bridge's `/api/chat/upload` handler. No manual action needed — the upload is async and non-blocking.
+
+**Naming conventions inside Drive:**
+- Documents: `[name]_V[N]_[YYYY-MM-DD].[ext]` (e.g. `intake_interview_V2_2026-04-17.pdf`)
+- Media: `[name]_V[N]_[YYYY-MM-DD].[ext]` under `_media/[project]/`
+- For videos intended for public distribution: upload to `_media/[project]/` for review AND push to R2 at `janus-media/[project]/[name]_V[N]_[YYYY-MM-DD].[ext]` for the public CDN URL.
+
+**Auth setup (one-time per Codespace lifetime):**
+`GOOGLE_REFRESH_TOKEN` must be set in dotfiles. If missing, run `scripts/gdrive auth` and follow the prompts — it mints a refresh token via OAuth and prints the line to add to `salasoliva27/dotfiles/.env`. After that, every future session reads it from env and runs without user interaction.
 
 ---
 
@@ -660,7 +696,7 @@ Before ending any session:
 
 ### Learnings I read
 - [[learnings/cross-project-map]] · [[learnings/patterns]] · [[learnings/technical]]
-- [[learnings/market]] · [[learnings/supabase-registry]] · [[learnings/mcp-registry]]
+- [[learnings/market]] · [[learnings/supabase-registry]]
 
 ### Registries
 - [[PROJECTS]] · [[wiki/index]] · [[tools/registry]] · [[PORTFOLIO-MAP]]

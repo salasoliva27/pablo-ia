@@ -1,5 +1,7 @@
 # Architecture
 
+> ⚠️ **STALE — auto-generated snapshot.** Written 2026-04-13 when this repo was named `venture-os`. Path references to `/workspaces/venture-os/` are wrong — the repo is now `/workspaces/janus-ia/` (same files, renamed). Tool names in this file use the old `mcp__janus-memory__*` prefix; the live MCP uses `mcp__memory__*`. For current state read [[CLAUDE]], [[PROJECTS]], [[learnings/cross-project-map]], [[learnings/supabase-registry]], [[tools/registry]]. This file is kept as historical context; do not quote its specifics as current fact.
+
 **Analysis Date:** 2026-04-13
 
 ## Pattern Overview

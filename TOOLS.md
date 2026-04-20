@@ -6,7 +6,7 @@ make sure that tool is added to page # TOOLS REGISTRY
 
 ## PHILOSOPHY
 
-The tool and skill ecosystems grow by thousands per month. No static list stays current. This system discovers both on demand and learns from real use. **`learnings/mcp-registry.md` is the single source of truth for what actually works.**
+The tool and skill ecosystems grow by thousands per month. No static list stays current. This system discovers both on demand and learns from real use. **`tools/registry.md` is the single source of truth for MCP verdicts; `skills/registry.md` for skill verdicts.** (The older `learnings/mcp-registry.md` is a deprecated pointer since 2026-04-17 — do not read or update it.)
 
 ---
 
@@ -25,7 +25,7 @@ They compose: Sentry's code review skill defines the PR analysis workflow; the S
 When a project or session requires a capability not currently in `.mcp.json`:
 
 ### Step 1 — Check the registry
-Read `learnings/mcp-registry.md` → MCP TOOLS section:
+Read `tools/registry.md`:
 - **GOOD** → propose immediately with install command
 - **BAD** → explain why, search for alternatives
 - **UNTESTED** → proceed to Step 2
@@ -56,7 +56,7 @@ Reference data: mcpmarket.com/leaderboards (star counts) · mcpmanager.ai/blog/m
 1-3 options max, top pick with reasoning, exact install command, env var needed. Never add to `.mcp.json` without confirmation.
 
 ### Step 6 — Write feedback
-After using any new MCP this session: one entry in `learnings/mcp-registry.md` before ending. Mandatory.
+After using any new MCP this session: one entry in `tools/registry.md` before ending. Mandatory.
 
 ---
 
@@ -103,7 +103,7 @@ curl -sL [raw-url-to-SKILL.md] -o ~/.claude/skills/[skill-name]/SKILL.md
 Invoke with `/skill-name` or describe the task for auto-load.
 
 ### Step 6 — Write feedback
-Same format as MCP feedback, under Skills section in `learnings/mcp-registry.md`.
+Same format as MCP feedback, in `skills/registry.md`.
 
 ---
 
@@ -200,9 +200,9 @@ npx remotion render        # renders to out/ locally
 ```
 Code, markdown, CSV, configs → GitHub (project repo)
 Research docs, proposals → GitHub (/validation or /gtm)
-Client deliverables, PDFs → Google Drive /VentureOS/[project]/
-Campaign media, AI images/video → Cloudflare R2 /janus-media/[project]/
-Large video files → Google Drive /VentureOS/[project]/media/
+Client deliverables, PDFs → Google Drive "/Janus_AI/[project]/"  (via scripts/gdrive)
+AI-generated images/video (review) → Google Drive "/Janus_AI/_media/[project]/"
+Public-facing media (CDN URLs) → Cloudflare R2 /janus-media/[project]/
 ```
 
 ---
