@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# Janus Dashboard launcher — run from anywhere in the repo
+# Usage: ./dash
+set -e
+
+# Always load dotfiles env so the bridge has every API key (OPENAI_API_KEY,
+# GOOGLE_REFRESH_TOKEN, SNOWFLAKE_*, etc.) regardless of how this script was
+# invoked. Interactive shells already do this via .bashrc, but backgrounded /
+# detached / hook-invoked starts don't inherit it. Idempotent.
+if [ -f "$HOME/.env" ]; then
+  set -a
+  . "$HOME/.env"
+  set +a
+fi
+
+REPO="$(cd "$(dirname "$0")" && pwd)"
+DASH="$REPO/dashboard"
+PORT="${VENTURE_OS_PORT:-3100}"
+
+cd "$DASH"
+
+# Kill any stale process on the port
+pid=$(lsof -ti :$PORT 2>/dev/null || true)
+if [ -n "$pid" ]; then
+  kill $pid 2>/dev/null || true
+  echo "• killed stale process on :$PORT"
+  sleep 0.3
+fi
+
+# Install deps if missing
+if [ ! -d "node_modules" ]; then
+  echo "• installing bridge deps..."
+  npm install --silent
+fi
+if [ ! -d "frontend/node_modules" ]; then
+  echo "• installing frontend deps..."
+  (cd frontend && npm install --silent)
+fi
+
+# Rebuild frontend only if sources are newer than the built bundle
+NEEDS_BUILD=1
+if [ -d "frontend/dist/assets" ]; then
+  newest_src=$(find frontend/src frontend/index.html -type f -newer frontend/dist/index.html 2>/dev/null | head -1)
+  [ -z "$newest_src" ] && NEEDS_BUILD=0
+fi
+if [ "$NEEDS_BUILD" = "1" ]; then
+  echo "• building frontend..."
+  npm run build:frontend --silent
+else
+  echo "• frontend up to date, skipping build"
+fi
+
+# Codex CLI stores creds in ~/.codex/ — OPENAI_API_KEY in env alone is NOT
+# enough. If the key is present but codex isn't logged in, install it silently.
+if command -v codex >/dev/null 2>&1 && [ -n "${OPENAI_API_KEY:-}" ]; then
+  if ! codex login status 2>&1 | grep -q "Logged in"; then
+    echo "• installing OpenAI key into codex credential store..."
+    printf "%s" "$OPENAI_API_KEY" | codex login --with-api-key >/dev/null 2>&1 \
+      && echo "  ✓ codex logged in" \
+      || echo "  ⚠ codex login failed — codex agent may not work until you run: printenv OPENAI_API_KEY | codex login --with-api-key"
+  fi
+fi
+
+echo "• starting dashboard on http://localhost:$PORT"
+echo ""
+exec npx tsx bin/venture-os.ts
