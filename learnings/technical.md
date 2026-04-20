@@ -25,6 +25,16 @@
 - **Express 5 syntax**: Uses `app.get('/{*splat}')` for SPA fallback — different from Express 4. Must use this for any new bridge server.
 - **oklch color space**: Accent hue alone signals business domain. Hue 180=tech, 85=corporate, 145=health, 280=optical. See tokens.css in any dashboard.
 
+### Dev-environment gotchas (trip-and-fall reality)
+
+These are concrete operational snags that have bitten ≥ 1 build session. Read before debugging "why doesn't X work in dev":
+
+- **tsx watch does NOT always hot-reload route changes.** If a route returns the global 404 (`{"error":"Not found"}`) but IS defined in the source file, the running process has a stale version. Fix: `lsof -ti :<port> | xargs kill -9 && cd backend && npx tsx src/index.ts &`. Always test a known-good endpoint after restart to confirm the server actually came back. Originally bit espacio-bosques backend (memory 2b327751).
+- **Codespace port forwarding requires binding to `0.0.0.0`, not `localhost`.** This applies to Vite (`server.host: '0.0.0.0'`) AND any Express/custom bridge. Without it, ports appear "available" in the Codespace UI but return connection refused from the browser. Applies to dashboard bridge, all project dev servers, and the brain-viewer tool. Originally bit the dashboard work (memory c017fc55).
+- **GSAP `from()` + CSS `opacity: 0` = invisible content bug.** When an element has a CSS class like `.fade-in { opacity: 0 }` AND `gsap.from({opacity: 0, ...})`, GSAP animates FROM 0 TO the CSS computed value which is also 0 — so the element never appears. Fix: use `gsap.fromTo()` with explicit to-state, OR remove the CSS initial opacity and rely purely on GSAP. Originally bit Longevité landing (memory 34c2bdb7).
+- **Dashboard serves from `dist/`** — after any frontend source change you must `cd frontend && npx vite build` before the dashboard picks up the change. Serving the source dir directly will not work.
+- **MCP disconnects are permanent per session.** If an MCP tool crashes or is killed mid-session, it does NOT reconnect. Requires `/compact` or a new session. Never kill an MCP process mid-session to "free memory" — the cost is losing that tool for the rest of the conversation.
+
 ### Infrastructure findings (2026-04-15 evolve session)
 - **Supabase RLS**: `janus_memories` had NO RLS — fully exposed to PostgREST. Fixed via migration. Rule: every table gets RLS at creation time, even service-role-only tables.
 - **RLS performance**: `auth.uid()` in policies re-evaluates per row. Use `(select auth.uid())` to evaluate once as subquery. Fixed 4 policies across eb_ and nutria_ tables.

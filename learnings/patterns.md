@@ -14,6 +14,8 @@
 - [[concepts/poc-before-production]] — POC validates before persistent infra
 - [[concepts/b2b-before-b2c]] — sell to businesses first, consumers later
 - [[concepts/relationship-capital-cdmx]] — sequence GTM to avoid network overlap
+- [[concepts/protocol-enforcement]] — meta-rule: AI drift toward "ship, skip protocol" and how to resist it
+- [[concepts/consolidation-triggers]] — meta-rule: which of the 5 consolidation patterns to apply for each kind of staleness
 
 ## Projects feeding this
 - [[wiki/espacio-bosques]] · [[wiki/lool-ai]] · [[wiki/nutria]] · [[wiki/longevite]] · [[wiki/mercado-bot]] · [[wiki/jp-ai]] · [[wiki/freelance-system]]

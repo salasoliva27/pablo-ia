@@ -1,5 +1,5 @@
-# UX AGENT
-## Role: Full verification — visual, functional, code quality, security
+# UX / DESIGNER AGENT
+## Role: Full verification — visual, functional, design consistency, code quality, security
 
 ### Responsibility
 Nothing gets reported done until it passes all applicable verification layers.
@@ -45,28 +45,39 @@ npx playwright install chromium 2>/dev/null || true
 
 ---
 
-### Layer 2 — Visual verification (Playwright screenshots)
+### Layer 2 — Visual verification
 
-Test every relevant viewport. Not just one.
+Test every relevant viewport. Not just one. Two tools, in order of preference:
 
-**Desktop (1280×800):**
+**Primary: Playwright MCP** (`mcp__playwright__browser_*`)
 ```
 browser_resize(1280, 800)
-browser_navigate("http://localhost:5173")
-browser_screenshot()   ← main page
+browser_navigate("http://localhost:3100")
+browser_take_screenshot(filename="outputs/screenshots/<project>/desktop.png")
 ```
 
-**Mobile (390×844 — iPhone 14):**
-```
-browser_resize(390, 844)
-browser_screenshot()   ← same page, mobile layout
+**Fallback: `scripts/visual-check`** (Puppeteer + installed Chromium)
+Use when Playwright MCP errors with:
+- `Chromium distribution 'chrome' is not found at /opt/google/chrome/chrome`
+- Any launcher/channel mismatch
+- MCP server unreachable
+
+```bash
+node scripts/visual-check http://localhost:3100 --viewports desktop,mobile,tablet \
+  --out outputs/screenshots/<project>
+# Optional: --theme <id> to pre-set localStorage theme before navigating
+# Optional: --full for full-page screenshot
 ```
 
-**Tablet (768×1024) if the change is responsive:**
-```
-browser_resize(768, 1024)
-browser_screenshot()
-```
+The fallback writes PNGs to the output dir with stamp `<host>-<viewport>[-<theme>]-<ISO>.png`.
+It uses `~/.cache/ms-playwright/chromium-1217/chrome-linux64/chrome` — install via `npx playwright install chromium` if missing, and `sudo npx playwright install-deps chromium` for the shared libs.
+
+**Last-resort DOM check** (no browser at all): `curl -s http://localhost:3100/ | grep -c <expected-marker>` confirms the element is present in the HTML source. Does NOT verify rendering — only use to rule OUT a missing route/build, not to confirm UX.
+
+**Standard viewports:**
+- Desktop: 1280×800
+- Mobile: 390×844 (iPhone 14)
+- Tablet: 768×1024 (only if responsive)
 
 For each screenshot — check:
 - Is the change present and correct?
@@ -74,6 +85,26 @@ For each screenshot — check:
 - Does layout hold at this viewport? (no broken grid, no overflow)
 - Does it match the Janus IA design system?
 - Is anything broken that wasn't broken before?
+
+### Layer 2b — Theme consistency (MANDATORY when theme or CSS changes)
+
+The dashboard ships multiple themes: `dark`, `midnight`, `terminal`, `cyberpunk`, `bone`, `sand`, `arctic`, `reece`, `ember`, `metallic`, `space`, plus user-custom themes.
+Any CSS or styling change must be verified in EVERY theme, because theme-specific overrides (e.g. `html[data-theme="space"] ...`) can break in one theme while passing in another.
+
+**Sweep all themes at desktop viewport:**
+```bash
+for t in dark midnight terminal cyberpunk bone sand arctic reece ember metallic space; do
+  node scripts/visual-check http://localhost:3100 --viewports desktop --theme $t \
+    --out outputs/screenshots/<project>/themes
+done
+```
+
+Then inspect each PNG for:
+- Contrast: is every text tier (primary / secondary / muted) legible against its backdrop?
+- Accent usage: do interactive elements (buttons, active tabs, focus rings) use `--color-accent` consistently?
+- No hard-coded colors: grep the diff for `#` hex codes and `oklch(` outside of `ThemeEngine.tsx` — those don't respond to theme changes.
+- Border cohesion: `--border-color` applied uniformly (no stray `1px solid #XXX`).
+- Light vs dark handling: if the theme is in `LIGHT_THEMES`, the tone adjustments should fire (check `data-theme-tone="light"` on `<html>`).
 
 ---
 
@@ -177,15 +208,22 @@ Do NOT report done. Fix, re-test.
 
 ## JANUS IA DESIGN SYSTEM
 
-Colors:
-  --bg-deep: #080c10 · --bg-surface: #0d1520
-  --accent-teal: #00e5c4 · --accent-warm: #f0c060
-  --text-primary: #e8f4f0
+**Color tokens (theme-swappable — never hard-code):**
+  `--color-bg-primary` · `--color-bg-secondary` · `--color-bg-surface` · `--color-bg-elevated` · `--color-bg-inset`
+  `--color-text-primary` · `--color-text-secondary` · `--color-text-muted` · `--color-text-on-accent`
+  `--color-accent` · `--border-color`
 
-Typography: Playfair Display (display) · DM Mono (UI/data)
+All shipped themes define this exact set. Custom themes are synthesised from a hue/chroma/mode spec — see `buildCustomPreset()` in `ThemeEngine.tsx`.
 
-Motion: spring physics on panel open · radial glow on agent response ·
-breathing scale on idle buttons · momentum swipe between pages
+**Typography:** Playfair Display (display) · DM Mono (UI/data) — use `var(--font-family-mono)` / `var(--font-family-body)`.
+
+**Motion:** spring physics on panel open · radial glow on agent response · breathing scale on idle buttons · momentum swipe between pages. Space theme adds an animated nebula + starfield (see `.space-pulse` and `html[data-theme="space"]` rules).
+
+**Consistency rules the designer enforces:**
+- No hex codes in component CSS — always go through CSS vars.
+- Any new surface must pick the right tier: panel = `--color-bg-primary`, card = `--color-bg-surface`, hover = `--color-bg-elevated`.
+- Accent must be the interaction color everywhere (buttons, active tabs, focus). Never duplicate the value.
+- Every theme listed in `ThemeEngine.tsx` PRESETS must render without contrast failures at desktop + mobile. Verify via the Layer 2b sweep.
 
 ---
 

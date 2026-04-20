@@ -27,15 +27,15 @@ Think of it as a maintenance and upgrade cycle for the brain itself.
 **Goal:** Make existing memory and knowledge more connected and accurate.
 
 Actions:
-1. Re-read memory files in `.claude/projects/-workspaces-venture-os/memory/`
-2. Re-read vault notes via `mcp__obsidian-vault__search_notes` for cross-project patterns
+1. `mcp__memory__recall` for recent memories by theme (corrections, learnings, patterns). The memory database is authoritative — do NOT rely on files in `.claude/projects/-workspaces-janus-ia/memory/` as primary source; those are only for the per-session auto-memory index (`MEMORY.md`).
+2. Re-read vault notes via `mcp__obsidian-vault__search_notes` + `read_note` for cross-project patterns
 3. Identify:
-   - Duplicate memories that should be merged
-   - Session memories with unrecorded patterns (things that happened 2+ times)
-   - Stale memories that reference files/features that no longer exist
+   - Duplicate memories that should be merged (use `mcp__memory__forget` to delete the losers)
+   - 2+ memories describing the same root cause with different symptoms → create a concept node in `concepts/` (see iter 1 example: `protocol-enforcement`)
+   - Stale memories/notes referencing files or tool names that no longer exist (e.g., `venture-os` paths → `janus-ia`, `mcp__janus-memory__*` → `mcp__memory__*`)
    - Missing cross-links between related concepts
-4. Fix what's found: merge, update, add links, remove stale entries
-5. Update MEMORY.md index if entries changed
+4. Fix what's found: merge, update, add links, forget stale entries
+5. Update `MEMORY.md` index if entries changed
 
 **Time budget:** ~20% of cycle
 
@@ -58,8 +58,11 @@ Actions:
    - nutrIA: nutrition data / clinical tooling
    - longevite: biotech/therapeutics tooling
    - freelance-system: invoicing/project management tooling
-   - venture-os dashboard: monitoring/analytics tooling
-5. Produce a prioritized gap list (max 5 per cycle)
+   - mercado-bot: prediction market data / Python backend tooling
+   - jp-ai (Ozum): CRM / corporate events / travel ops tooling (revenue-critical)
+   - janus-ia dashboard: monitoring/analytics tooling
+5. Review [[learnings/cross-project-map]] → "Known cross-project technical debt" table — each row is a legitimate gap
+6. Produce a prioritized gap list (max 5 per cycle)
 
 **Time budget:** ~15% of cycle
 
@@ -239,8 +242,22 @@ When the time budget expires:
 ---
 
 ## Vault connections
+
+### The meta-rules this agent enforces
+- [[concepts/protocol-enforcement]] — why consolidation work has disproportionate leverage and why build sessions alone starve the learning layer
+- [[concepts/consolidation-triggers]] — how to pick among 5 consolidation approaches (concept node / learnings section / pointer / banner / rewrite / targeted patch) based on the kind of staleness detected
+
+### Authoritative references
 - [[CLAUDE]] · [[tools/registry]] · [[skills/registry]]
-- [[agents/core/research]] — shares search methodology
-- [[learnings/mcp-registry]] · [[learnings/technical]] · [[learnings/patterns]]
+- [[learnings/cross-project-map]] — read EVERY cycle for tech debt + relationship graph
+- [[learnings/supabase-registry]] · [[learnings/technical]] · [[learnings/patterns]]
+
+### Projects to serve
 - [[wiki/espacio-bosques]] · [[wiki/lool-ai]] · [[wiki/nutria]] · [[wiki/longevite]]
-- [[concepts/simulation-first-dev]] · [[concepts/test-harness-first]]
+- [[wiki/mercado-bot]] · [[wiki/jp-ai]] · [[wiki/freelance-system]]
+
+### Related agents & concepts
+- [[agents/core/research]] — shares Phase 3 search methodology
+- [[concepts/simulation-first-dev]] · [[concepts/test-harness-first]] · [[concepts/rls-by-default]]
+
+**Do not link to `learnings/mcp-registry`** — deprecated pointer only since 2026-04-17. Use `tools/registry` and `skills/registry`.
