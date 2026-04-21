@@ -2,6 +2,8 @@
 // Each adapter describes how to spawn the underlying CLI for a fresh turn or
 // a continuation, plus any env/credential requirements.
 
+import { execFileSync } from "node:child_process";
+
 export interface AgentStartSpec {
   prompt: string;
   continueId: string | null;
@@ -160,6 +162,8 @@ export interface AgentAvailability {
   id: string;
   label: string;
   envVar: string | null;
+  cli: string;
+  cliInstalled: boolean;
   available: boolean;
   authMethod: AgentAdapter["authMethod"];
   reason?: string; // only set when unavailable
@@ -167,18 +171,50 @@ export interface AgentAvailability {
   defaultModel: string;
 }
 
+// 5s cache so the chat-init handler doesn't fork `which` on every call.
+const CLI_CHECK_TTL_MS = 5_000;
+const cliPresenceCache = new Map<string, { present: boolean; checkedAt: number }>();
+
+function isCliOnPath(cli: string): boolean {
+  const cached = cliPresenceCache.get(cli);
+  const now = Date.now();
+  if (cached && now - cached.checkedAt < CLI_CHECK_TTL_MS) return cached.present;
+  let present = false;
+  try {
+    execFileSync("which", [cli], { stdio: "ignore" });
+    present = true;
+  } catch {
+    present = false;
+  }
+  cliPresenceCache.set(cli, { present, checkedAt: now });
+  return present;
+}
+
 export function listAgentAvailability(): AgentAvailability[] {
   return AGENTS.map(a => {
-    const base = { id: a.id, label: a.label, authMethod: a.authMethod, models: a.models, defaultModel: a.defaultModel };
-    if (!a.envVarRequired) {
-      return { ...base, envVar: null, available: true };
+    const cliInstalled = isCliOnPath(a.cli);
+    const envVar = a.envVarRequired ?? null;
+    const envPresent = a.envVarRequired
+      ? typeof process.env[a.envVarRequired] === "string" && process.env[a.envVarRequired]!.length > 0
+      : true;
+    const available = cliInstalled && envPresent;
+    let reason: string | undefined;
+    if (!cliInstalled) {
+      reason = `CLI '${a.cli}' not on PATH — install it to enable this adapter`;
+    } else if (!envPresent && a.envVarRequired) {
+      reason = `Missing ${a.envVarRequired}`;
     }
-    const present = typeof process.env[a.envVarRequired] === "string" && process.env[a.envVarRequired]!.length > 0;
     return {
-      ...base,
-      envVar: a.envVarRequired,
-      available: present,
-      reason: present ? undefined : `Missing ${a.envVarRequired}`,
+      id: a.id,
+      label: a.label,
+      authMethod: a.authMethod,
+      models: a.models,
+      defaultModel: a.defaultModel,
+      cli: a.cli,
+      cliInstalled,
+      envVar,
+      available,
+      reason,
     };
   });
 }

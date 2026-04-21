@@ -136,6 +136,8 @@ interface AgentInfo {
   id: string;
   label: string;
   envVar: string | null;
+  cli: string;
+  cliInstalled: boolean;
   available: boolean;
   authMethod: 'oauth' | 'api-key';
   reason?: string;
@@ -209,10 +211,14 @@ function AgentPicker({ onCredentials }: { onCredentials?: () => void }) {
                 background: a.available ? 'var(--color-accent)' : 'oklch(0.65 0.2 25)',
               }} />
               <span className="agent-picker__item-label">{a.label}</span>
-              {!a.available && a.envVar && (
+              {!a.available && (
                 <span className="agent-picker__item-missing">
-                  needs {a.envVar}
-                  {onCredentials && (
+                  {!a.cliInstalled
+                    ? `install '${a.cli}' CLI`
+                    : a.envVar
+                      ? `needs ${a.envVar}`
+                      : 'unavailable'}
+                  {a.cliInstalled && a.envVar && onCredentials && (
                     <span
                       className="agent-picker__item-connect"
                       onClick={(e) => { e.stopPropagation(); setOpen(false); onCredentials(); }}
