@@ -13,8 +13,24 @@ if [ -f "$HOME/.env" ]; then
   set +a
 fi
 
-REPO="$(cd "$(dirname "$0")" && pwd)"
-DASH="$REPO/dashboard"
+# Two-mode launcher:
+#   1) Run from janus-ia directly: ./dash            → WORKSPACE_ROOT=/workspaces/janus-ia
+#   2) Run from a wrapper in another repo: the wrapper sets JANUS_DASH_HOME to
+#      the janus-ia clone and exports WORKSPACE_ROOT=<caller's repo> before
+#      exec-ing this script. Then DASH points at janus-ia's dashboard/ but the
+#      bridge reads/writes the caller's workspace.
+#
+# When WORKSPACE_ROOT is unset (mode 1), default to the repo containing this
+# script so everything continues to work in janus-ia.
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+if [ -z "${WORKSPACE_ROOT:-}" ]; then
+  WORKSPACE_ROOT="$SCRIPT_DIR"
+fi
+export WORKSPACE_ROOT
+
+# Find the janus-ia dashboard regardless of where we were invoked from.
+DASH_HOME="${JANUS_DASH_HOME:-$SCRIPT_DIR}"
+DASH="$DASH_HOME/dashboard"
 PORT="${VENTURE_OS_PORT:-3100}"
 
 cd "$DASH"
@@ -61,6 +77,7 @@ if command -v codex >/dev/null 2>&1 && [ -n "${OPENAI_API_KEY:-}" ]; then
   fi
 fi
 
+echo "• workspace: $WORKSPACE_ROOT"
 echo "• starting dashboard on http://localhost:$PORT"
 echo ""
 exec npx tsx bin/venture-os.ts

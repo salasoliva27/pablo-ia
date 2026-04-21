@@ -288,7 +288,7 @@ function cleanSessionForPersist(s: SessionChatState): SessionChatState {
   return {
     messages: s.messages,
     thinking: false,
-    status: s.status === 'thinking' || s.status === 'streaming' || s.status === 'stalled' || s.status === 'disconnected' ? 'done' : s.status,
+    status: s.status === 'thinking' || s.status === 'streaming' || s.status === 'disconnected' ? 'done' : s.status,
     thinkingStart: null,
     lastActivityAt: null,
     inflightTokens: null,
@@ -1116,7 +1116,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
           .join('\n');
         enrichedPrompt = `[Context from sibling sessions]\n${siblingContext}\n[End sibling context]\n\n${trimmed}`;
       }
-      send({ type: 'start', prompt: enrichedPrompt, cwd: '/workspaces/janus-ia', sessionId: sid, agentId, modelId });
+      send({ type: 'start', prompt: enrichedPrompt, sessionId: sid, agentId, modelId });
       if (isMainSession) hasActiveSession.current = true;
       else activeSessionIds.current.add(sid);
     } else {
@@ -1153,7 +1153,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       const next: Record<string, SessionChatState> = {};
       let changed = false;
       for (const [sid, ss] of Object.entries(s.chatSessions)) {
-        if (ss.status === 'disconnected' || ss.status === 'stalled') {
+        if (ss.status === 'disconnected') {
           next[sid] = { ...ss, status: 'idle', lastActivityAt: Date.now() };
           changed = true;
         } else {
@@ -1163,32 +1163,6 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       if (!changed) return s;
       return { ...s, chatSessions: next, ...deriveLegacy(next) };
     });
-  }, []);
-
-  // Stall watchdog — if a session has been in thinking/streaming with no bridge
-  // traffic for STALL_THRESHOLD_MS, mark it as 'stalled' so the user can see
-  // the turn is frozen and decide whether to interrupt.
-  const STALL_THRESHOLD_MS = 90_000;
-  useEffect(() => {
-    const tick = setInterval(() => {
-      setState(s => {
-        const now = Date.now();
-        let changed = false;
-        const next: Record<string, SessionChatState> = {};
-        for (const [sid, ss] of Object.entries(s.chatSessions)) {
-          if ((ss.status === 'thinking' || ss.status === 'streaming')
-              && ss.lastActivityAt && (now - ss.lastActivityAt) > STALL_THRESHOLD_MS) {
-            next[sid] = { ...ss, status: 'stalled' };
-            changed = true;
-          } else {
-            next[sid] = ss;
-          }
-        }
-        if (!changed) return s;
-        return { ...s, chatSessions: next, ...deriveLegacy(next) };
-      });
-    }, 5_000);
-    return () => clearInterval(tick);
   }, []);
 
   const stopResponse = useCallback((sessionId: string = DEFAULT_SESSION) => {

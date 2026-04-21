@@ -14,6 +14,10 @@
 
 set -uo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+WORKSPACE="${WORKSPACE_ROOT:-$SCRIPT_DIR}"
+WORKSPACE_NAME="$(basename "$WORKSPACE")"
+
 INPUT=$(cat)
 
 # ─── Anti-loop: if we've already blocked once this turn, allow ───
@@ -60,7 +64,7 @@ TODAY=$(date -u +%Y-%m-%d)
 #   metadata=cs.{"tags":["most-recent-context"]}
 # URL-encoded: %7B%22tags%22:%5B%22most-recent-context%22%5D%7D
 ANCHOR=$(curl -s -m 5 \
-  "${SUPABASE_URL}/rest/v1/memories?select=id,created_at&metadata=cs.%7B%22tags%22:%5B%22most-recent-context%22%5D%7D&created_at=gte.${TODAY}&workspace=eq.janus-ia&limit=1" \
+  "${SUPABASE_URL}/rest/v1/memories?select=id,created_at&metadata=cs.%7B%22tags%22:%5B%22most-recent-context%22%5D%7D&created_at=gte.${TODAY}&workspace=eq.$WORKSPACE_NAME&limit=1" \
   -H "apikey: ${SUPABASE_KEY}" \
   -H "Authorization: Bearer ${SUPABASE_KEY}" 2>/dev/null || echo "[]")
 
@@ -78,7 +82,7 @@ if [ "$HAS_ANCHOR" = "True" ]; then
   # Correction fbcef958 (2026-04-16): "write learnings INLINE, not in a batch at end."
   # Without a volume check, sessions write only the handoff and skip learnings.
   COUNT_RESP=$(curl -s -m 5 \
-    "${SUPABASE_URL}/rest/v1/memories?select=id&created_at=gte.${TODAY}&workspace=eq.janus-ia" \
+    "${SUPABASE_URL}/rest/v1/memories?select=id&created_at=gte.${TODAY}&workspace=eq.$WORKSPACE_NAME" \
     -H "apikey: ${SUPABASE_KEY}" \
     -H "Authorization: Bearer ${SUPABASE_KEY}" 2>/dev/null || echo "[]")
 
@@ -95,7 +99,7 @@ except:
     cat <<EOF
 {
   "decision": "block",
-  "reason": "STOP-GATE: Only ${MEMORY_COUNT} memories written today for workspace=janus-ia. CLAUDE.md mandates min 3 per session and correction fbcef958 (2026-04-16) requires INLINE learning, not batched. Before ending this session you MUST call \`mcp__memory__remember\` at least $((3 - MEMORY_COUNT)) more time(s) capturing: a learning (surprising discovery, non-obvious bug fix, or tool verdict), a decision (architecture/business/tooling), or a pattern (repeats across 2+ projects). Write them NOW, then return control. If the session genuinely had nothing worth capturing, write a memory saying exactly that with type='session' — but that's rare."
+  "reason": "STOP-GATE: Only ${MEMORY_COUNT} memories written today for workspace=${WORKSPACE_NAME}. CLAUDE.md mandates min 3 per session and correction fbcef958 (2026-04-16) requires INLINE learning, not batched. Before ending this session you MUST call \`mcp__memory__remember\` at least $((3 - MEMORY_COUNT)) more time(s) capturing: a learning (surprising discovery, non-obvious bug fix, or tool verdict), a decision (architecture/business/tooling), or a pattern (repeats across 2+ projects). Write them NOW, then return control. If the session genuinely had nothing worth capturing, write a memory saying exactly that with type='session' — but that's rare."
 }
 EOF
     exit 0

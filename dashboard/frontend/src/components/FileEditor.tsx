@@ -14,7 +14,7 @@ interface OpenFile {
   dirty: boolean;
 }
 
-function FileTree({ currentPath, onSelect }: { currentPath: string; onSelect: (path: string, isDir: boolean) => void }) {
+function FileTree({ currentPath, workspaceRoot, onSelect }: { currentPath: string; workspaceRoot: string; onSelect: (path: string, isDir: boolean) => void }) {
   const [entries, setEntries] = useState<FileEntry[]>([]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
@@ -35,7 +35,7 @@ function FileTree({ currentPath, onSelect }: { currentPath: string; onSelect: (p
 
   return (
     <div className="file-tree">
-      {currentPath !== '/workspaces/janus-ia' && (
+      {currentPath !== workspaceRoot && (
         <div
           className="file-tree__item file-tree__item--dir"
           onClick={() => onSelect(currentPath.split('/').slice(0, -1).join('/'), true)}
@@ -97,12 +97,25 @@ function SubTree({ path, onSelect }: { path: string; onSelect: (p: string, isDir
 }
 
 export function FileEditor() {
-  const [treePath, setTreePath] = useState('/workspaces/janus-ia');
+  const [workspaceRoot, setWorkspaceRoot] = useState<string>('');
+  const [treePath, setTreePath] = useState<string>('');
   const [openFiles, setOpenFiles] = useState<OpenFile[]>([]);
   const [activeFile, setActiveFile] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    fetch('/api/workspace')
+      .then(r => r.json())
+      .then(d => {
+        if (d.root) {
+          setWorkspaceRoot(d.root);
+          setTreePath(prev => prev || d.root);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const currentFile = openFiles.find(f => f.path === activeFile);
 
@@ -198,7 +211,7 @@ export function FileEditor() {
         <div className="file-editor__sidebar-header">
           {treePath.split('/').pop()}
         </div>
-        <FileTree currentPath={treePath} onSelect={handleSelect} />
+        <FileTree currentPath={treePath} workspaceRoot={workspaceRoot} onSelect={handleSelect} />
       </div>
 
       {/* Editor area */}

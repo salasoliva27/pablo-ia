@@ -7,8 +7,13 @@
 
 set -euo pipefail
 
-WORKSPACE="/workspaces/janus-ia"
-MEMORY_DIR="$HOME/.claude/projects/-workspaces-janus-ia/memory"
+# Workspace-aware: default to this script's repo, but honor WORKSPACE_ROOT so
+# the same preflight can run in any janus-fork.
+SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+WORKSPACE="${WORKSPACE_ROOT:-$SCRIPT_DIR}"
+WORKSPACE_NAME="$(basename "$WORKSPACE")"
+CLAUDE_PROJECT_DIR="$(echo "$WORKSPACE" | sed 's|/|-|g')"
+MEMORY_DIR="$HOME/.claude/projects/$CLAUDE_PROJECT_DIR/memory"
 SUPABASE_URL="${SUPABASE_URL:-}"
 SUPABASE_KEY="${SUPABASE_SERVICE_ROLE_KEY:-}"
 
@@ -75,7 +80,7 @@ except: pass
   # The next session's primary context is a `most-recent-context` memory
   # written by the previous session. If it's missing or stale, warn loudly.
   ANCHOR_RESP=$(curl -s -m 5 \
-    "${SUPABASE_URL}/rest/v1/memories?select=id,created_at,content&metadata=cs.%7B%22tags%22:%5B%22most-recent-context%22%5D%7D&workspace=eq.janus-ia&order=created_at.desc&limit=1" \
+    "${SUPABASE_URL}/rest/v1/memories?select=id,created_at,content&metadata=cs.%7B%22tags%22:%5B%22most-recent-context%22%5D%7D&workspace=eq.$WORKSPACE_NAME&order=created_at.desc&limit=1" \
     -H "apikey: ${SUPABASE_KEY}" \
     -H "Authorization: Bearer ${SUPABASE_KEY}" 2>/dev/null || echo "[]")
 
@@ -231,7 +236,7 @@ if [ -n "$SUPABASE_URL" ] && [ -n "$SUPABASE_KEY" ]; then
 
   # Full content of the freshest most-recent-context handoff (if any)
   ANCHOR_CONTENT=$(curl -s -m 5 \
-    "${SUPABASE_URL}/rest/v1/memories?select=content,created_at&metadata=cs.%7B%22tags%22:%5B%22most-recent-context%22%5D%7D&workspace=eq.janus-ia&order=created_at.desc&limit=1" \
+    "${SUPABASE_URL}/rest/v1/memories?select=content,created_at&metadata=cs.%7B%22tags%22:%5B%22most-recent-context%22%5D%7D&workspace=eq.$WORKSPACE_NAME&order=created_at.desc&limit=1" \
     -H "apikey: ${SUPABASE_KEY}" \
     -H "Authorization: Bearer ${SUPABASE_KEY}" 2>/dev/null || echo "[]")
 
@@ -249,7 +254,7 @@ except Exception:
   # (crash / force-quit / context-full before the stop-gate could enforce).
   if [ "$ANCHOR_FOUND" = "no" ]; then
     ANCHOR_CONTENT=$(curl -s -m 5 \
-      "${SUPABASE_URL}/rest/v1/memories?select=content,created_at&type=eq.session&workspace=eq.janus-ia&order=created_at.desc&limit=1" \
+      "${SUPABASE_URL}/rest/v1/memories?select=content,created_at&type=eq.session&workspace=eq.$WORKSPACE_NAME&order=created_at.desc&limit=1" \
       -H "apikey: ${SUPABASE_KEY}" \
       -H "Authorization: Bearer ${SUPABASE_KEY}" 2>/dev/null || echo "[]")
     ANCHOR_IS_FALLBACK=1
@@ -283,7 +288,7 @@ except Exception:
 
   # Last 3 corrections — the rules learned from prior failures
   CORRECTIONS=$(curl -s -m 5 \
-    "${SUPABASE_URL}/rest/v1/memories?select=content,created_at&type=eq.correction&workspace=eq.janus-ia&order=created_at.desc&limit=3" \
+    "${SUPABASE_URL}/rest/v1/memories?select=content,created_at&type=eq.correction&workspace=eq.$WORKSPACE_NAME&order=created_at.desc&limit=3" \
     -H "apikey: ${SUPABASE_KEY}" \
     -H "Authorization: Bearer ${SUPABASE_KEY}" 2>/dev/null || echo "[]")
 

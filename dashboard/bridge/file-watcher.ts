@@ -4,27 +4,30 @@ import * as path from "node:path";
 import * as os from "node:os";
 import type { ServerMessage } from "./types.js";
 
+const WORKSPACE_ROOT = process.env.WORKSPACE_ROOT || "/workspaces/janus-ia";
+const CLAUDE_PROJECT_DIR = WORKSPACE_ROOT.replace(/\//g, "-");
+
 const VAULT_PATHS = [
-  "/workspaces/janus-ia/concepts/**/*.md",
-  "/workspaces/janus-ia/learnings/**/*.md",
-  "/workspaces/janus-ia/wiki/**/*.md",
+  path.join(WORKSPACE_ROOT, "concepts/**/*.md"),
+  path.join(WORKSPACE_ROOT, "learnings/**/*.md"),
+  path.join(WORKSPACE_ROOT, "wiki/**/*.md"),
 ];
 
 const PROJECT_PATHS = [
-  "/workspaces/janus-ia/projects/**/*.md",
-  "/workspaces/janus-ia/agents/**/*.md",
+  path.join(WORKSPACE_ROOT, "projects/**/*.md"),
+  path.join(WORKSPACE_ROOT, "agents/**/*.md"),
 ];
 
 const DASHBOARD_PATHS = [
-  "/workspaces/janus-ia/dashboard/frontend/src/**/*.{tsx,ts,css}",
-  "/workspaces/janus-ia/dashboard/bridge/**/*.ts",
+  path.join(WORKSPACE_ROOT, "dashboard/frontend/src/**/*.{tsx,ts,css}"),
+  path.join(WORKSPACE_ROOT, "dashboard/bridge/**/*.ts"),
 ];
 
 const MEMORY_DIR = path.join(
   os.homedir(),
   ".claude",
   "projects",
-  "-workspaces-janus-ia",
+  CLAUDE_PROJECT_DIR,
   "memory"
 );
 
@@ -149,7 +152,7 @@ export function broadcastInitialLearnings(broadcast: (msg: ServerMessage) => voi
   }
 
   // Scan vault learnings
-  const learningsDir = "/workspaces/janus-ia/learnings";
+  const learningsDir = path.join(WORKSPACE_ROOT, "learnings");
   if (fs.existsSync(learningsDir)) {
     for (const f of fs.readdirSync(learningsDir)) {
       if (!f.endsWith(".md")) continue;
@@ -159,7 +162,7 @@ export function broadcastInitialLearnings(broadcast: (msg: ServerMessage) => voi
   }
 
   // Scan vault concepts
-  const conceptsDir = "/workspaces/janus-ia/concepts";
+  const conceptsDir = path.join(WORKSPACE_ROOT, "concepts");
   if (fs.existsSync(conceptsDir)) {
     for (const f of fs.readdirSync(conceptsDir)) {
       if (!f.endsWith(".md")) continue;

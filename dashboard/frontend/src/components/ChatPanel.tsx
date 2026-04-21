@@ -149,7 +149,6 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; dot: string 
   thinking:     { label: 'thinking',     color: 'var(--color-accent)',     dot: 'var(--color-accent)' },
   streaming:    { label: 'responding',   color: 'oklch(0.72 0.18 145)',    dot: 'oklch(0.72 0.18 145)' },
   done:         { label: 'done',         color: 'var(--color-text-muted)', dot: 'oklch(0.72 0.18 145)' },
-  stalled:      { label: 'no activity',  color: 'oklch(0.78 0.18 75)',     dot: 'oklch(0.78 0.18 75)' },
   disconnected: { label: 'disconnected', color: 'oklch(0.68 0.22 25)',     dot: 'oklch(0.68 0.22 25)' },
 };
 
@@ -183,6 +182,13 @@ export function ChatPanel({ sessionId = 'session-0', lineageLabel, lineageColor 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    const ta = inputRef.current;
+    if (!ta) return;
+    ta.style.height = 'auto';
+    ta.style.height = `${Math.min(ta.scrollHeight, 200)}px`;
+  }, [input]);
 
   async function uploadFile(file: File): Promise<{ path?: string; error?: string }> {
     try {
@@ -477,11 +483,6 @@ export function ChatPanel({ sessionId = 'session-0', lineageLabel, lineageColor 
             )}
           </div>
         )}
-        {chatStatus === 'stalled' && (
-          <div className="chat-panel__thinking-dots chat-panel__thinking-dots--warn">
-            ⚠ no activity from bridge for &gt; 90s. The turn may be stuck.
-          </div>
-        )}
         {chatStatus === 'disconnected' && (
           <div className="chat-panel__thinking-dots chat-panel__thinking-dots--alert">
             ⚠ bridge disconnected mid-turn. Will auto-reconnect; the previous response is lost.
@@ -495,16 +496,13 @@ export function ChatPanel({ sessionId = 'session-0', lineageLabel, lineageColor 
       <div className="chat-panel__input-area">
         <div className="chat-panel__status-bar">
           <span
-            className={`chat-panel__status-dot ${chatStatus === 'thinking' || chatStatus === 'streaming' ? 'chat-panel__status-dot--pulse' : ''} ${chatStatus === 'stalled' ? 'chat-panel__status-dot--warn' : ''} ${chatStatus === 'disconnected' ? 'chat-panel__status-dot--alert' : ''}`}
+            className={`chat-panel__status-dot ${chatStatus === 'thinking' || chatStatus === 'streaming' ? 'chat-panel__status-dot--pulse' : ''} ${chatStatus === 'disconnected' ? 'chat-panel__status-dot--alert' : ''}`}
             style={{ background: cfg.dot }}
           />
           <span className="chat-panel__status-label" style={{ color: cfg.color }}>
             {cfg.label}
-            {(chatStatus === 'thinking' || chatStatus === 'streaming' || chatStatus === 'stalled') && chatThinkingStart && (
+            {(chatStatus === 'thinking' || chatStatus === 'streaming') && chatThinkingStart && (
               <> — <ElapsedTimer start={chatThinkingStart} /></>
-            )}
-            {chatStatus === 'stalled' && (
-              <> · no bridge traffic for 90s — interrupt or wait</>
             )}
             {chatStatus === 'disconnected' && (
               <> · bridge dropped mid-turn, auto-reconnecting</>
@@ -565,7 +563,8 @@ export function ChatPanel({ sessionId = 'session-0', lineageLabel, lineageColor 
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
               placeholder="Ask anything, paste images, or drop files…"
-              rows={2}
+              rows={1}
+              style={{ overflowY: input ? 'auto' : 'hidden' }}
             />
             <button
               type="submit"

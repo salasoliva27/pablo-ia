@@ -14,9 +14,17 @@ import os from "node:os";
 import { spawn } from "node:child_process";
 import { McpSupervisor, defaultSidecars } from "./mcp-supervisor.js";
 
-const WORKSPACE_ROOT = "/workspaces/janus-ia";
+// DASH_HOME = where the dashboard code lives (janus-ia/dashboard/..). Always
+// derived from this file's own location so it works regardless of wrapper mode.
+// WORKSPACE_ROOT = the repo the bridge is serving (may differ from DASH_HOME
+// when launched via a wrapper in another repo).
+const DASH_HOME = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..", "..");
+const WORKSPACE_ROOT = process.env.WORKSPACE_ROOT || DASH_HOME;
+const WORKSPACE_NAME = path.basename(WORKSPACE_ROOT);
+const CLAUDE_PROJECT_DIR = WORKSPACE_ROOT.replace(/\//g, "-");
 const UPLOADS_DIR = path.join(WORKSPACE_ROOT, "dump", "uploads");
-const THEMES_DIR = path.join(os.homedir(), ".claude", "projects", "-workspaces-janus-ia", "themes");
+const THEMES_DIR = path.join(os.homedir(), ".claude", "projects", CLAUDE_PROJECT_DIR, "themes");
+const MEMORY_DIR = path.join(os.homedir(), ".claude", "projects", CLAUDE_PROJECT_DIR, "memory");
 
 // Persistent Snowflake connection — auth once at first query, reuse forever.
 // MFA token caching means even a fresh process skips the Duo push for ~4h.
@@ -73,7 +81,7 @@ export function startServer(port: number): Promise<http.Server> {
   // lose MCPs across conversations. Each sidecar runs HTTP transport; .mcp.json
   // references them by URL instead of stdio-spawning them inside Claude Code.
   const mcpSupervisor = new McpSupervisor();
-  for (const def of defaultSidecars(WORKSPACE_ROOT)) {
+  for (const def of defaultSidecars(DASH_HOME)) {
     mcpSupervisor.spawn(def);
   }
   const shutdownMcp = () => {
@@ -84,6 +92,10 @@ export function startServer(port: number): Promise<http.Server> {
 
   app.get("/api/mcp/status", (_req, res) => {
     res.json({ sidecars: mcpSupervisor.status() });
+  });
+
+  app.get("/api/workspace", (_req, res) => {
+    res.json({ root: WORKSPACE_ROOT, name: WORKSPACE_NAME, memoryDir: MEMORY_DIR });
   });
 
   // Serve frontend static files in production
@@ -181,7 +193,7 @@ export function startServer(port: number): Promise<http.Server> {
   // File API — read files for the editor
   app.get("/api/file", (req, res) => {
     const filePath = req.query.path as string;
-    if (!filePath || !filePath.startsWith("/workspaces/")) {
+    if (!filePath || !filePath.startsWith(WORKSPACE_ROOT)) {
       res.status(400).json({ error: "Invalid path" });
       return;
     }
@@ -216,8 +228,8 @@ export function startServer(port: number): Promise<http.Server> {
 
   // File API — list directory
   app.get("/api/files", (req, res) => {
-    const dirPath = (req.query.path as string) || "/workspaces/janus-ia/dashboard/frontend/src";
-    if (!dirPath.startsWith("/workspaces/")) {
+    const dirPath = (req.query.path as string) || path.join(WORKSPACE_ROOT, "dashboard/frontend/src");
+    if (!dirPath.startsWith(WORKSPACE_ROOT)) {
       res.status(400).json({ error: "Invalid path" });
       return;
     }
@@ -863,7 +875,7 @@ export function startServer(port: number): Promise<http.Server> {
   // Memory API — exposes auto-memory index so chat can show "what's loaded"
   app.get("/api/memory/index", (_req, res) => {
     try {
-      const memDir = path.join(os.homedir(), ".claude", "projects", "-workspaces-janus-ia", "memory");
+      const memDir = MEMORY_DIR;
       if (!fs.existsSync(memDir)) {
         res.json({ entries: [], indexContent: "", dir: memDir });
         return;
@@ -927,7 +939,7 @@ export function startServer(port: number): Promise<http.Server> {
         res.status(400).json({ error: "Invalid memory file name" });
         return;
       }
-      const memDir = path.join(os.homedir(), ".claude", "projects", "-workspaces-janus-ia", "memory");
+      const memDir = MEMORY_DIR;
       const full = path.join(memDir, name);
       if (!fs.existsSync(full)) {
         res.status(404).json({ error: "Not found" });
@@ -948,7 +960,7 @@ export function startServer(port: number): Promise<http.Server> {
         os.homedir(),
         ".claude",
         "projects",
-        "-workspaces-janus-ia",
+        CLAUDE_PROJECT_DIR,
         "dashboard-sessions",
         `${id}.json`,
       );
@@ -994,7 +1006,7 @@ export function startServer(port: number): Promise<http.Server> {
       // Mirror to Google Drive under Janus_AI/_uploads/<YYYY-MM-DD>/ — async, never blocks.
       // Skipped silently if GOOGLE_REFRESH_TOKEN is missing. Local path is authoritative.
       if (process.env.GOOGLE_REFRESH_TOKEN) {
-        const child = spawn(path.join(WORKSPACE_ROOT, "scripts", "gdrive-save"), [full], {
+        const child = spawn(path.join(DASH_HOME, "scripts", "gdrive-save"), [full], {
           stdio: ["ignore", "pipe", "pipe"],
           env: process.env,
         });
@@ -1187,7 +1199,7 @@ Do not include anything except the JSON object.`;
             session = sessionManager.createSession(sid, agentId);
           }
           if (modelId) session.setModel(modelId);
-          session.start(msg.prompt, msg.cwd || "/workspaces/janus-ia").catch((err) => {
+          session.start(msg.prompt, msg.cwd || WORKSPACE_ROOT).catch((err) => {
             console.error(`[ws:${sid}] session error:`, err);
           });
           break;
@@ -1364,7 +1376,7 @@ function buildUsageGraph(
 }
 
 function buildGraphFromFs(): { nodes: GraphNode[]; edges: { source: string; target: string }[] } {
-  const root = "/workspaces/janus-ia";
+  const root = WORKSPACE_ROOT;
   const nodes: GraphNode[] = [];
   const seen = new Set<string>();
 
@@ -1431,7 +1443,7 @@ function buildGraphFromFs(): { nodes: GraphNode[]; edges: { source: string; targ
   }
 
   // Scan memory files (persistent learnings)
-  const memoryDir = path.join(os.homedir(), ".claude", "projects", "-workspaces-janus-ia", "memory");
+  const memoryDir = MEMORY_DIR;
   if (fs.existsSync(memoryDir)) {
     for (const f of fs.readdirSync(memoryDir)) {
       if (f === "MEMORY.md" || !f.endsWith(".md")) continue;

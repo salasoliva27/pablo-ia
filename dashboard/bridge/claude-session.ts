@@ -6,12 +6,13 @@ import type { WebSocket } from "ws";
 import type { ServerMessage } from "./types.js";
 import { getAgent } from "./agent-registry.js";
 
-const WORKSPACE_ROOT = "/workspaces/janus-ia";
+const WORKSPACE_ROOT = process.env.WORKSPACE_ROOT || "/workspaces/janus-ia";
+const CLAUDE_PROJECT_DIR = WORKSPACE_ROOT.replace(/\//g, "-");
 const SESSIONS_DIR = path.join(
   os.homedir(),
   ".claude",
   "projects",
-  "-workspaces-janus-ia",
+  CLAUDE_PROJECT_DIR,
   "dashboard-sessions",
 );
 

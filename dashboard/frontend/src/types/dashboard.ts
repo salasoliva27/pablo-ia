@@ -191,7 +191,7 @@ export interface DashboardState {
   // Legacy compat — derived from chatSessions['session-0']
   chatMessages: ChatMessage[];
   chatThinking: boolean;
-  chatStatus: 'idle' | 'thinking' | 'streaming' | 'done' | 'stalled' | 'disconnected';
+  chatStatus: 'idle' | 'thinking' | 'streaming' | 'done' | 'disconnected';
   chatThinkingStart: number | null;
   activeDocumentId: string | null;
   rightPanelTab: 'memory' | 'documents' | 'uploaded' | 'editor';
@@ -232,10 +232,8 @@ export interface MemoryIndex {
 export interface SessionChatState {
   messages: ChatMessage[];
   thinking: boolean;
-  status: 'idle' | 'thinking' | 'streaming' | 'done' | 'stalled' | 'disconnected';
+  status: 'idle' | 'thinking' | 'streaming' | 'done' | 'disconnected';
   thinkingStart: number | null;
-  /** Timestamp of the last bridge message received for this session.
-   *  Used by the stall watchdog to detect frozen turns. */
   lastActivityAt: number | null;
   /** Approximate input-token count of the in-flight turn (based on prompt length). */
   inflightTokens: number | null;
