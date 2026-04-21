@@ -404,6 +404,161 @@ export function startServer(port: number): Promise<http.Server> {
     }
   });
 
+  // MCP add/remove — mutates .mcp.json then commits + pushes the change. Like
+  // /api/credentials/save, nothing is reported as "saved" unless write + commit
+  // + push all succeed. The agent CLIs (claude/codex) re-read .mcp.json on each
+  // turn (every chat = a fresh CLI process), so no in-flight restart is needed
+  // — the next user message picks up the new server.
+  const MCP_NAME_RE = /^[a-z][a-z0-9_-]{0,63}$/i;
+  const MCP_CONFIG_PATH = path.join(WORKSPACE_ROOT, ".mcp.json");
+
+  function readMcpConfig(): { mcpServers: Record<string, unknown> } {
+    const raw = fs.readFileSync(MCP_CONFIG_PATH, "utf-8");
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || !parsed.mcpServers) {
+      return { mcpServers: {} };
+    }
+    return { mcpServers: parsed.mcpServers as Record<string, unknown> };
+  }
+
+  function writeMcpConfig(cfg: { mcpServers: Record<string, unknown> }): void {
+    const json = JSON.stringify(cfg, null, 2) + "\n";
+    fs.writeFileSync(MCP_CONFIG_PATH, json, { encoding: "utf-8" });
+  }
+
+  function validateServerSpec(spec: unknown): { ok: true } | { ok: false; error: string } {
+    if (!spec || typeof spec !== "object") return { ok: false, error: "spec must be an object" };
+    const s = spec as Record<string, unknown>;
+    const type = (s.type as string) ?? "stdio";
+    if (type === "stdio" || s.command !== undefined) {
+      if (typeof s.command !== "string" || s.command.length === 0) {
+        return { ok: false, error: "stdio spec needs a command string" };
+      }
+      if (s.args !== undefined && (!Array.isArray(s.args) || !s.args.every(a => typeof a === "string"))) {
+        return { ok: false, error: "args must be an array of strings" };
+      }
+      if (s.env !== undefined && (typeof s.env !== "object" || Array.isArray(s.env))) {
+        return { ok: false, error: "env must be an object of {KEY: value}" };
+      }
+      return { ok: true };
+    }
+    if (type === "http") {
+      if (typeof s.url !== "string" || s.url.length === 0) {
+        return { ok: false, error: "http spec needs a url string" };
+      }
+      try { new URL(s.url.replace(/\$\{[^}]+\}/g, "x")); } catch { return { ok: false, error: "url is not a valid URL" }; }
+      return { ok: true };
+    }
+    return { ok: false, error: `unknown type '${type}' — expected 'stdio' or 'http'` };
+  }
+
+  async function gitCommitMcpChange(verb: "add" | "remove", name: string): Promise<{ committed: boolean; pushed: boolean; sha: string | null; out: string }> {
+    const { execFileSync } = await import("node:child_process");
+    const git = (args: string[]): { ok: boolean; out: string } => {
+      try {
+        const out = execFileSync("git", args, {
+          cwd: WORKSPACE_ROOT,
+          encoding: "utf-8",
+          stdio: ["ignore", "pipe", "pipe"],
+          timeout: 30_000,
+        });
+        return { ok: true, out };
+      } catch (err) {
+        const e = err as { stdout?: Buffer | string; stderr?: Buffer | string; message?: string };
+        const stdout = typeof e.stdout === "string" ? e.stdout : (e.stdout?.toString() ?? "");
+        const stderr = typeof e.stderr === "string" ? e.stderr : (e.stderr?.toString() ?? "");
+        return { ok: false, out: `${stdout}\n${stderr}\n${e.message ?? ""}`.trim() };
+      }
+    };
+    const addRes = git(["add", ".mcp.json"]);
+    if (!addRes.ok) return { committed: false, pushed: false, sha: null, out: `git add: ${addRes.out}` };
+    const verbVerb = verb === "add" ? "add" : "remove";
+    const commitRes = git(["commit", "-m", `chore(mcp): ${verbVerb} ${name}`]);
+    const sha = commitRes.ok ? git(["rev-parse", "HEAD"]).out.trim() : null;
+    const pushRes = git(["push", "origin", "HEAD"]);
+    return { committed: commitRes.ok, pushed: pushRes.ok, sha, out: `${commitRes.out}\n${pushRes.out}`.trim().slice(0, 500) };
+  }
+
+  app.post("/api/mcp/add", async (req, res) => {
+    const body = (req.body || {}) as { name?: unknown; spec?: unknown };
+    const name = typeof body.name === "string" ? body.name.trim() : "";
+    if (!MCP_NAME_RE.test(name)) {
+      res.status(400).json({ ok: false, error: "name must be alphanumeric, hyphen, or underscore (≤64 chars)" });
+      return;
+    }
+    const validation = validateServerSpec(body.spec);
+    if (!validation.ok) {
+      res.status(400).json({ ok: false, error: validation.error });
+      return;
+    }
+    let cfg: { mcpServers: Record<string, unknown> };
+    try { cfg = readMcpConfig(); }
+    catch (err) { res.status(500).json({ ok: false, error: `read .mcp.json: ${String(err)}` }); return; }
+    if (Object.prototype.hasOwnProperty.call(cfg.mcpServers, name)) {
+      res.status(409).json({ ok: false, error: `MCP '${name}' already exists — remove it first or pick a different name` });
+      return;
+    }
+    cfg.mcpServers[name] = body.spec as Record<string, unknown>;
+    try { writeMcpConfig(cfg); }
+    catch (err) { res.status(500).json({ ok: false, error: `write .mcp.json: ${String(err)}` }); return; }
+
+    // Verify on disk before claiming success.
+    const verify = readMcpConfig();
+    const present = Object.prototype.hasOwnProperty.call(verify.mcpServers, name);
+    if (!present) {
+      res.status(500).json({ ok: false, error: "post-write verification failed — entry not present on disk" });
+      return;
+    }
+
+    const git = await gitCommitMcpChange("add", name);
+    const fullySaved = git.committed && git.pushed;
+    res.json({
+      ok: fullySaved,
+      added: fullySaved ? name : null,
+      staged: !fullySaved ? name : null,
+      committed: git.committed,
+      pushed: git.pushed,
+      commit: git.sha,
+      gitOutput: git.out,
+    });
+  });
+
+  app.delete("/api/mcp/:name", async (req, res) => {
+    const name = String(req.params.name || "").trim();
+    if (!MCP_NAME_RE.test(name)) {
+      res.status(400).json({ ok: false, error: "invalid name" });
+      return;
+    }
+    let cfg: { mcpServers: Record<string, unknown> };
+    try { cfg = readMcpConfig(); }
+    catch (err) { res.status(500).json({ ok: false, error: `read .mcp.json: ${String(err)}` }); return; }
+    if (!Object.prototype.hasOwnProperty.call(cfg.mcpServers, name)) {
+      res.status(404).json({ ok: false, error: `MCP '${name}' not found in .mcp.json` });
+      return;
+    }
+    delete cfg.mcpServers[name];
+    try { writeMcpConfig(cfg); }
+    catch (err) { res.status(500).json({ ok: false, error: `write .mcp.json: ${String(err)}` }); return; }
+
+    const verify = readMcpConfig();
+    if (Object.prototype.hasOwnProperty.call(verify.mcpServers, name)) {
+      res.status(500).json({ ok: false, error: "post-write verification failed — entry still present on disk" });
+      return;
+    }
+
+    const git = await gitCommitMcpChange("remove", name);
+    const fullyRemoved = git.committed && git.pushed;
+    res.json({
+      ok: fullyRemoved,
+      removed: fullyRemoved ? name : null,
+      staged: !fullyRemoved ? name : null,
+      committed: git.committed,
+      pushed: git.pushed,
+      commit: git.sha,
+      gitOutput: git.out,
+    });
+  });
+
   // Credentials status — reports which env vars are currently present on the
   // bridge. Accepts a whitelist of names from the client; returns `{ name: bool }`.
   // We never return values — only presence.
@@ -698,8 +853,9 @@ export function startServer(port: number): Promise<http.Server> {
   });
 
   // Agents API — lists available CLI-based coding agents and whether each is
-  // ready to use (env var present, CLI on PATH isn't checked here — the bridge
-  // surfaces a runtime error if the spawn fails).
+  // ready to use. listAgentAvailability checks both env var presence and CLI
+  // presence on PATH (cached 5s), so the picker can grey out adapters whose
+  // binary isn't installed instead of letting a turn fail at spawn time.
   app.get("/api/agents", (_req, res) => {
     res.json({ agents: listAgentAvailability() });
   });
