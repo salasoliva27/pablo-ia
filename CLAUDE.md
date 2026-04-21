@@ -13,7 +13,7 @@ updated: 2026-04-13
 
 Before starting any task, read `/home/codespace/.claude/projects/-workspaces-janus-ia/memory/feedback_evolution_rules.md`. These are hard-won patterns from real sessions. They override instincts. Key ones:
 
-0. **CONTEXT-FULL WARNING IS THE HIGHEST-PRIORITY INTERRUPT.** At ~80% context, STOP mid-task, announce it to Jano, and snapshot the session as `most-recent-context` in memory BEFORE anything else. Losing session state because you kept building past the warning is the worst failure mode. See "CONTEXT MANAGEMENT — MANDATORY" below.
+0. **CONTEXT-FULL WARNING IS THE HIGHEST-PRIORITY INTERRUPT.** At ~70% context, pre-emptively snapshot the session as `most-recent-context` — waiting for 80% is late, and waiting for the system's auto-compact is a failure state. At ~80%, STOP mid-task, announce it to Jano, snapshot BEFORE anything else, and ask whether to `/compact` or open a new session. **Never stop silently.** If the system compacted without you writing the handoff, acknowledge the gap to Jano before claiming progress on any prior task. See "CONTEXT MANAGEMENT — MANDATORY" below. (Correction captured 2026-04-21 — `memory/correction_context_runout_handoff.md`.)
 1. **Confirm the mental model** — map to a known pattern (Windows, macOS, VS Code) and confirm before coding
 2. **Always `cd frontend && npx vite build`** after any frontend source change — the dashboard serves from dist/
 3. **Ask, don't iterate** — if attempt 1 misses, ask what's wrong before building attempt 2

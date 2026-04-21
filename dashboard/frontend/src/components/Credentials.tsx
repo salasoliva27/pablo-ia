@@ -235,6 +235,8 @@ export function CredentialsButton({ onClick }: { onClick: () => void }) {
 type FieldValues = Record<string, string>;
 type TestState = { status: 'idle' | 'testing' | 'pass' | 'fail'; message?: string };
 
+type SaveState = { status: 'idle' | 'saving' | 'saved' | 'error'; message?: string };
+
 export function Credentials({ onClose }: { onClose: () => void }) {
   const { tools, sendChatMessage } = useDashboard();
 
@@ -246,6 +248,9 @@ export function Credentials({ onClose }: { onClose: () => void }) {
 
   // Per-entry test state (idle | testing | pass | fail + last message).
   const [tests, setTests] = useState<Record<string, TestState>>({});
+
+  // Per-entry save state (idle | saving | saved | error + last message).
+  const [saves, setSaves] = useState<Record<string, SaveState>>({});
 
   // Custom entries added at runtime.
   const [customEntries, setCustomEntries] = useState<CredentialEntry[]>([]);
@@ -302,23 +307,64 @@ export function Credentials({ onClose }: { onClose: () => void }) {
     setExpanded(prev => ({ ...prev, [providerId]: !prev[providerId] }));
   }
 
-  function handleSaveEntry(entry: CredentialEntry) {
-    // Save every field in this credential that has a value.
+  async function handleSaveEntry(entry: CredentialEntry) {
     const filled = entry.fields.filter(f => (values[f.id] || '').trim());
     if (filled.length === 0) return;
-    for (const f of filled) {
-      sendChatMessage(`${f.envVar}=${(values[f.id] || '').trim()}`);
+    const payload = filled.map(f => ({ envVar: f.envVar, value: (values[f.id] || '').trim() }));
+    setSaves(prev => ({ ...prev, [entry.id]: { status: 'saving' } }));
+    try {
+      const resp = await fetch('/api/credentials/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fields: payload }),
+      });
+      const data = await resp.json() as {
+        ok: boolean;
+        saved?: string[];
+        staged?: string[];
+        verified?: string[];
+        missing?: string[];
+        commit?: string | null;
+        committed?: boolean;
+        pushed?: boolean;
+        commitOutput?: string;
+        pushOutput?: string;
+        error?: string;
+      };
+      if (data.ok) {
+        const shortSha = data.commit ? data.commit.slice(0, 7) : '';
+        setSaves(prev => ({
+          ...prev,
+          [entry.id]: {
+            status: 'saved',
+            message: `Saved ${(data.saved || []).join(', ')} · committed ${shortSha} · pushed to dotfiles`,
+          },
+        }));
+        setSessionSet(prev => {
+          const next = { ...prev };
+          for (const f of filled) next[f.envVar] = true;
+          return next;
+        });
+        setValues(prev => {
+          const next = { ...prev };
+          for (const f of filled) delete next[f.id];
+          return next;
+        });
+        return;
+      }
+      // Partial / failed: tell the user exactly what happened and what to fix.
+      const parts: string[] = [];
+      if (data.staged?.length) parts.push(`Staged locally: ${data.staged.join(', ')}`);
+      if (!data.committed) parts.push(`Commit failed: ${(data.commitOutput || '').trim().split('\n').pop() || 'unknown'}`);
+      else if (!data.pushed) parts.push(`Push failed: ${(data.pushOutput || '').trim().split('\n').pop() || 'unknown'}`);
+      if (data.missing?.length) parts.push(`Missing from file: ${data.missing.join(', ')}`);
+      if (data.error) parts.push(data.error);
+      const msg = parts.join(' · ') || 'Save did not complete';
+      setSaves(prev => ({ ...prev, [entry.id]: { status: 'error', message: msg } }));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setSaves(prev => ({ ...prev, [entry.id]: { status: 'error', message: `Bridge unreachable: ${msg}` } }));
     }
-    setSessionSet(prev => {
-      const next = { ...prev };
-      for (const f of filled) next[f.envVar] = true;
-      return next;
-    });
-    setValues(prev => {
-      const next = { ...prev };
-      for (const f of filled) delete next[f.id];
-      return next;
-    });
   }
 
   async function handleTestEntry(entry: CredentialEntry) {
@@ -432,6 +478,7 @@ export function Credentials({ onClose }: { onClose: () => void }) {
                   const entrySetCount = entry.fields.filter(f => isFieldSet(f.envVar)).length;
                   const entryComplete = entrySetCount === entry.fields.length;
                   const test = tests[entry.id] || { status: 'idle' as const };
+                  const save = saves[entry.id] || { status: 'idle' as const };
                   const hasInput = entry.fields.some(f => (values[f.id] || '').trim());
                   // Test is available if the user has any input OR every required field is already set.
                   const canTest = hasInput || entryComplete;
@@ -462,17 +509,31 @@ export function Credentials({ onClose }: { onClose: () => void }) {
                             : 'test'}
                         </button>
                         <button
-                          className="credentials__save-btn"
+                          className={`credentials__save-btn credentials__save-btn--${save.status}`}
                           onClick={() => handleSaveEntry(entry)}
-                          disabled={!hasInput}
+                          disabled={!hasInput || save.status === 'saving'}
+                          title={save.status === 'error' ? save.message : save.status === 'saved' ? save.message : 'Write to dotfiles, commit, push, and verify'}
                         >
-                          save
+                          {save.status === 'saving' ? 'saving…'
+                            : save.status === 'saved' ? '✓ saved'
+                            : save.status === 'error' ? '✗ retry save'
+                            : 'save'}
                         </button>
                       </div>
                     </div>
                     {test.status === 'fail' && test.message && (
                       <div className="credentials__test-error">
                         {test.message} — sent to chat for help.
+                      </div>
+                    )}
+                    {save.status === 'error' && save.message && (
+                      <div className="credentials__test-error">
+                        {save.message}
+                      </div>
+                    )}
+                    {save.status === 'saved' && save.message && (
+                      <div className="credentials__save-ok">
+                        {save.message}
                       </div>
                     )}
                     <div className="credentials__scope">
@@ -572,7 +633,7 @@ export function Credentials({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="credentials__footer">
-          Credentials are sent to the bridge and stored in your dotfiles repo.
+          Save writes to your dotfiles .env, commits, pushes to origin, and grep-verifies before reporting success. Nothing is sent through chat.
         </div>
       </div>
     </div>

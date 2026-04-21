@@ -564,6 +564,139 @@ export function startServer(port: number): Promise<http.Server> {
     }
   });
 
+  // Credentials save — writes env vars to the dotfiles .env, mirrors to ~/.env
+  // and process.env, then commits + pushes to origin and grep-verifies the
+  // values landed. Per the 2026-04-16 correction rule, nothing is reported as
+  // "saved" unless all four steps succeed (write + commit + push + verify).
+  app.post("/api/credentials/save", async (req, res) => {
+    const body = (req.body || {}) as { fields?: Array<{ envVar?: unknown; value?: unknown }> };
+    const fields = Array.isArray(body.fields) ? body.fields : [];
+    if (fields.length === 0) {
+      res.status(400).json({ ok: false, error: "No fields provided" });
+      return;
+    }
+    const ENV_VAR_RE = /^[A-Z_][A-Z0-9_]*$/;
+    const clean: Array<{ envVar: string; value: string }> = [];
+    for (const f of fields) {
+      if (typeof f.envVar !== "string" || !ENV_VAR_RE.test(f.envVar)) {
+        res.status(400).json({ ok: false, error: `Invalid env var name: ${String(f.envVar)}` });
+        return;
+      }
+      if (typeof f.value !== "string" || f.value.length === 0) {
+        res.status(400).json({ ok: false, error: `Missing value for ${f.envVar}` });
+        return;
+      }
+      if (f.value.includes("\0") || f.value.includes("\n") || f.value.includes("\r")) {
+        res.status(400).json({ ok: false, error: `Value for ${f.envVar} contains newlines or null bytes` });
+        return;
+      }
+      clean.push({ envVar: f.envVar, value: f.value });
+    }
+
+    const DOTFILES_DIR = "/workspaces/.codespaces/.persistedshare/dotfiles";
+    const DOTFILES_ENV = path.join(DOTFILES_DIR, ".env");
+    const HOME_ENV = path.join(os.homedir(), ".env");
+
+    if (!fs.existsSync(DOTFILES_ENV)) {
+      res.status(500).json({ ok: false, error: `Dotfiles .env not found at ${DOTFILES_ENV}` });
+      return;
+    }
+
+    // Double-quote-safe shell escaping: preserve the value verbatim when the
+    // file is sourced by bash. Must escape \ " $ ` so the shell doesn't
+    // interpret them.
+    const shellQuote = (v: string): string => {
+      const escaped = v
+        .replace(/\\/g, "\\\\")
+        .replace(/"/g, '\\"')
+        .replace(/\$/g, "\\$")
+        .replace(/`/g, "\\`");
+      return `"${escaped}"`;
+    };
+
+    // Upsert each env var into the file contents, preserving order and
+    // surrounding lines. If a line already defines the var, replace it in
+    // place; otherwise append at the end.
+    let contents = fs.readFileSync(DOTFILES_ENV, "utf-8");
+    const written: string[] = [];
+    for (const { envVar, value } of clean) {
+      const lineRe = new RegExp(`^(?:export\\s+)?${envVar}=.*$`, "m");
+      const newLine = `export ${envVar}=${shellQuote(value)}`;
+      if (lineRe.test(contents)) {
+        contents = contents.replace(lineRe, newLine);
+      } else {
+        if (!contents.endsWith("\n")) contents += "\n";
+        contents += newLine + "\n";
+      }
+      written.push(envVar);
+    }
+
+    try {
+      fs.writeFileSync(DOTFILES_ENV, contents, { encoding: "utf-8", mode: 0o600 });
+      fs.writeFileSync(HOME_ENV, contents, { encoding: "utf-8", mode: 0o600 });
+      for (const { envVar, value } of clean) {
+        process.env[envVar] = value;
+      }
+    } catch (err) {
+      res.status(500).json({ ok: false, error: `Failed to write .env: ${String(err)}` });
+      return;
+    }
+
+    const { execFileSync } = await import("node:child_process");
+    const git = (args: string[]): { ok: boolean; out: string } => {
+      try {
+        const out = execFileSync("git", args, {
+          cwd: DOTFILES_DIR,
+          encoding: "utf-8",
+          stdio: ["ignore", "pipe", "pipe"],
+          timeout: 30_000,
+        });
+        return { ok: true, out };
+      } catch (err) {
+        const e = err as { stdout?: Buffer | string; stderr?: Buffer | string; message?: string };
+        const stdout = typeof e.stdout === "string" ? e.stdout : (e.stdout?.toString() ?? "");
+        const stderr = typeof e.stderr === "string" ? e.stderr : (e.stderr?.toString() ?? "");
+        return { ok: false, out: `${stdout}\n${stderr}\n${e.message ?? ""}`.trim() };
+      }
+    };
+
+    const addRes = git(["add", ".env"]);
+    if (!addRes.ok) {
+      res.status(500).json({ ok: false, error: `git add failed: ${addRes.out}` });
+      return;
+    }
+    const commitMsg = `chore(env): update ${written.join(", ")}`;
+    const commitRes = git(["commit", "-m", commitMsg]);
+    const commitSha = commitRes.ok ? git(["rev-parse", "HEAD"]).out.trim() : null;
+    const pushRes = git(["push", "origin", "HEAD"]);
+
+    // Grep-verify: re-read the committed file and confirm every env var we
+    // claimed to save is physically present with the expected value.
+    const onDisk = fs.readFileSync(DOTFILES_ENV, "utf-8");
+    const verified: string[] = [];
+    const missing: string[] = [];
+    for (const { envVar, value } of clean) {
+      const expected = `export ${envVar}=${shellQuote(value)}`;
+      if (onDisk.split("\n").includes(expected)) verified.push(envVar);
+      else missing.push(envVar);
+    }
+
+    const allVerified = missing.length === 0;
+    const fullySaved = allVerified && commitRes.ok && pushRes.ok;
+    res.json({
+      ok: fullySaved,
+      saved: fullySaved ? written : [],
+      staged: !fullySaved ? written : [],
+      verified,
+      missing,
+      commit: commitSha,
+      committed: commitRes.ok,
+      pushed: pushRes.ok,
+      commitOutput: commitRes.out.slice(0, 500),
+      pushOutput: pushRes.out.slice(0, 500),
+    });
+  });
+
   // Agents API — lists available CLI-based coding agents and whether each is
   // ready to use (env var present, CLI on PATH isn't checked here — the bridge
   // surfaces a runtime error if the spawn fails).
