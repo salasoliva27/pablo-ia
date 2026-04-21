@@ -1,9 +1,19 @@
 {
-  "forwardPorts": [3100],
+  "forwardPorts": [3100, 3101, 5181],
   "portsAttributes": {
     "3100": {
       "label": "Venture OS Dashboard",
       "onAutoForward": "openBrowser",
+      "visibility": "public"
+    },
+    "3101": {
+      "label": "Ozum AI-OS (jp-ai)",
+      "onAutoForward": "notify",
+      "visibility": "public"
+    },
+    "5181": {
+      "label": "Ozum AI-OS Vite HMR",
+      "onAutoForward": "silent",
       "visibility": "public"
     }
   },
