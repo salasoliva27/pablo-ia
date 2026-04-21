@@ -17,10 +17,12 @@
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js'
 import { createClient } from '@supabase/supabase-js'
 import neo4j from 'neo4j-driver'
 import { randomUUID } from 'node:crypto'
+import { createServer as createHttpServer } from 'node:http'
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -485,5 +487,47 @@ function formatResults(rows) {
   }).join('\n\n---\n\n')
 }
 
-const transport = new StdioServerTransport()
-await server.connect(transport)
+// Transport selector. Default stdio (unchanged: Claude Code spawns the process
+// and speaks JSON-RPC over stdin/stdout). MCP_TRANSPORT=http flips to
+// Streamable HTTP so the bridge can own the server's lifecycle as a sidecar.
+const TRANSPORT = (process.env.MCP_TRANSPORT ?? 'stdio').toLowerCase()
+
+if (TRANSPORT === 'http') {
+  const port = Number(process.env.MCP_HTTP_PORT ?? 3211)
+  const host = process.env.MCP_HTTP_HOST ?? '127.0.0.1'
+  const httpTransport = new StreamableHTTPServerTransport({
+    sessionIdGenerator: () => randomUUID(),
+  })
+  await server.connect(httpTransport)
+
+  const httpServer = createHttpServer((req, res) => {
+    if (req.method === 'GET' && req.url === '/health') {
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ status: 'ok', transport: 'http' }))
+      return
+    }
+    if (req.url?.startsWith('/mcp')) {
+      httpTransport.handleRequest(req, res).catch(err => {
+        if (!res.headersSent) res.writeHead(500)
+        res.end(String(err?.message ?? err))
+      })
+      return
+    }
+    res.writeHead(404)
+    res.end('not found')
+  })
+
+  httpServer.listen(port, host, () => {
+    console.error(`[janus-memory] HTTP transport listening on ${host}:${port}`)
+  })
+
+  const shutdown = () => {
+    httpServer.close(() => process.exit(0))
+    setTimeout(() => process.exit(1), 5000).unref()
+  }
+  process.on('SIGTERM', shutdown)
+  process.on('SIGINT', shutdown)
+} else {
+  const transport = new StdioServerTransport()
+  await server.connect(transport)
+}

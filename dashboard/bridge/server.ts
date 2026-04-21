@@ -12,6 +12,7 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { spawn } from "node:child_process";
+import { McpSupervisor, defaultSidecars } from "./mcp-supervisor.js";
 
 const WORKSPACE_ROOT = "/workspaces/janus-ia";
 const UPLOADS_DIR = path.join(WORKSPACE_ROOT, "dump", "uploads");
@@ -67,6 +68,23 @@ export function startServer(port: number): Promise<http.Server> {
   // Raise the JSON body limit — chat uploads arrive as base64, and a ~10MB
   // PDF becomes ~14MB base64. 30MB gives comfortable headroom.
   app.use(express.json({ limit: "30mb" }));
+
+  // Bridge owns MCP sidecar lifecycle so UI-driven Claude Code sessions don't
+  // lose MCPs across conversations. Each sidecar runs HTTP transport; .mcp.json
+  // references them by URL instead of stdio-spawning them inside Claude Code.
+  const mcpSupervisor = new McpSupervisor();
+  for (const def of defaultSidecars(WORKSPACE_ROOT)) {
+    mcpSupervisor.spawn(def);
+  }
+  const shutdownMcp = () => {
+    mcpSupervisor.shutdown().catch(err => console.error("mcp shutdown error:", err));
+  };
+  process.once("SIGTERM", shutdownMcp);
+  process.once("SIGINT", shutdownMcp);
+
+  app.get("/api/mcp/status", (_req, res) => {
+    res.json({ sidecars: mcpSupervisor.status() });
+  });
 
   // Serve frontend static files in production
   const frontendDist = path.join(path.dirname(new URL(import.meta.url).pathname), "..", "frontend", "dist");
