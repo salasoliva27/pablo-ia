@@ -2,10 +2,10 @@
 type: registry
 project: janus-ia
 tags: [projects, portfolio, status]
-updated: 2026-04-13
+updated: 2026-04-21
 ---
 # PROJECTS REGISTRY
-## Last updated: 2026-04-16
+## Last updated: 2026-04-21
 
 This is the heartbeat of Janus IA. Every project is registered here. The master agent reads this at the start of every session.
 
@@ -177,14 +177,14 @@ neighborhood projects. Fiat-first (MXN via Bitso), AI blueprint creation, milest
 ---
 
 ### jp-ai (Ozum AI-OS)
-- **Repo:** github.com/salasoliva27/jp-ai
+- **Repo:** github.com/salasoliva27/jp-ai (last push 2026-04-20)
 - **Type:** Client project — AI operating system for Ozum (corporate events & incentive travel agency)
 - **Interaction model:** Spec-fed — Jano builds for JP (Juan Pablo García, CSO at Ozum)
-- **Stage:** Dashboard shipped — CRM Phase 1 pending
+- **Stage:** Dashboard + session enforcement shipped — CRM Phase 1 pending
 - **Modules:** build 🔄
-- **Stack:** CLAUDE.md orchestrator · 11 specialized agents · Supabase collective memory · MCP: Playwright, Brave, GitHub, Context7 · CRM stack: Next.js + Supabase + Claude API · Dashboard: React 18 + Vite + Express 5 + WebSocket
+- **Stack:** CLAUDE.md orchestrator · 11 specialized agents · Supabase collective memory · MCP: Playwright, Brave, GitHub, Context7, Supabase · CRM stack: Next.js + Supabase + Claude API · Dashboard: React 18 + Vite + Express 5 + WebSocket
 - **About Ozum:** Corporate event planning + incentive travel + DMC, 30+ years, Mexico + USA. Team: Malú (CEO), Juan Pablo (CSO), Pilar (CFO).
-- **Build status (2026-04-15):**
+- **Build status (2026-04-20):**
   - ✅ Repo created and pushed — salasoliva27/jp-ai (private)
   - ✅ CLAUDE.md brain — Ozum-tuned, multi-user (all employees), role-aware
   - ✅ 11 agents: sales, events, travel, vendor, marketing, financial, developer, deploy, ux, security, research
@@ -193,7 +193,9 @@ neighborhood projects. Fiat-first (MXN via Bitso), AI blueprint creation, milest
   - ✅ Collective memory: memory/MEMORY.md index (Supabase ozum_memories table — to be wired)
   - ✅ CRM project spec: projects/dev/crm.md (Phase 1–4 roadmap)
   - ✅ .mcp.json pre-configured (Playwright, Brave, GitHub, Context7, Sequential Thinking)
-  - ✅ **Dashboard (2026-04-15):** Full Ozum AI-OS dashboard — 46 files, 13,527 lines. Adapted from [[concepts/dashboard-shell]]. Warm gold theme (oklch hue 85). Project grid, knowledge brain, activity monitor, chat panel, 4 theme presets.
+  - ✅ **Dashboard v1 (2026-04-15):** Full Ozum AI-OS dashboard — 46 files, 13,527 lines. Adapted from [[concepts/dashboard-shell]]. Warm gold theme (oklch hue 85). Project grid, knowledge brain, activity monitor, chat panel, 4 theme presets.
+  - ✅ **Dashboard polish (2026-04-16):** Floating windows, procedure map, full theme engine, chat uploads; persistent Claude session + memory banner + Supabase MCP in the bridge.
+  - ✅ **Session enforcement (2026-04-20):** Ported janus-ia's preflight + stop-gate hooks — `.claude/settings.json`, `scripts/preflight.sh`, `scripts/session-stop-gate.sh`. Every Ozum Claude session now runs the same protocol discipline.
   - ⬜ `ozum-memory` MCP in CLAUDE.md but NOT in .mcp.json — memory is dead code
   - ⬜ `modules/` directory referenced but doesn't exist
   - ⬜ Supabase `ozum_memories` table not created
@@ -225,7 +227,7 @@ None yet.
 | nutrIA | V1 built | 🔄 | No spend yet | Supabase schema + Netlify deploy |
 | longevite | V2 built | ✅ | No spend yet | Netlify deploy (30 min) |
 | mercado-bot | Dashboard v1 | 🔄 | No spend yet | Python backend scaffolding |
-| jp-ai | Dashboard shipped | 🔄 | No spend yet | Wire memory MCP, CRM Phase 1 (revenue-critical) |
+| jp-ai | Dashboard + session enforcement shipped | 🔄 | No spend yet | Wire memory MCP, create ozum_memories table, CRM Phase 1 (revenue-critical) |
 
 ## INFRASTRUCTURE HEALTH (updated 2026-04-15)
 
