@@ -92,7 +92,7 @@
       "args": [
         "-y",
         "@bitbonsai/mcpvault@latest",
-        "/workspaces/janus-ia"
+        "/workspaces/pablo-ia"
       ],
       "env": {}
     },
@@ -103,7 +103,7 @@
         "obra-knowledge-graph"
       ],
       "env": {
-        "KG_VAULT_PATH": "/workspaces/janus-ia"
+        "KG_VAULT_PATH": "/workspaces/pablo-ia"
       }
     },
     "supabase": {
