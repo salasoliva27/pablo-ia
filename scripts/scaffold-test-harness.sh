@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════
-# JANUS IA — TEST-HARNESS SCAFFOLD
+# PABLO IA — TEST-HARNESS SCAFFOLD
 # Creates the two artifacts CLAUDE.md mandates for every backend:
 #   - <backend>/src/routes/test.ts  (/api/test namespace stub)
 #   - <backend>/scripts/test-api.sh (end-to-end curl harness)

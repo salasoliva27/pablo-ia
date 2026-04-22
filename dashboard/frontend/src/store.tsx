@@ -2,16 +2,9 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef, ty
 import type { DashboardState, DashboardActions, Project, ToolStatus, BrainNode, BrainEdge, Notification, Learning, CalendarSlot, FileActivity, CenterView, BrainSource, Document, AgentInfo, MemoryEntry, SessionChatState, ChatMessage, MemoryIndex } from './types/dashboard';
 import type { ServerMessage } from './types/bridge';
 
-// ── Static Data (real project state, not simulated) ────────
+// ── Static Data (blank-slate fork — populated via discovery) ────────
 
-const PROJECTS: Project[] = [
-  { id: 'espacio-bosques', name: 'espacio-bosques', displayName: 'Espacio Bosques', stage: 'dev', stack: ['React', 'Solidity', 'Supabase', 'Bitso'], health: 'amber', currentPhase: 'i18n audit + fixes', phaseProgress: 0.65, lastCommit: { message: 'feat: bilingual sim-data, deposit modal i18n', hash: 'a1b2c3d', age: '5d' }, description: 'Real estate tokenization platform for Mexican developments', burn: 0, revenue: 0, legalFlags: ['LFPDPPP', 'Ley Fintech'], nextActions: ['Complete titleEs/summaryEs wiring', 'Provider registry Phase 2'], color: 'oklch(0.75 0.18 180)', repo: 'salasoliva27/espacio-bosques-dev' },
-  { id: 'lool-ai', name: 'lool-ai', displayName: 'Lool AI', stage: 'dev', stack: ['Next.js', 'Supabase', 'Claude API'], health: 'green', currentPhase: 'API integration', phaseProgress: 0.4, lastCommit: { message: 'feat: Claude API wrapper + streaming', hash: 'e5f6g7h', age: '3d' }, description: 'AI-powered optical lab management for CDMX', burn: 0, revenue: 0, legalFlags: [], nextActions: ['Wire product catalog', 'Build order flow'], color: 'oklch(0.70 0.20 280)', repo: 'salasoliva27/lool-ai' },
-  { id: 'nutria', name: 'nutria', displayName: 'nutrIA', stage: 'dev', stack: ['React', 'Supabase', 'Claude API'], health: 'green', currentPhase: 'Memory system', phaseProgress: 0.8, lastCommit: { message: 'feat: persistent memory + profile extraction', hash: 'i9j0k1l', age: '12d' }, description: 'AI nutrition consultant with clinical intelligence', burn: 0, revenue: 0, legalFlags: [], nextActions: ['Dashboard redesign', 'Meal plan generation'], color: 'oklch(0.72 0.18 145)', repo: 'salasoliva27/nutria-app' },
-  { id: 'longevite', name: 'longevite', displayName: 'Longevite', stage: 'uat', stack: ['Next.js', 'Tailwind'], health: 'green', currentPhase: 'Deploy prep', phaseProgress: 0.9, lastCommit: { message: 'feat: V2 website rebuild complete', hash: 'm2n3o4p', age: '19d' }, description: 'Longevity therapeutics company website', burn: 0, revenue: 0, legalFlags: [], nextActions: ['Final QA', 'Push to prod'], color: 'oklch(0.68 0.15 50)', repo: 'salasoliva27/LongeviteTherapeutics' },
-  { id: 'freelance', name: 'freelance-system', displayName: 'Freelance System', stage: 'prod', stack: ['Node.js', 'React'], health: 'green', currentPhase: 'Maintenance', phaseProgress: 1.0, lastCommit: { message: 'chore: dependency updates', hash: 'q5r6s7t', age: '30d' }, description: 'Freelance project and invoice management', burn: 50, revenue: 800, legalFlags: [], nextActions: [], color: 'oklch(0.60 0.10 220)', repo: 'salasoliva27/freelance-system' },
-  { id: 'jp-ai', name: 'jp-ai', displayName: 'JP AI (Ozum)', stage: 'dev', stack: ['React', 'Vite', 'Express', 'Supabase', 'Claude API'], health: 'amber', currentPhase: 'CRM Phase 1 pending', phaseProgress: 0.35, lastCommit: { message: 'feat(hooks): port janus-ia session enforcement (preflight + stop-gate)', hash: 'd0b194c', age: '1d' }, description: 'AI operating system for Ozum — corporate events & incentive travel', burn: 0, revenue: 0, legalFlags: [], nextActions: ['Wire memory MCP', 'Create ozum_memories Supabase table', 'CRM Phase 1 build (revenue-critical)'], color: 'oklch(0.75 0.15 85)', repo: 'salasoliva27/jp-ai' },
-];
+const PROJECTS: Project[] = [];
 
 // Tools with configuration status — needs-key tools will prompt user
 const TOOLS: ToolStatus[] = [
@@ -67,23 +60,9 @@ export function detectLanguage(filePath: string): string {
   return EXT_LANG[ext] || 'text';
 }
 
-const NOTIFICATIONS: Notification[] = [
-  { id: 'n1', type: 'drift', title: 'Prod drift detected', message: 'longevite prod tag is 2 commits behind HEAD', timestamp: Date.now() - 3600000, read: false, project: 'longevite' },
-  { id: 'n2', type: 'legal', title: 'LFPDPPP check due', message: 'espacio-bosques handles token holder PII — compliance review needed', timestamp: Date.now() - 7200000, read: false, project: 'espacio-bosques' },
-  { id: 'n3', type: 'capacity', title: 'Capacity warning', message: '3 active projects + 2 in pipeline. Adding more risks post-3pm schedule', timestamp: Date.now() - 10800000, read: false },
-  { id: 'n4', type: 'memory', title: 'Pattern detected', message: 'Supabase shared instance pattern used in 3 projects — concept node created', timestamp: Date.now() - 14400000, read: true },
-];
+const NOTIFICATIONS: Notification[] = [];
 
-const LEARNINGS: Learning[] = [
-  { id: 'lr1', rule: 'Always kill and restart tsx after route changes — never trust hot-reload for backend files', content: 'tsx watch does NOT hot-reload route file changes — must kill and restart process', domain: 'technical', project: 'espacio-bosques', timestamp: Date.now() - 86400000, sourceMemoryIds: ['mem-tsx-1', 'mem-tsx-2'], status: 'active' },
-  { id: 'lr2', rule: 'Target independent labs first — no incumbent to displace, direct sales viable', content: 'CDMX optical market: ~2,400 independent labs, no dominant SaaS player', domain: 'market', project: 'lool-ai', timestamp: Date.now() - 172800000, sourceMemoryIds: ['mem-mkt-1'], status: 'active' },
-  { id: 'lr3', rule: 'Always fund Bitso sandbox wallet with MXN before testing any crypto flow', content: 'Bitso sandbox requires explicit MXN funding before crypto operations', domain: 'technical', project: 'espacio-bosques', timestamp: Date.now() - 259200000, sourceMemoryIds: ['mem-bitso-1'], status: 'active' },
-  { id: 'lr4', rule: 'Flag CNBV sandbox notification as a blocker before any prod deploy involving tokenized assets', content: 'Ley Fintech Article 58: tokenized real estate requires CNBV sandbox notification', domain: 'legal', project: 'espacio-bosques', timestamp: Date.now() - 345600000, sourceMemoryIds: ['mem-legal-1', 'mem-legal-2'], status: 'active' },
-  { id: 'lr5', rule: 'Handle content_block_delta events in streaming — tool_use breaks without them', content: 'Claude API streaming with tool_use requires handling content_block_delta events', domain: 'technical', project: 'lool-ai', timestamp: Date.now() - 432000000, sourceMemoryIds: ['mem-claude-1'], status: 'active' },
-  { id: 'lr6', rule: 'Default to simulation-first architecture for every new project — proven 60% bug reduction', content: 'Simulation-first dev cuts integration bugs by ~60% based on 3 project comparison', domain: 'pattern', project: 'all', timestamp: Date.now() - 518400000, sourceMemoryIds: ['mem-sim-1', 'mem-sim-2', 'mem-sim-3'], status: 'active' },
-  { id: 'lr7', rule: 'Prioritize Polanco and Roma Norte for lool-ai pilot — highest lab density', content: 'Polanco and Roma Norte have highest concentration of optical labs in CDMX', domain: 'market', project: 'lool-ai', timestamp: Date.now() - 604800000, sourceMemoryIds: ['mem-geo-1'], status: 'active' },
-  { id: 'lr8', rule: 'Estimate 4 weeks for any React project — never promise 2 weeks again', content: 'React projects consistently take 4 weeks, not the 2 weeks estimated', domain: 'pattern', project: 'all', timestamp: Date.now() - 691200000, sourceMemoryIds: ['mem-est-1', 'mem-est-2', 'mem-est-3'], status: 'argued' },
-];
+const LEARNINGS: Learning[] = [];
 
 const TERMINAL_INITIAL = [
   '[bridge] listening on port 3100',
@@ -95,59 +74,24 @@ const TERMINAL_INITIAL = [
 export const AGENT_REGISTRY: AgentInfo[] = [
   { id: 'a-dev', name: 'Developer', icon: '>', role: 'Software architecture, build sequencing, technical decisions', description: 'The developer agent handles all code tasks — architecture decisions, build sequencing, feature implementation, and technical debt. It reads project context before touching any code and follows the dispatch protocol for verification.', file: 'agents/core/developer.md', lastUpdated: '2026-04-13T20:13:17Z', tools: ['GitHub', 'Context7', 'Playwright'], linkedAgents: ['a-ux', 'a-security'] },
   { id: 'a-ux', name: 'UX', icon: '◎', role: 'Visual verification, Playwright, design system', description: 'The UX agent verifies every UI change through a multi-layer protocol: code review, server start, desktop + mobile screenshots via Playwright, functional click-through testing, and cross-environment checks.', file: 'agents/core/ux.md', lastUpdated: '2026-04-13T20:13:17Z', tools: ['Playwright'], linkedAgents: ['a-dev'] },
-  { id: 'a-legal', name: 'Legal', icon: '§', role: 'Compliance, contracts, regulatory flags', description: 'Handles LFPDPPP compliance, Ley Fintech exposure, contract reviews, and regulatory flags. Automatically surfaces legal concerns when sessions touch regulated projects like espacio-bosques.', file: 'agents/core/legal.md', lastUpdated: '2026-04-13T20:13:17Z', tools: ['Brave Search'], linkedAgents: [] },
+  { id: 'a-legal', name: 'Legal', icon: '§', role: 'Compliance, contracts, regulatory flags', description: 'Handles compliance reviews, contract reviews, and regulatory flags. Automatically surfaces legal concerns when sessions touch regulated projects.', file: 'agents/core/legal.md', lastUpdated: '2026-04-13T20:13:17Z', tools: ['Brave Search'], linkedAgents: [] },
   { id: 'a-financial', name: 'Financial', icon: '$', role: 'Portfolio P&L, burn tracking, runway', description: 'Tracks burn rate, revenue, runway, and P&L across the entire venture portfolio. Produces financial snapshots and flags capacity conflicts when new commitments are proposed.', file: 'agents/core/financial.md', lastUpdated: '2026-04-13T21:40:23Z', tools: ['Google Sheets'], linkedAgents: [] },
   { id: 'a-intake', name: 'Intake', icon: '+', role: 'New idea validation and project spin-up', description: 'Runs the full intake protocol for new ideas: understand, validate (market research), check conflicts, propose structure, and spin up. Challenges weak ideas and capacity conflicts directly.', file: 'agents/core/intake.md', lastUpdated: '2026-04-13T21:20:59Z', tools: ['Brave Search'], linkedAgents: ['a-research'] },
-  { id: 'a-research', name: 'Research', icon: '?', role: 'Market research, competitor analysis, discovery', description: 'All research tasks route here. Uses Brave Search, Firecrawl, USDA API, and NotebookLM with a priority matrix based on research type. Mexico/LATAM market focus with source citations and confidence levels.', file: 'agents/core/research.md', lastUpdated: '2026-04-13T21:56:32Z', tools: ['Brave Search', 'Firecrawl', 'NotebookLM'], linkedAgents: [] },
+  { id: 'a-research', name: 'Research', icon: '?', role: 'Market research, competitor analysis, discovery', description: 'All research tasks route here. Uses Brave Search, Firecrawl, and NotebookLM with a priority matrix based on research type. Source citations and confidence levels.', file: 'agents/core/research.md', lastUpdated: '2026-04-13T21:56:32Z', tools: ['Brave Search', 'Firecrawl', 'NotebookLM'], linkedAgents: [] },
   { id: 'a-deploy', name: 'Deploy', icon: '↑', role: 'Dev → UAT → prod pipeline, tagging, drift detection', description: 'Manages the deployment pipeline across environments. Handles tagging, drift detection between prod tags and HEAD, and environment promotion with verification gates.', file: 'agents/core/deploy.md', lastUpdated: '2026-04-13T21:20:59Z', tools: ['GitHub'], linkedAgents: [] },
-  { id: 'a-calendar', name: 'Calendar', icon: '▦', role: 'Google Cal sync, conflict detection', description: 'Two-way Google Calendar sync via MCP. Detects scheduling conflicts, checks capacity against active projects, and enforces the post-3pm availability constraint.', file: 'agents/core/calendar.md', lastUpdated: '2026-04-13T21:20:59Z', tools: ['Google Calendar'], linkedAgents: [] },
+  { id: 'a-calendar', name: 'Calendar', icon: '▦', role: 'Google Cal sync, conflict detection', description: 'Two-way Google Calendar sync via MCP. Detects scheduling conflicts and checks capacity against active projects.', file: 'agents/core/calendar.md', lastUpdated: '2026-04-13T21:20:59Z', tools: ['Google Calendar'], linkedAgents: [] },
   { id: 'a-performance', name: 'Performance', icon: '◆', role: 'Dashboards, weekly summaries, metrics', description: 'Tracks project performance metrics, produces weekly summaries, and maintains dashboards. Monitors build times, test coverage, and delivery velocity.', file: 'agents/core/performance.md', lastUpdated: '2026-04-13T21:20:59Z', tools: ['Google Sheets'], linkedAgents: [] },
-  { id: 'a-oversight', name: 'Oversight', icon: '◉', role: 'Product coherence, gap detection, launch readiness', description: 'Sees the full product end-to-end. Walks user flows, finds integration gaps, produces launch readiness checklists, and manages external dependency loops. Works WITH Jano in a loop — does not fix unilaterally.', file: 'agents/core/oversight.md', lastUpdated: '2026-04-13T21:20:59Z', tools: ['Playwright'], linkedAgents: ['a-ux'] },
+  { id: 'a-oversight', name: 'Oversight', icon: '◉', role: 'Product coherence, gap detection, launch readiness', description: 'Sees the full product end-to-end. Walks user flows, finds integration gaps, produces launch readiness checklists, and manages external dependency loops. Works WITH the operator in a loop — does not fix unilaterally.', file: 'agents/core/oversight.md', lastUpdated: '2026-04-13T21:20:59Z', tools: ['Playwright'], linkedAgents: ['a-ux'] },
   { id: 'a-marketing', name: 'Marketing', icon: '◈', role: 'Brand, content, campaigns, email, video', description: 'Handles brand voice, content creation, campaign execution, email outreach via Gmail MCP, and video generation via Remotion. Uses Magic MCP for UI component generation and competitor benchmarking.', file: 'agents/core/marketing.md', lastUpdated: '2026-04-13T20:13:17Z', tools: ['Brave Search', 'Magic MCP', 'Gmail', 'Remotion'], linkedAgents: [] },
   { id: 'a-trickle', name: 'Trickle-Down', icon: '⇣', role: 'Cross-project proposal routing', description: 'When a pattern or proposal should apply across projects, this agent evaluates each project individually and produces ADOPT / ADAPT / REJECT decisions with specific reasoning per project.', file: 'agents/core/trickle-down.md', lastUpdated: '2026-04-13T21:20:59Z', tools: ['GitHub'], linkedAgents: [] },
   { id: 'a-security', name: 'Security', icon: '⊘', role: 'Vulnerability detection, OWASP review, pre-deploy gates', description: 'Runs OWASP top 10 checks, audits auth flows, reviews data handling, and gates deployments. Cross-agent hardening ensures security is checked even when other agents are executing.', file: 'agents/core/security.md', lastUpdated: '2026-04-13T20:13:17Z', tools: ['Playwright', 'GitHub'], linkedAgents: [] },
-  { id: 'a-nutrition', name: 'Nutrition', icon: '♥', role: 'Clinical nutrition intelligence (powers nutrIA)', description: 'Domain-specific agent for clinical nutrition. Uses USDA FoodData Central API and Open Food Facts for nutritional data. Powers the nutrIA product with evidence-based recommendations.', file: 'agents/core/nutrition.md', lastUpdated: '2026-04-13T20:13:17Z', tools: ['USDA API', 'Open Food Facts'], linkedAgents: [] },
+  { id: 'a-nutrition', name: 'Nutrition', icon: '♥', role: 'Clinical nutrition intelligence', description: 'Domain-specific agent for clinical nutrition. Uses USDA FoodData Central API and Open Food Facts for nutritional data. Provides evidence-based recommendations.', file: 'agents/core/nutrition.md', lastUpdated: '2026-04-13T20:13:17Z', tools: ['USDA API', 'Open Food Facts'], linkedAgents: [] },
   { id: 'a-evolve', name: 'Evolve', icon: '∞', role: 'Self-improvement, capability discovery, memory consolidation', description: 'The system introspection and growth engine. Runs timed loops searching for tools, strengthening knowledge connections, and installing capabilities that benefit all projects. Does not build features — makes the system itself better.', file: 'agents/core/evolve.md', lastUpdated: '2026-04-15T01:58:00Z', tools: ['Brave Search', 'GitHub'], linkedAgents: [] },
 ];
 
 function makeBrainData(): { nodes: BrainNode[]; edges: BrainEdge[] } {
-  const raw: { id: string; label: string; group: BrainNode['group']; links: string[] }[] = [
-    { id: 'w-eb', label: 'espacio-bosques', group: 'wiki', links: ['c-sim', 'c-test', 'c-mx', 'c-fintech', 'c-supa', 'l-market', 'l-tech', 'l-patterns', 'a-dev', 'a-legal'] },
-    { id: 'w-lool', label: 'lool-ai', group: 'wiki', links: ['c-cdmx', 'c-mx', 'c-supa', 'l-market', 'a-dev', 'a-research'] },
-    { id: 'w-nutria', label: 'nutrIA', group: 'wiki', links: ['c-supa', 'l-tech', 'a-dev', 'a-nutrition'] },
-    { id: 'w-longevite', label: 'longevite', group: 'wiki', links: ['a-dev', 'a-deploy', 'a-marketing'] },
-    { id: 'w-freelance', label: 'freelance-system', group: 'wiki', links: ['a-financial', 'l-patterns'] },
-    { id: 'w-mercado', label: 'mercado-bot', group: 'wiki', links: ['c-mx', 'a-dev'] },
-    { id: 'w-jp', label: 'jp-ai', group: 'wiki', links: ['a-dev', 'l-tech'] },
-    { id: 'c-sim', label: 'simulation-first-dev', group: 'concepts', links: ['c-test'] },
-    { id: 'c-test', label: 'test-harness-first', group: 'concepts', links: [] },
-    { id: 'c-mx', label: 'spanish-first-mx', group: 'concepts', links: ['c-cdmx'] },
-    { id: 'c-cdmx', label: 'cdmx-neighborhood', group: 'concepts', links: [] },
-    { id: 'c-fintech', label: 'ley-fintech-compliance', group: 'concepts', links: ['l-legal'] },
-    { id: 'c-supa', label: 'supabase-shared', group: 'concepts', links: ['l-supa'] },
-    { id: 'l-crossmap', label: 'cross-project-map', group: 'learnings', links: ['l-patterns'] },
-    { id: 'l-patterns', label: 'patterns', group: 'learnings', links: [] },
-    { id: 'l-tech', label: 'technical', group: 'learnings', links: [] },
-    { id: 'l-market', label: 'market', group: 'learnings', links: ['l-gtm'] },
-    { id: 'l-supa', label: 'supabase-registry', group: 'learnings', links: [] },
-    { id: 'l-mcp', label: 'mcp-registry', group: 'learnings', links: ['l-tech'] },
-    { id: 'l-gtm', label: 'gtm', group: 'learnings', links: [] },
-    { id: 'l-legal', label: 'legal-mx', group: 'learnings', links: [] },
-    { id: 'a-dev', label: 'developer', group: 'agents', links: ['a-ux', 'a-security'] },
-    { id: 'a-ux', label: 'ux', group: 'agents', links: [] },
-    { id: 'a-legal', label: 'legal', group: 'agents', links: [] },
-    { id: 'a-financial', label: 'financial', group: 'agents', links: [] },
-    { id: 'a-intake', label: 'intake', group: 'agents', links: ['a-research'] },
-    { id: 'a-research', label: 'research', group: 'agents', links: [] },
-    { id: 'a-deploy', label: 'deploy', group: 'agents', links: [] },
-    { id: 'a-calendar', label: 'calendar', group: 'agents', links: [] },
-    { id: 'a-performance', label: 'performance', group: 'agents', links: [] },
-    { id: 'a-oversight', label: 'oversight', group: 'agents', links: ['a-ux'] },
-    { id: 'a-marketing', label: 'marketing', group: 'agents', links: [] },
-    { id: 'a-trickle', label: 'trickle-down', group: 'agents', links: [] },
-    { id: 'a-security', label: 'security', group: 'agents', links: [] },
-    { id: 'a-nutrition', label: 'nutrition', group: 'agents', links: [] },
-  ];
+  // Blank-slate fork — brain populates from the vault/memory during discovery.
+  const raw: { id: string; label: string; group: BrainNode['group']; links: string[] }[] = [];
 
   const groupAngles: Record<string, number> = { wiki: 0, concepts: Math.PI / 2, learnings: Math.PI, agents: (3 * Math.PI) / 2 };
   const cx = 400, cy = 300;
@@ -188,23 +132,14 @@ function makeCalendar(): CalendarSlot[] {
     for (let d = 0; d < 7; d++) {
       const date = new Date(now);
       date.setDate(now.getDate() + w * 7 + d - now.getDay() + 1);
-      const isWeekend = d >= 5;
-      const load = isWeekend ? Math.random() * 0.3 : 0.3 + Math.random() * 0.7;
-      const items = load > 0.7 ? ['espacio-bosques sprint', 'lool-ai API work'] : load > 0.4 ? ['nutrIA session'] : [];
-      slots.push({ date: date.toISOString().slice(0, 10), dayLabel: days[d], load, items });
+      slots.push({ date: date.toISOString().slice(0, 10), dayLabel: days[d], load: 0, items: [] });
     }
   }
   return slots;
 }
 
 function makeFileActivities(): FileActivity[] {
-  const repos = [
-    { name: 'espacio-bosques', color: 'oklch(0.75 0.18 180)' },
-    { name: 'lool-ai', color: 'oklch(0.70 0.20 280)' },
-    { name: 'venture-os', color: 'oklch(0.65 0.12 300)' },
-    { name: 'nutria', color: 'oklch(0.72 0.18 145)' },
-    { name: 'longevite', color: 'oklch(0.68 0.15 50)' },
-  ];
+  const repos: { name: string; color: string }[] = [];
   const files: FileActivity[] = [];
   for (const r of repos) {
     const count = 3 + Math.floor(Math.random() * 8);
@@ -413,21 +348,6 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     clearTimeout(persistTimer.current);
     persistTimer.current = setTimeout(() => persistState(state), 500);
   }, [state]);
-
-  // ── On mount: clear janus-ia-only seed data when running in a fork ────
-  // PROJECTS, NOTIFICATIONS, and LEARNINGS are seeded with Jano's content
-  // so his dashboard renders with real data on first paint. Forks should
-  // start blank — they personalize via discovery.
-  useEffect(() => {
-    fetch('/api/workspace')
-      .then(r => r.json())
-      .then((d: { name?: string }) => {
-        if (d?.name && d.name !== 'janus-ia') {
-          setState(s => ({ ...s, projects: [], notifications: [], learnings: [] }));
-        }
-      })
-      .catch(() => { /* bridge may be warming up */ });
-  }, []);
 
   // ── Fetch auto-memory index (shown in chat header) ────
   useEffect(() => {

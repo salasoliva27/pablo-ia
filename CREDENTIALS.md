@@ -1,18 +1,18 @@
 # CREDENTIALS & TOOL ACCESS CHECK
-## Janus IA — Central Credential Registry
-### Last updated: 2026-03-25
+## Pablo IA — Central Credential Registry
+### Last updated: 2026-04-22
 
 ---
 
 ## HOW THIS WORKS
 
-All secrets live in Jano's private dotfiles repo (`salasoliva27/dotfiles`), loaded as environment variables into every Codespace automatically.
+All secrets live in a private dotfiles repo, loaded as environment variables into every Codespace automatically.
 
-**Never store secrets in any project repo.** Never ask Jano for a key in a conversation.
+**Never store secrets in any project repo.** Never ask Pablo for a key in a conversation.
 
-When a project (lool-ai, freelance-system, espacio-bosques, etc.) needs a tool credential:
+When a project needs a tool credential:
 - Its own TOOLS.md declares which tools it uses
-- It references this file (`janus/CREDENTIALS.md`) for setup procedure
+- It references this file (`pablo-ia/CREDENTIALS.md`) for setup procedure
 - It does NOT manage credentials itself
 
 If a project is ever handed off to someone outside the portfolio, copy the relevant rows from this file into that project's own CREDENTIALS.md at handoff time.
@@ -237,7 +237,7 @@ Fine-grained PATs support "All repositories" but max out at 1 year expiration �
 | API | What Claude Code can do |
 |---|---|
 | Gmail | Search, read, create drafts, send, label, organize threads |
-| Google Calendar | Create/update/delete events, check availability, detect conflicts with Jano's 3pm constraint |
+| Google Calendar | Create/update/delete events, check availability, detect scheduling conflicts |
 | Google Drive | Upload files, create folders, share links, read documents |
 | Google Sheets | Create spreadsheets, read/write cells, build financial trackers and lead CSVs |
 | Google Docs | Create documents, write and edit content, export to PDF |
@@ -267,7 +267,7 @@ Fine-grained PATs support "All repositories" but max out at 1 year expiration �
 | Use | What Claude Code can do |
 |---|---|
 | Web search | Market research, competitor analysis, news, pricing benchmarks |
-| Local search | Find businesses by location — useful for CDMX optical store prospecting |
+| Local search | Find businesses by location |
 
 ---
 
@@ -277,13 +277,13 @@ Each project in the portfolio has its own TOOLS.md that lists which tools it use
 
 ```
 ## Credential setup
-All credentials are managed centrally. See janus/CREDENTIALS.md for:
+All credentials are managed centrally. See pablo-ia/CREDENTIALS.md for:
 - How to run the live check
-- How to fix any missing keys in salasoliva27/dotfiles
+- How to fix any missing keys in the dotfiles repo
 - Where to find / regenerate each key
 ```
 
-Projects never duplicate credential setup instructions. If instructions drift between repos, the janus version wins.
+Projects never duplicate credential setup instructions. If instructions drift between repos, the pablo-ia version wins.
 
 ---
 
@@ -299,9 +299,9 @@ Notes: Hooks into session lifecycle. Replaces manual remember() at session end f
 
 ### mcpvault (Obsidian MCP)
 Where to get: No key needed
-Install: npx @bitbonsai/mcpvault /workspaces/venture-os
+Install: npx @bitbonsai/mcpvault /workspaces/pablo-ia
 Status: ✅ In .mcp.json (obsidian-vault server)
-Notes: Reads/writes janus-ia vault from Codespace. 14 tools for vault operations.
+Notes: Reads/writes pablo-ia vault from Codespace. 14 tools for vault operations.
 
 ### obra/knowledge-graph
 Where to get: No key needed
@@ -316,7 +316,7 @@ Status: ⬜ Blocked — check back when package matures
 Notes: Intended for codebase structure graph per repo. Try again when a stable version ships.
 
 ### SUPABASE_ACCESS_TOKEN
-Where to get: supabase.com/dashboard/account/tokens → Generate new token → name "janus-mcp"
+Where to get: supabase.com/dashboard/account/tokens → Generate new token → name "pablo-ia-mcp"
 Add to dotfiles: `export SUPABASE_ACCESS_TOKEN=your_token`
 Status: ✅ In dotfiles — loaded
 
@@ -330,7 +330,7 @@ Status: ✅ In dotfiles — loaded
 ## ADDING A NEW TOOL
 
 1. Add env var to `salasoliva27/dotfiles/.env`
-2. Add to `.mcp.json` in janus
+2. Add to `.mcp.json` in pablo-ia
 3. Add row to the status table above
 4. Add "where to find" section below if non-obvious
 5. Update `TOOLS.md` with the new tool entry

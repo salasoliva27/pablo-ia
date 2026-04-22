@@ -1,4 +1,4 @@
-// Venture OS Dashboard — All Types
+// Pablo IA Dashboard — All Types
 
 export interface Project {
   id: string;

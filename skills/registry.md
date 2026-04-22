@@ -1,7 +1,7 @@
 # SKILLS REGISTRY
-## Janus IA | Last updated: 2026-04-09
+## Pablo IA | Last updated: 2026-04-09
 
-All skills available across Janus IA projects.
+All skills available across Pablo IA projects.
 Skills teach Claude how to do something before a task starts.
 MCP tools give access to external systems. They compose.
 
@@ -36,7 +36,7 @@ Document creation — all reliable. Use for any file output task.
 
 ### skill-creator
 **Verdict:** GOOD | /mnt/skills/examples/
-Use to build new custom skills for Janus IA.
+Use to build new custom skills for Pablo IA.
 
 ### feature-dev ⚡
 **Verdict:** INSTALLED — not yet invoked via /feature-dev

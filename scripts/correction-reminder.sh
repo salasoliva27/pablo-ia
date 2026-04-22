@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════
-# JANUS IA — CORRECTION REMINDER (UserPromptSubmit hook)
+# PABLO IA — CORRECTION REMINDER (UserPromptSubmit hook)
 # Scans the incoming user prompt for redirect patterns (no/don't/
 # stop/wrong/actually). When matched, injects a non-blocking
 # reminder that Claude MUST call mcp__janus-memory__capture_correction
@@ -56,7 +56,7 @@ cat <<'EOF'
 ▸ CORRECTION-REMINDER: this prompt contains a redirect pattern. Per CLAUDE.md evolution rule #4: write the correction BEFORE the fix.
 
 Before editing any code or responding to the correction itself:
-  1. Call mcp__janus-memory__capture_correction(original, correction, context, workspace="janus-ia", project=<current>)
+  1. Call mcp__janus-memory__capture_correction(original, correction, context, workspace="pablo-ia", project=<current>)
   2. Then address what the user asked
 
 Diagnostic 2026-04-20: only 4/61 memories are corrections (6.5%). This rule was documented but not enforced. The capture is what tunes future sessions.

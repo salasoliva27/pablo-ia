@@ -14,7 +14,7 @@ import os from "node:os";
 import { spawn } from "node:child_process";
 import { McpSupervisor, defaultSidecars } from "./mcp-supervisor.js";
 
-// DASH_HOME = where the dashboard code lives (janus-ia/dashboard/..). Always
+// DASH_HOME = where the dashboard code lives (pablo-ia/dashboard/..). Always
 // derived from this file's own location so it works regardless of wrapper mode.
 // WORKSPACE_ROOT = the repo the bridge is serving (may differ from DASH_HOME
 // when launched via a wrapper in another repo).

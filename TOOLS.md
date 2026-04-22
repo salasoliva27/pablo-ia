@@ -1,6 +1,6 @@
-make sure that tool is added to page # TOOLS REGISTRY
-## Janus IA — Dynamic Discovery
-## Last updated: 2026-03-25
+# TOOLS REGISTRY
+## Pablo IA — Dynamic Discovery
+## Last updated: 2026-04-22
 
 ---
 
@@ -52,7 +52,7 @@ Key directories:
 Stars > 500 preferred · official company repo accepted at any star count · last commit < 6 months · README with install command · not in BAD list
 Reference data: mcpmarket.com/leaderboards (star counts) · mcpmanager.ai/blog/most-popular-mcp-servers (search volume)
 
-### Step 5 — Propose to Jano
+### Step 5 — Propose to Pablo
 1-3 options max, top pick with reasoning, exact install command, env var needed. Never add to `.mcp.json` without confirmation.
 
 ### Step 6 — Write feedback
@@ -148,11 +148,7 @@ npx remotion render        # renders to out/ locally
 ```
 
 **Where it fits in the portfolio:**
-- `longevite-therapeutics` — therapy explainer reels, clinic promos, Instagram content
-- `espacio-bosques` — personalized project update videos for community investors
-- `lool-ai` — product demo videos for optical store pitches
-- `freelance-system` — "AI Video Generation" as a new service type (~$500–2,000/project)
-- New standalone project — vertical video SaaS (see PROJECTS.md when ready)
+_(Personalize during discovery — list which projects will use video generation.)_
 
 **Cost:** Free (local) · $0.01/render-minute (Lambda — deferred, AWS subscription not active)
 
@@ -200,17 +196,17 @@ npx remotion render        # renders to out/ locally
 ```
 Code, markdown, CSV, configs → GitHub (project repo)
 Research docs, proposals → GitHub (/validation or /gtm)
-Client deliverables, PDFs → Google Drive "/Janus_AI/[project]/"  (via scripts/gdrive)
-AI-generated images/video (review) → Google Drive "/Janus_AI/_media/[project]/"
-Public-facing media (CDN URLs) → Cloudflare R2 /janus-media/[project]/
+Client deliverables, PDFs → Google Drive "/Pablo_AI/[project]/"  (via scripts/gdrive)
+AI-generated images/video (review) → Google Drive "/Pablo_AI/_media/[project]/"
+Public-facing media (CDN URLs) → Cloudflare R2 /pablo-media/[project]/
 ```
 
 ---
 
 ## GOOGLE CALENDAR RULES
 
-- Available after 3pm weekdays, weekends flexible
-- 30 min buffer between project context switches
+_(Personalize during discovery — declare Pablo's available hours and buffer rules.)_
+
 - Read calendar before scheduling anything
 - Flag when estimated timeline doesn't fit available hours
 
@@ -221,4 +217,4 @@ Public-facing media (CDN URLs) → Cloudflare R2 /janus-media/[project]/
 1. Search Gmail for threads related to the project
 2. Extract: last message date, status, commitments, next action
 3. Update the project's GTM tracker
-4. Flag any threads needing Jano's response
+4. Flag any threads needing Pablo's response

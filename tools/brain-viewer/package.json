@@ -1,7 +1,7 @@
 {
-  "name": "janus-brain-viewer",
+  "name": "pablo-brain-viewer",
   "version": "1.0.0",
-  "description": "Live D3 knowledge graph viewer for the Janus IA vault",
+  "description": "Live D3 knowledge graph viewer for the Pablo IA vault",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

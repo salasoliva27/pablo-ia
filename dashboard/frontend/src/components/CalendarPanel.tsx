@@ -20,86 +20,12 @@ const DAYS_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 const PROJECT_COLORS: Record<string, string> = {
-  'espacio-bosques': '#5fd4d4',
-  'lool-ai': '#a77bdb',
-  'nutria': '#5fd47a',
-  'longevite': '#d4a55f',
-  'freelance': '#60a5fa',
-  'mercado-bot': '#f4511e',
-  'jp-ai': '#f6bf26',
-  'janus-ia': '#7986cb',
   default: '#888',
 };
 
-// ── Real project events for April–May 2026 ──
-// Based on PROJECTS.md next actions and current sprint work
-
+// Blank-slate fork — calendar populates from the bridge's calendar sync during discovery.
 function generateProjectEvents(): CalendarEvent[] {
-  const events: CalendarEvent[] = [];
-  let id = 0;
-
-  const add = (
-    title: string,
-    date: string,
-    startH: number,
-    endH: number,
-    project: string,
-    allDay = false,
-  ) => {
-    events.push({
-      id: `ev-${id++}`,
-      title,
-      start: allDay ? date : `${date}T${String(startH).padStart(2, '0')}:00:00`,
-      end: allDay ? date : `${date}T${String(endH).padStart(2, '0')}:00:00`,
-      allDay,
-      project,
-      color: PROJECT_COLORS[project] || PROJECT_COLORS.default,
-    });
-  };
-
-  // ── Week of Apr 13–19 (current week, today is Apr 16) ──
-  add('Dashboard asset fix + localStorage guard', '2026-04-13', 15, 18, 'janus-ia');
-  add('Memory MCP fix + npm install', '2026-04-14', 15, 17, 'janus-ia');
-  add('Vault MCP path fix', '2026-04-14', 17, 18, 'janus-ia');
-  add('JP-AI dashboard ship', '2026-04-15', 15, 20, 'jp-ai');
-  add('Tools registry health check', '2026-04-15', 20, 21, 'janus-ia');
-  add('Calendar panel build', '2026-04-16', 15, 18, 'janus-ia');
-  add('Window resize + edge snapping', '2026-04-16', 18, 20, 'janus-ia');
-  add('Espacio Bosques demo prep', '2026-04-17', 15, 18, 'espacio-bosques');
-  add('Seed 5+ investors for vote threshold', '2026-04-17', 18, 20, 'espacio-bosques');
-  add('Lool-AI attribution tracking', '2026-04-18', 15, 18, 'lool-ai');
-  add('Weekend: flexible', '2026-04-19', 10, 14, 'freelance');
-
-  // ── Week of Apr 20–26 ──
-  add('Espacio Bosques first demo', '2026-04-20', 11, 14, 'espacio-bosques');
-  add('Lool-AI embeddable widget', '2026-04-21', 15, 19, 'lool-ai');
-  add('Lool-AI widget cont.', '2026-04-22', 15, 18, 'lool-ai');
-  add('NutrIA Supabase schema', '2026-04-22', 18, 20, 'nutria');
-  add('NutrIA Netlify deploy', '2026-04-23', 15, 17, 'nutria');
-  add('NutrIA widget embed on Longevite', '2026-04-23', 17, 19, 'nutria');
-  add('Longevite Netlify deploy', '2026-04-24', 15, 16, 'longevite');
-  add('Longevite contact form + GA', '2026-04-24', 16, 18, 'longevite');
-  add('Mercado Bot Python backend scaffold', '2026-04-25', 15, 19, 'mercado-bot');
-
-  // ── Week of Apr 27 – May 3 ──
-  add('JP-AI wire memory MCP', '2026-04-27', 15, 17, 'jp-ai');
-  add('JP-AI Supabase ozum_memories table', '2026-04-27', 17, 19, 'jp-ai');
-  add('JP-AI CRM Phase 1 — lead intake', '2026-04-28', 15, 20, 'jp-ai');
-  add('JP-AI CRM Phase 1 cont.', '2026-04-29', 15, 20, 'jp-ai');
-  add('JP-AI AI proposal generator', '2026-04-30', 15, 20, 'jp-ai');
-  add('Freelance — first lead push', '2026-05-01', 15, 18, 'freelance');
-  add('Mercado Bot Python agents', '2026-05-02', 15, 19, 'mercado-bot');
-  add('Portfolio review + backlog check', '2026-05-03', 11, 14, 'janus-ia');
-
-  // ── Week of May 4–10 ──
-  add('Lool-AI first store pilot prep', '2026-05-04', 15, 18, 'lool-ai');
-  add('Lool-AI store visit Roma/Condesa', '2026-05-05', 10, 14, 'lool-ai');
-  add('Espacio Bosques Supabase persistent schema', '2026-05-06', 15, 19, 'espacio-bosques');
-  add('JP-AI CRM Phase 2 — vendor DB', '2026-05-07', 15, 20, 'jp-ai');
-  add('Mercado Bot SCAN+RESEARCH pipeline', '2026-05-08', 15, 19, 'mercado-bot');
-  add('NutrIA Phase 1 internal test', '2026-05-09', 15, 18, 'nutria');
-
-  return events;
+  return [];
 }
 
 // ── Helper functions ──

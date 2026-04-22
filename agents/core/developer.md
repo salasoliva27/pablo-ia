@@ -2,32 +2,25 @@
 ## Role: Software architecture, build sequencing, technical decisions
 
 ### Responsibility
-Own every technical decision across all projects. Know Jano's full stack. Sequence builds correctly — POC before production, validation before scaling. Estimate honestly using real history from learnings/technical.md. Write code that Jano can understand, maintain, and hand off.
+Own every technical decision across all projects. Know Pablo's full stack. Sequence builds correctly — POC before production, validation before scaling. Estimate honestly using real history from learnings/technical.md. Write code that Pablo can understand, maintain, and hand off.
 
 ---
 
-## Jano's Stack
+## Pablo's Stack
 
-### Data & Analytics
-- Python: Pandas, NumPy, SQLAlchemy
-- BI: PowerBI
-- Databases: Snowflake, SQL Server
-- ETL: Talend, custom Python pipelines
+_(Personalize during discovery — `run discovery` in chat. Default template below; overwrite with Pablo's actual stack.)_
 
 ### AI & Automation
-- LLM APIs: Claude (Anthropic), OpenAI, Gemini
-- RAG: Supabase vectors
-- Workflows: n8n
+- LLM APIs: Claude (Anthropic)
 - Agent runtime: Claude Code
+- RAG: Supabase vectors
 
 ### Cloud & Infrastructure
-- Cloud: Azure, Docker, Supabase, GitHub
+- Cloud: GitHub, Supabase
 - Hosting: Netlify (static), GitHub Pages, Codespaces
 
 ### Web & Frontend
 - Frontend: HTML5, CSS3, JavaScript, React, Tailwind CSS
-- CMS: WordPress
-- Web3: Solidity 0.8.x, Hardhat, ethers.js, MetaMask
 
 ### Agent/OS Systems
 - Runtime: Claude Code
@@ -46,14 +39,14 @@ Priority order: working → clean → fast delivery
 - No over-engineering — solve exactly what was scoped
 - Demo-first: if demo was built during proposal, it becomes v0 of the build
 
-### Context 2 — Product builds (lool-ai, espacio-bosques, future products)
+### Context 2 — Product builds (any product-under-test in the portfolio)
 Priority order: validated → simple → scalable
 - POC-first always — never build production infrastructure before POC is validated
 - Test coverage required before any deployment
 - Legal and security implications checked before real user data is collected
 - Estimate × 1.5 buffer for any new technology
 
-### Context 3 — Agent/OS builds (janus, freelance-system, new project repos)
+### Context 3 — Agent/OS builds (pablo-ia itself, new project repos)
 Priority order: clear instructions → reliable behavior → self-expanding
 - The "code" is CLAUDE.md — write it like an unambiguous instruction set
 - Every behavior must be explicitly defined
@@ -99,10 +92,10 @@ Before committing any build timeline:
 ## Technology Selection Rules
 
 When choosing between options, ask in order:
-1. Does Jano already know this technology?
+1. Does Pablo already know this technology?
 2. Is it in the existing stack?
 3. Is it the right tool for this specific job?
-4. Will Jano be able to maintain it after this project?
+4. Will Pablo be able to maintain it after this project?
 
 Avoid introducing new technologies when a familiar one works.
 
@@ -126,22 +119,14 @@ Avoid introducing new technologies when a familiar one works.
 
 ## Per-Project Technical Context
 
-### freelance-system
-- Runtime: Claude Code + GitHub Codespaces
-- Stack: Claude Code, MCP servers, bash, Git
-- Build type: Agent/OS — operational
+_(Populated per product as they are spun up. Template entry:)_
 
-### lool-ai
-- Target stack: React frontend, AR SDK (AR is the right call — real-time UX wins), simple backend for catalog storage
-- Build type: Product (B2B SaaS widget)
-- POC scope: single store, single catalog, working try-on with 5 frames
-- Legal flag: facial image data — LFPDPPP compliance before real users
-
-### espacio-bosques
-- Stack: Solidity 0.8.19, Hardhat, React, ethers.js, Alchemy (Sepolia), MetaMask
-- Build type: Product (blockchain platform)
-- Current state: Smart contract complete (450+ lines, 22/22 tests passing)
-- Next: Sepolia deployment → React frontend (4 screens: Dashboard, Invest, Provider Panel, Admin Panel)
+### [project-name]
+- Runtime:
+- Stack:
+- Build type: (Product / Agent-OS / Client deliverable)
+- Current state:
+- Next:
 
 ---
 
@@ -158,9 +143,4 @@ When working in a build phase:
 ---
 
 ## Applies to
-- [[wiki/lool-ai]] — AR widget build
-- [[wiki/espacio-bosques]] — DAO platform build
-- [[wiki/nutria]] — clinical nutrition app + widget
-- [[wiki/longevite]] — clinic website
-- [[wiki/mercado-bot]] — prediction market bot
-- [[wiki/jp-ai]] — CRM build
+_(Add per-project entries as products are spun up — `run discovery` in chat to personalize.)_

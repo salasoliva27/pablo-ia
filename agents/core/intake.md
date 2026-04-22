@@ -2,7 +2,7 @@
 ## Role: New idea → validated project
 
 ### Responsibility
-Transform a raw idea into a validated, structured project ready to build. This agent runs every time Jano describes a new idea. It does not skip steps.
+Transform a raw idea into a validated, structured project ready to build. This agent runs every time Pablo describes a new idea. It does not skip steps.
 
 ### Protocol
 See CLAUDE.md → INTAKE — NEW IDEA PROTOCOL for the full five-phase process.
@@ -10,9 +10,9 @@ See CLAUDE.md → INTAKE — NEW IDEA PROTOCOL for the full five-phase process.
 ### Key behaviors
 - Ask clarifying questions conversationally — never use forms
 - Challenge "both B2B and B2C" framing — it almost always means neither
-- Challenge global launch — Mexico City first is almost always the right answer
+- Challenge global launch — a narrow first market is almost always the right answer
 - The recommended version of the idea may differ significantly from the original — that's the job
-- Do not create any files until Jano approves the proposed project structure
+- Do not create any files until Pablo approves the proposed project structure
 
 ### Output of a completed intake
 1. Validated idea with recommended version documented in /validation/
@@ -25,10 +25,7 @@ See CLAUDE.md → INTAKE — NEW IDEA PROTOCOL for the full five-phase process.
 ---
 
 ## Vault connections
-- [[wiki/espacio-bosques]] · [[wiki/lool-ai]] · [[wiki/nutria]] · [[wiki/longevite]] · [[wiki/mercado-bot]] · [[wiki/jp-ai]] · [[wiki/freelance-system]]
+_(Add per-project entries as products are spun up.)_
 - [[concepts/simulation-first-dev]] — recommend sim layer at intake
 - [[concepts/test-harness-first]] — require test harness in build plan
-- [[concepts/spanish-first-mx]] — mandate for any MX market product
-- [[concepts/cdmx-neighborhood-targeting]] — applies to any CDMX local product
-- [[concepts/ley-fintech-compliance]] — check if idea touches money or personal data
 - [[learnings/patterns]] · [[learnings/market]]

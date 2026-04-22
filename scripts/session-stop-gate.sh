@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════
-# JANUS IA — SESSION STOP GATE
+# PABLO IA — SESSION STOP GATE
 # Fires on Claude Code "Stop" event. Refuses to end the session
 # until a `most-recent-context` memory for today exists in Supabase.
 #
@@ -112,6 +112,6 @@ fi
 cat <<'EOF'
 {
   "decision": "block",
-  "reason": "STOP-GATE: No `most-recent-context` memory exists for today. Before ending this session you MUST call `mcp__memory__remember` with:\n  - workspace: \"janus-ia\"\n  - type: \"session\"\n  - tags: [\"most-recent-context\", \"session-handoff\", <active-project>]\n  - content: a tight handoff containing (1) active tasks & exact state, (2) files touched this session, (3) decisions made, (4) open questions / blockers, (5) literal next 1–3 actions, (6) any uncommitted changes.\nThis is the primary anchor the NEXT session reads first. Without it, context is lost. Write it NOW, then return control."
+  "reason": "STOP-GATE: No `most-recent-context` memory exists for today. Before ending this session you MUST call `mcp__memory__remember` with:\n  - workspace: \"pablo-ia\"\n  - type: \"session\"\n  - tags: [\"most-recent-context\", \"session-handoff\", <active-project>]\n  - content: a tight handoff containing (1) active tasks & exact state, (2) files touched this session, (3) decisions made, (4) open questions / blockers, (5) literal next 1–3 actions, (6) any uncommitted changes.\nThis is the primary anchor the NEXT session reads first. Without it, context is lost. Write it NOW, then return control."
 }
 EOF

@@ -83,8 +83,9 @@ For each screenshot — check:
 - Is the change present and correct?
 - Is text readable? (no overflow, no cutoff)
 - Does layout hold at this viewport? (no broken grid, no overflow)
-- Does it match the Janus IA design system?
+- Does it match the Pablo IA design system?
 - Is anything broken that wasn't broken before?
+
 
 ### Layer 2b — Theme consistency (MANDATORY when theme or CSS changes)
 
@@ -206,7 +207,7 @@ Do NOT report done. Fix, re-test.
 
 ---
 
-## JANUS IA DESIGN SYSTEM
+## PABLO IA DESIGN SYSTEM
 
 **Color tokens (theme-swappable — never hard-code):**
   `--color-bg-primary` · `--color-bg-secondary` · `--color-bg-surface` · `--color-bg-elevated` · `--color-bg-inset`
@@ -228,9 +229,5 @@ All shipped themes define this exact set. Custom themes are synthesised from a h
 ---
 
 ## Applies to
-- [[wiki/espacio-bosques]] — all UI verification
-- [[wiki/lool-ai]] — AR overlay visual QA
-- [[wiki/nutria]] — PWA + widget QA
-- [[wiki/longevite]] — static site QA
-- [[wiki/mercado-bot]] — dashboard QA
-- [[wiki/jp-ai]] — CRM QA
+_(Add per-project entries as products are spun up — `run discovery` in chat to personalize.)_
+- [[wiki/<product>]] — UI verification

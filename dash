@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Janus Dashboard launcher — run from anywhere in the repo
+# Pablo Dashboard launcher — run from anywhere in the repo
 # Usage: ./dash
 set -e
 
@@ -14,21 +14,21 @@ if [ -f "$HOME/.env" ]; then
 fi
 
 # Two-mode launcher:
-#   1) Run from janus-ia directly: ./dash            → WORKSPACE_ROOT=/workspaces/janus-ia
+#   1) Run from pablo-ia directly: ./dash            → WORKSPACE_ROOT=/workspaces/pablo-ia
 #   2) Run from a wrapper in another repo: the wrapper sets JANUS_DASH_HOME to
-#      the janus-ia clone and exports WORKSPACE_ROOT=<caller's repo> before
-#      exec-ing this script. Then DASH points at janus-ia's dashboard/ but the
+#      the pablo-ia clone and exports WORKSPACE_ROOT=<caller's repo> before
+#      exec-ing this script. Then DASH points at pablo-ia's dashboard/ but the
 #      bridge reads/writes the caller's workspace.
 #
 # When WORKSPACE_ROOT is unset (mode 1), default to the repo containing this
-# script so everything continues to work in janus-ia.
+# script so everything continues to work in pablo-ia.
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 if [ -z "${WORKSPACE_ROOT:-}" ]; then
   WORKSPACE_ROOT="$SCRIPT_DIR"
 fi
 export WORKSPACE_ROOT
 
-# Find the janus-ia dashboard regardless of where we were invoked from.
+# Find the pablo-ia dashboard regardless of where we were invoked from.
 DASH_HOME="${JANUS_DASH_HOME:-$SCRIPT_DIR}"
 DASH="$DASH_HOME/dashboard"
 PORT="${VENTURE_OS_PORT:-3100}"

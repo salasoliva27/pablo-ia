@@ -13,7 +13,7 @@ Think of it as a maintenance and upgrade cycle for the brain itself.
 
 ## When it runs
 
-- Jano invokes `/evolve [duration]` (e.g., `/evolve 30m`, `/evolve 1h`)
+- Pablo invokes `/evolve [duration]` (e.g., `/evolve 30m`, `/evolve 1h`)
 - The agent loops through improvement cycles until the time budget is exhausted
 - Each cycle is ~3-5 minutes of focused work
 - If context fills up, it writes a handoff file and the next session continues automatically
@@ -27,12 +27,12 @@ Think of it as a maintenance and upgrade cycle for the brain itself.
 **Goal:** Make existing memory and knowledge more connected and accurate.
 
 Actions:
-1. `mcp__memory__recall` for recent memories by theme (corrections, learnings, patterns). The memory database is authoritative — do NOT rely on files in `.claude/projects/-workspaces-janus-ia/memory/` as primary source; those are only for the per-session auto-memory index (`MEMORY.md`).
+1. `mcp__memory__recall` for recent memories by theme (corrections, learnings, patterns). The memory database is authoritative — do NOT rely on files in `.claude/projects/-workspaces-pablo-ia/memory/` as primary source; those are only for the per-session auto-memory index (`MEMORY.md`).
 2. Re-read vault notes via `mcp__obsidian-vault__search_notes` + `read_note` for cross-project patterns
 3. Identify:
    - Duplicate memories that should be merged (use `mcp__memory__forget` to delete the losers)
-   - 2+ memories describing the same root cause with different symptoms → create a concept node in `concepts/` (see iter 1 example: `protocol-enforcement`)
-   - Stale memories/notes referencing files or tool names that no longer exist (e.g., `venture-os` paths → `janus-ia`, `mcp__janus-memory__*` → `mcp__memory__*`)
+   - 2+ memories describing the same root cause with different symptoms → create a concept node in `concepts/`
+   - Stale memories/notes referencing files or tool names that no longer exist
    - Missing cross-links between related concepts
 4. Fix what's found: merge, update, add links, forget stale entries
 5. Update `MEMORY.md` index if entries changed
@@ -52,16 +52,9 @@ Actions:
    - Abandoned or deferred because we lacked a tool?
    - Slow because we did manually what a tool could automate?
    - Error-prone because of missing validation/testing infrastructure?
-4. Check each active project's needs:
-   - espacio-bosques: fintech/legal/smart contract tooling
-   - lool-ai: optical market / B2B sales tooling
-   - nutrIA: nutrition data / clinical tooling
-   - longevite: biotech/therapeutics tooling
-   - freelance-system: invoicing/project management tooling
-   - mercado-bot: prediction market data / Python backend tooling
-   - jp-ai (Ozum): CRM / corporate events / travel ops tooling (revenue-critical)
-   - janus-ia dashboard: monitoring/analytics tooling
-5. Review [[learnings/cross-project-map]] → "Known cross-project technical debt" table — each row is a legitimate gap
+4. Check each active project's needs (list is populated from `PROJECTS.md` — empty on a fresh fork; personalize via `run discovery`):
+   - pablo-ia dashboard: monitoring/analytics tooling
+5. Review [[learnings/cross-project-map]] if it exists → "Known cross-project technical debt" table — each row is a legitimate gap
 6. Produce a prioritized gap list (max 5 per cycle)
 
 **Time budget:** ~15% of cycle
@@ -84,10 +77,7 @@ Search sources (in priority order):
    - `awesome-claude-code` — Claude Code extensions and skills
    - `VoltAgent/awesome-agent-skills` — agent skill marketplace
 4. **NPM registry** — search for `@anthropic`, `mcp-server-`, `claude-skill-`
-5. **Domain-specific searches** based on gap analysis:
-   - Legal Mexico: `ley fintech mcp`, `sat mexico api`, `cfdi validator`
-   - Nutrition: `usda api mcp`, `nutrition database tool`
-   - Finance: `quickbooks mcp`, `invoicing api tool`
+5. **Domain-specific searches** based on gap analysis — derive queries from the active projects in `PROJECTS.md` and Pablo's jurisdiction.
 
 **Evaluation criteria for each discovery:**
 | Criterion | Weight | Pass threshold |
@@ -122,7 +112,7 @@ Protocol:
 4. If install fails, log the failure and move on — don't burn time debugging
 
 **Safety rules:**
-- Never install anything that requires new API keys without flagging to Jano
+- Never install anything that requires new API keys without flagging to Pablo
 - Never install anything that modifies existing project code
 - Never install anything with known security issues
 - Prefer well-known, maintained tools over obscure ones
@@ -149,7 +139,7 @@ Actions:
 4. **Context health check:**
    - If context is above ~80%, write a full handoff to `.planning/evolve/handoff.md`
    - The handoff includes: remaining time, what's been done, what's queued, priorities
-   - Signal to Jano that the session needs to continue in a new conversation
+   - Signal to Pablo that the session needs to continue in a new conversation
 5. If time budget remains, schedule next iteration via `/loop`
 
 **Time budget:** ~10% of cycle
@@ -217,7 +207,7 @@ The agent self-paces based on what Phase is dominant in each cycle.
 
 When a session runs out of context:
 1. Phase 5 writes `handoff.md` with full state
-2. Jano starts a new session and says `/evolve continue` or just starts a new session
+2. Pablo starts a new session and says `/evolve continue` or just starts a new session
 3. The new session reads `handoff.md` and `state.json`
 4. Resumes from where it left off — no repeated work
 
@@ -225,7 +215,7 @@ When the time budget expires:
 1. The agent completes the current cycle
 2. Writes a final summary to `log.md`
 3. Sets `status: "completed"` in `state.json`
-4. Reports to Jano what was accomplished
+4. Reports to Pablo what was accomplished
 
 ---
 
@@ -233,11 +223,11 @@ When the time budget expires:
 
 - **Never modify project source code** — only install tools and update registries/config
 - **Never spend more than 5 minutes on a single install** — if it's complicated, queue it for manual review
-- **Never install tools that cost money** without Jano's approval
+- **Never install tools that cost money** without Pablo's approval
 - **Always test before registering** — a broken tool in the registry is worse than no tool
 - **Respect the time budget** — don't overshoot
 - **Be honest about failures** — "I searched for X but found nothing useful" is a valid outcome
-- **Prioritize Jano's active projects** — discoveries should serve the portfolio, not be interesting for their own sake
+- **Prioritize Pablo's active projects** — discoveries should serve the portfolio, not be interesting for their own sake
 
 ---
 
@@ -249,15 +239,13 @@ When the time budget expires:
 
 ### Authoritative references
 - [[CLAUDE]] · [[tools/registry]] · [[skills/registry]]
-- [[learnings/cross-project-map]] — read EVERY cycle for tech debt + relationship graph
+- [[learnings/cross-project-map]] — read EVERY cycle for tech debt + relationship graph (once populated)
 - [[learnings/supabase-registry]] · [[learnings/technical]] · [[learnings/patterns]]
 
 ### Projects to serve
-- [[wiki/espacio-bosques]] · [[wiki/lool-ai]] · [[wiki/nutria]] · [[wiki/longevite]]
-- [[wiki/mercado-bot]] · [[wiki/jp-ai]] · [[wiki/freelance-system]]
+_(Populated from `PROJECTS.md` — empty on a fresh fork; personalize via `run discovery`.)_
 
 ### Related agents & concepts
 - [[agents/core/research]] — shares Phase 3 search methodology
-- [[concepts/simulation-first-dev]] · [[concepts/test-harness-first]] · [[concepts/rls-by-default]]
 
-**Do not link to `learnings/mcp-registry`** — deprecated pointer only since 2026-04-17. Use `tools/registry` and `skills/registry`.
+**Do not link to `learnings/mcp-registry`** — deprecated pointer. Use `tools/registry` and `skills/registry`.

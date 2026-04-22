@@ -334,7 +334,7 @@ export function ChatPanel({ sessionId = 'session-0', lineageLabel, lineageColor 
         <span>
           {lineageLabel
             ? <><span className="chat-panel__lineage" style={{ color: lineageColor }}>{lineageLabel}</span></>
-            : <>Venture OS{chatAuth ? <span className="chat-panel__auth-badge">{chatAuth}</span> : null}</>
+            : <>Pablo IA{chatAuth ? <span className="chat-panel__auth-badge">{chatAuth}</span> : null}</>
           }
         </span>
         <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>

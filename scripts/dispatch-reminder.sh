@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════
-# JANUS IA — DISPATCH REMINDER (UserPromptSubmit hook)
+# PABLO IA — DISPATCH REMINDER (UserPromptSubmit hook)
 # Scans the incoming user prompt for keywords that match the
 # CLAUDE.md DISPATCH PROTOCOL table. If matches, injects a gentle
 # context note reminding the model that an agent spec exists.

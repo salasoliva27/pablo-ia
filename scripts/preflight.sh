@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════
-# JANUS IA — SESSION PRE-FLIGHT CHECK
+# PABLO IA — SESSION PRE-FLIGHT CHECK
 # Runs automatically on every session start via Claude Code hook.
 # Output is injected into the AI's context BEFORE it responds.
 # ═══════════════════════════════════════════════════════════════
@@ -19,7 +19,7 @@ SUPABASE_KEY="${SUPABASE_SERVICE_ROLE_KEY:-}"
 
 echo ""
 echo "╔══════════════════════════════════════════════════════════╗"
-echo "║           JANUS IA — SESSION PRE-FLIGHT CHECK           ║"
+echo "║           PABLO IA — SESSION PRE-FLIGHT CHECK           ║"
 echo "╚══════════════════════════════════════════════════════════╝"
 echo ""
 

@@ -1,7 +1,7 @@
 # TOOLS REGISTRY
-## Janus IA | Last updated: 2026-04-16
+## Pablo IA | Last updated: 2026-04-16
 
-Single source of truth for all MCP tools across Janus IA.
+Single source of truth for all MCP tools across Pablo IA.
 Updated after every session where a tool is used.
 
 **Verdicts:** GOOD · SITUATIONAL · BAD/AVOID · UNTESTED
@@ -28,7 +28,7 @@ claude mcp search "[capability]"  # lazy load, 95% context savings
 
 ### GitHub MCP
 **Verdict:** GOOD
-Read/write all repos under janus-ia org. Auto-commit, push, create repos.
+Read/write all repos under pablo-ia org. Auto-commit, push, create repos.
 GITHUB_TOKEN loads from dotfiles. Used on every session.
 - [2026-03-26] — longevite-therapeutics — GOOD: searched repo, read files, pushed 3 files cleanly
 
@@ -47,7 +47,7 @@ Mexico/LATAM queries return good results. Core tool for research agent.
 **Verdict:** GOOD — autonomous Drive control via OAuth refresh token (no browser popups after one-time auth)
 **Install:** Ships with this repo at `scripts/gdrive`. Python 3 + `requests` only.
 **Keys:** `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN` (mint via `scripts/gdrive auth` once, then persist in `salasoliva27/dotfiles/.env`)
-**Why it exists:** The `claude_ai_Google_Drive` integration MCP exposes read + create_file only — no create_folder, no delete, no move. This CLI fills the gap so any session can autonomously create/delete/move/share Drive content under `/Janus AI/`.
+**Why it exists:** The `claude_ai_Google_Drive` integration MCP exposes read + create_file only — no create_folder, no delete, no move. This CLI fills the gap so any session can autonomously create/delete/move/share Drive content under `/Pablo AI/`.
 **Commands:** `auth`, `ls`, `mkdir` (recursive), `mv`, `rm` (`--purge` for hard-delete), `upload`, `download`, `find`, `id`, `share`.
 **Paths:** slash-delimited, rooted at My Drive. Use `""` or `"/"` for root.
 - [2026-04-17] — janus — CREATED: Built because autonomous Drive folder management was blocked. OAuth 2.0 installed/web client flow with long-lived refresh token cached in env. Access tokens minted on-demand, cached in-process.
@@ -56,7 +56,7 @@ Mexico/LATAM queries return good results. Core tool for research agent.
 **Verdict:** GOOD — fixed 2026-04-16, dependencies were missing
 **Install:** Custom server at mcp-servers/memory/ — run `npm install` in that dir after fresh Codespace
 **Keys:** `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (both set), `VOYAGE_API_KEY` (set, for semantic search)
-**Known issue:** `npm install` must be run in `/workspaces/janus-ia/mcp-servers/memory/` on every new Codespace — node_modules not committed
+**Known issue:** `npm install` must be run in `/workspaces/pablo-ia/mcp-servers/memory/` on every new Codespace — node_modules not committed
 - [2026-04-16] — janus — FIXED: Was failing with ERR_MODULE_NOT_FOUND. Root cause: node_modules not installed. `npm install` fixed it. `janus_memories` table has 21 rows, `memories` table has 32.
 - Full-text search works without VOYAGE_API_KEY; semantic search optional upgrade
 
@@ -105,7 +105,7 @@ Note: run `npx playwright install chromium` once per Codespace.
 **Setup:** Set vault path in dotfiles as `OBSIDIAN_VAULT_PATH`
 **Why:** Read/write Jano's Obsidian vault directly from Claude sessions. Useful for: capturing research notes, reading existing knowledge base, syncing learnings from sessions back to vault.
 **Agent ownership:** research agent + calendar agent (for meeting notes)
-**Coordination:** Learnings that belong in vault → write to Obsidian. Learnings that belong in janus-ia → write to learnings/ files. Don't double-write.
+**Coordination:** Learnings that belong in vault → write to Obsidian. Learnings that belong in pablo-ia → write to learnings/ files. Don't double-write.
 **Session log:** none yet
 
 ---
@@ -226,14 +226,14 @@ Zero hallucinations — only answers from what you uploaded.
 ### mcpvault (obsidian-vault MCP)
 **Verdict:** SITUATIONAL — connects but fragile. Fails on directory listing, individual note reads may fail.
 **Package:** `@bitbonsai/mcpvault` v0.11.0
-**Vault path:** /workspaces/janus-ia (was /workspaces/venture-os — fixed 2026-04-16)
+**Vault path:** /workspaces/pablo-ia (was /workspaces/venture-os — fixed 2026-04-16)
 **Why:** Read/write vault markdown from Codespace. 14 tools. Enables Claude to navigate wiki/ and [[wiki links]] programmatically.
 **Known issues:**
 1. Root listing crashes if node_modules/ has symlinks (ENOENT). The vault root shares space with project code.
 2. `read_note` and `search_notes` returned empty/error even when files exist at the specified path.
 3. MCP disconnects mid-session and doesn't reconnect — requires session restart.
 **Workaround:** Use direct file reads (`Read` tool) for vault content until this MCP stabilizes. Write vault updates via direct file writes.
-- [2026-04-16] — janus — SITUATIONAL: Path fixed from venture-os to janus-ia. `claude mcp list` shows Connected, but read_note("wiki/espacio-bosques.md") returns "File not found" despite file existing. search_notes returns []. Need to investigate @bitbonsai/mcpvault file resolution.
+- [2026-04-16] — janus — SITUATIONAL: Path fixed from venture-os to pablo-ia. `claude mcp list` shows Connected, but read_note("wiki/espacio-bosques.md") returns "File not found" despite file existing. search_notes returns []. Need to investigate @bitbonsai/mcpvault file resolution.
 - [2026-04-13] — janus — REGISTERED: Added to .mcp.json. First use will validate.
 
 ### obra/knowledge-graph
@@ -344,7 +344,7 @@ Zero hallucinations — only answers from what you uploaded.
 **Verdict:** AVAILABLE — search tool loaded but not tested. Needs Jano to connect.
 
 ### Memory MCP ✅
-**Verdict:** FIXED 2026-04-16 — dependencies were missing (`npm install` in mcp-servers/memory/). Now connects. Path is correct at `/workspaces/janus-ia/mcp-servers/memory/index.js`.
+**Verdict:** FIXED 2026-04-16 — dependencies were missing (`npm install` in mcp-servers/memory/). Now connects. Path is correct at `/workspaces/pablo-ia/mcp-servers/memory/index.js`.
 
 ### n8n MCP ❌
 **Verdict:** NON-FUNCTIONAL — configured but `N8N_API_KEY` and `N8N_BASE_URL` not in env. **Jano action: add to dotfiles if n8n is being used.**
@@ -353,7 +353,7 @@ Zero hallucinations — only answers from what you uploaded.
 **Verdict:** NON-FUNCTIONAL — configured but `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` not in env. **Jano action: add to dotfiles when R2 media storage is needed.**
 
 ### Obsidian Vault MCP ⚠️
-**Verdict:** PARTIALLY WORKING — connects but read_note/search_notes fail on actual files. Path fixed to /workspaces/janus-ia. Directory listing broken (symlink errors). Needs investigation of @bitbonsai/mcpvault file resolution.
+**Verdict:** PARTIALLY WORKING — connects but read_note/search_notes fail on actual files. Path fixed to /workspaces/pablo-ia. Directory listing broken (symlink errors). Needs investigation of @bitbonsai/mcpvault file resolution.
 
 ### WhatsApp MCP ⭐ QUEUED
 **Best option:** `verygoodplugins/whatsapp-mcp` (Go bridge + Python MCP, well-maintained, updated Apr 12)
@@ -400,7 +400,7 @@ Zero hallucinations — only answers from what you uploaded.
 | Supabase MCP | GOOD | list_tables returned 6 tables. janus_memories: 21 rows, memories: 32 rows. |
 | GitHub MCP | GOOD | list_issues returned dependabot PRs. |
 | Brave Search | GOOD | Web search health check passed. |
-| Obsidian Vault MCP | BROKEN | Path fixed venture-os→janus-ia. Connects but read_note/search_notes fail. list_directory crashes on symlinks. Disconnected mid-session after pkill. |
+| Obsidian Vault MCP | BROKEN | Path fixed venture-os→pablo-ia. Connects but read_note/search_notes fail. list_directory crashes on symlinks. Disconnected mid-session after pkill. |
 | Memory MCP | FIXED | Was failing ERR_MODULE_NOT_FOUND. `npm install` in mcp-servers/memory/ fixed it. Now shows Connected in `claude mcp list`. |
 | Playwright MCP | CRASHED | Used successfully for screenshot verification earlier. Crashed when browser process died. Disconnected and didn't reconnect. |
 | React Flow (@xyflow/react) | GOOD | New dependency. Built interactive ProcedureMap component. Zoom/pan/minimap/click-to-detail all work. |

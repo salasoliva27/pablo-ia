@@ -43,7 +43,7 @@ Available tags: git tag --list
 ---
 
 ## Vault connections
-- [[wiki/espacio-bosques]] · [[wiki/lool-ai]] · [[wiki/nutria]] · [[wiki/longevite]] · [[wiki/mercado-bot]] · [[wiki/jp-ai]] · [[wiki/freelance-system]]
+_(Add per-project entries as products are spun up.)_
 - [[agents/core/ux]] — UX verification runs before every deploy
 - [[agents/core/security]] — security gate before prod deploy
 - [[learnings/technical]]
