@@ -1,13 +1,13 @@
 ### Idea (original)
-[What Jano originally described]
+[What was originally described]
 
 ### Validated version
 [What the idea became after research and reframing]
 
 ### Market
-- Size: 
+- Size:
 - Growth rate:
-- Mexico/LATAM specific:
+- Jurisdiction-specific (if applicable):
 
 ### Competition
 | Competitor | What they do | Their weakness | Our angle |

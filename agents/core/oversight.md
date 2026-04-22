@@ -33,7 +33,7 @@ For each gap found, record:
 - **What**: specific element or flow that is broken/missing
 - **Where**: file + line or page + section
 - **Impact**: BLOCKER (can't complete core flow) / FRICTION (works but confusing) / POLISH (minor UX issue)
-- **Fix type**: Code-only fix / Needs external config / Needs Jano decision
+- **Fix type**: Code-only fix / Needs external config / Needs Pablo decision
 
 Write the gap registry to: `outputs/oversight/[project]/GAPS_[date].md`
 
@@ -82,7 +82,7 @@ For a pre-launch audit, run it live:
 
 ---
 
-## How to work with Jano on external dependencies
+## How to work with Pablo on external dependencies
 
 When a gap requires an external service (payment gateway, compliance registration, API key):
 
