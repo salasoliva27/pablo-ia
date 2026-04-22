@@ -17,7 +17,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 // puppeteer-core lives in dashboard/node_modules — this script is repo-wide.
-const puppeteer = require("/workspaces/janus-ia/dashboard/node_modules/puppeteer-core");
+const puppeteer = require(path.join(__dirname, "..", "dashboard", "node_modules", "puppeteer-core"));
 
 const CHROMIUM = "/home/codespace/.cache/ms-playwright/chromium-1217/chrome-linux64/chrome";
 const VIEWPORTS = {

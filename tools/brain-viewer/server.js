@@ -246,7 +246,7 @@ const HTML = `<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Janus IA — Brain Viewer</title>
+<title>Pablo IA — Brain Viewer</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -384,7 +384,7 @@ const HTML = `<!DOCTYPE html>
 <body>
 
 <div id="hud">
-  <h1>⬡ Janus IA Brain</h1>
+  <h1>⬡ Pablo IA Brain</h1>
   <div class="stats" id="stats">Loading...</div>
   <div class="stats"><span class="live-dot"></span>Live sync</div>
 </div>
@@ -727,8 +727,8 @@ const COLOR = {
 };
 
 const data = {
-  name: "JANUS IA", type:"brain",
-  desc:"Master orchestrator of Jano's venture portfolio — routes every request, coordinates all projects, holds legal/financial/tech context",
+  name: "PABLO IA", type:"brain",
+  desc:"Master orchestrator — routes every request, coordinates projects, holds legal/financial/tech context",
   children: [
     {
       name:"AGENTS", type:"agent", desc:"Specialized behavioral agents — each reads its own file before acting",
@@ -887,7 +887,7 @@ node.append('text')
 </html>`;
 
 app.listen(PORT, () => {
-  console.log(`\n⬡  Janus IA Brain Viewer`);
+  console.log(`\n⬡  Pablo IA Brain Viewer`);
   console.log(`   http://localhost:${PORT}`);
   console.log(`   Vault: ${VAULT}\n`);
 });

@@ -421,7 +421,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
           const cx = 400, cy = 300;
           const safeNodes = data.nodes ?? [];
           if (safeNodes.length === 0) {
-            // Empty is a valid state for the usage brain — render an empty graph so Jano can watch it grow.
+            // Empty is a valid state for the usage brain — render an empty graph.
             if (brainSource === 'usage') setState(s => ({ ...s, brainNodes: [], brainEdges: [] }));
             return;
           }
@@ -449,7 +449,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     }
 
     loadGraph();
-    // Usage brain auto-refreshes so Jano can watch it grow without manually reloading.
+    // Usage brain auto-refreshes so it updates without manual reload.
     const interval = brainSource === 'usage' ? window.setInterval(loadGraph, 15000) : null;
     return () => {
       cancelled = true;

@@ -76,21 +76,20 @@ function formatTime(iso: string): string {
 // ── Availability indicator ──
 
 function AvailabilityBar({ date }: { date: Date }) {
-  const hour = 15; // 3 PM CDMX - Jano's start time
   const isWeekend = date.getDay() === 0 || date.getDay() === 6;
   const isToday = isSameDay(date, new Date());
 
   return (
     <div
       className={`cal-avail ${isToday ? 'cal-avail--today' : ''}`}
-      title={isWeekend ? 'Weekend - flexible' : `Available from ${hour}:00 CDMX`}
+      title={isWeekend ? 'Weekend' : 'Weekday'}
     >
       <div className="cal-avail__bar" style={{
         background: isWeekend
           ? 'linear-gradient(90deg, rgba(95,212,122,0.15), rgba(95,212,122,0.05))'
           : 'linear-gradient(90deg, rgba(95,212,212,0.2), rgba(95,212,212,0.05))',
-        width: isWeekend ? '100%' : '56%',
-        marginLeft: isWeekend ? '0' : '50%',
+        width: '100%',
+        marginLeft: '0',
       }} />
     </div>
   );
@@ -150,9 +149,7 @@ function WeekView({ currentDate, events }: { currentDate: Date; events: Calendar
           return (
             <div key={d.toISOString()} className={`cal-week__column ${isToday ? 'cal-week__column--today' : ''}`}>
               {HOURS.map(h => (
-                <div key={h} className="cal-week__cell">
-                  {h === 15 && <div className="cal-week__available-line" title="3 PM - Available" />}
-                </div>
+                <div key={h} className="cal-week__cell" />
               ))}
               {dayEvents.map(ev => {
                 const startH = new Date(ev.start).getHours() + new Date(ev.start).getMinutes() / 60;
@@ -337,10 +334,6 @@ export function CalendarPanel() {
             <span className="cal-legend__label">{name}</span>
           </div>
         ))}
-        <div className="cal-legend__item">
-          <div className="cal-legend__dot cal-legend__dot--avail" />
-          <span className="cal-legend__label">available (post 3 PM)</span>
-        </div>
       </div>
     </div>
   );

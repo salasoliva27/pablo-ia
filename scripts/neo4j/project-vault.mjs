@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // ═══════════════════════════════════════════════════════════════
-// JANUS IA — Vault + memories → Neo4j projector
+// PABLO IA — Vault + memories → Neo4j projector
 //
 // Reads:
-//   - /workspaces/janus-ia/{concepts,learnings,wiki,agents,modules}/**.md
+//   - <repo-root>/{concepts,learnings,wiki,agents,modules}/**.md
 //   - Supabase `memories` table
 //
 // Writes (MERGE, idempotent):
@@ -23,7 +23,7 @@ import path from 'node:path'
 import matter from 'gray-matter'
 import { createClient } from '@supabase/supabase-js'
 
-const VAULT = '/workspaces/janus-ia'
+const VAULT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', '..')
 
 const must = k => { const v = process.env[k]; if (!v) { console.error(`Missing ${k}`); process.exit(1) } return v }
 const driver = neo4j.driver(must('NEO4J_URI'), neo4j.auth.basic(must('NEO4J_USER'), must('NEO4J_PASSWORD')))

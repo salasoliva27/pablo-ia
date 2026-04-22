@@ -1,5 +1,5 @@
 # SKILLS REGISTRY
-## Pablo IA | Last updated: 2026-04-09
+## Pablo IA | Last updated: 2026-04-22
 
 All skills available across Pablo IA projects.
 Skills teach Claude how to do something before a task starts.
@@ -38,26 +38,21 @@ Document creation — all reliable. Use for any file output task.
 **Verdict:** GOOD | /mnt/skills/examples/
 Use to build new custom skills for Pablo IA.
 
-### feature-dev ⚡
+### feature-dev
 **Verdict:** INSTALLED — not yet invoked via /feature-dev
 7-phase structured workflow. Most popular Claude Code skill (89k installs).
 Located: /home/codespace/.claude/plugins/marketplaces/...
 
 ---
 
-## MARKETING SKILLS — NOT YET INSTALLED
+## MARKETING SKILLS
 
-### marketingskills (coreyhaines31) ⭐ JANO-RECOMMENDED
+### marketingskills (coreyhaines31)
 35 marketing skills for CRO, SEO, copywriting, growth, GTM, and analytics.
 19.9k stars. Works with Claude Code, Codex, Cursor.
 **Foundation skill:** `product-marketing-context` — all others read this first.
 Install individual skills: `npx skills add https://github.com/coreyhaines31/marketingskills/skills/[skill-name]`
 Install all: `npx skills add https://github.com/coreyhaines31/marketingskills`
-
-**Priority picks per project:**
-- espacio-bosques → `launch-strategy`, `page-cro`, `pricing-strategy`
-- lool-ai → `cold-email`, `sales-enablement`, `competitor-alternatives`
-- nutria-app → `onboarding-cro`, `email-sequence`, `churn-prevention`
 
 **Full skill list:**
 `ab-test-setup` · `ad-creative` · `ai-seo` · `analytics-tracking` · `churn-prevention` · `cold-email` · `community-marketing` · `competitor-alternatives` · `content-strategy` · `copy-editing` · `copywriting` · `customer-research` · `email-sequence` · `form-cro` · `free-tool-strategy` · `launch-strategy` · `lead-magnets` · `marketing-ideas` · `marketing-psychology` · `onboarding-cro` · `page-cro` · `paid-ads` · `paywall-upgrade-cro` · `popup-cro` · `pricing-strategy` · `product-marketing-context` · `programmatic-seo` · `referral-program` · `revops` · `sales-enablement` · `schema-markup` · `seo-audit` · `signup-flow-cro` · `site-architecture` · `social-content`
@@ -101,44 +96,27 @@ Use if MCP has auth issues.
 Format-controlled research reports with citations.
 github.com/daymade/claude-code-skills
 
-### ui-ux-pro-max ⭐ JANO-RECOMMENDED
+### ui-ux-pro-max
 Multi-domain design reasoning engine. 67 UI styles, 161 palettes, 57 font pairings.
 `npm install -g uipro-cli && uipro init --ai claude --global`
 Or: `/plugin marketplace add nextlevelbuilder/ui-ux-pro-max-skill`
 
-### GSAP Skills ⭐ JANO-RECOMMENDED (OFFICIAL)
+### GSAP Skills (official)
 Official GSAP skill from GreenSock — 8 modules.
 `npx skills add https://github.com/greensock/gsap-skills`
 Or: `/plugin marketplace add greensock/gsap-skills`
 
 ---
 
-### marketingskills ⭐ (coreyhaines31) — INSTALLED 2026-04-15
-36 marketing skills: copywriting, SEO, CRO, pricing, launch-strategy, cold-email, paid-ads, content-strategy, social-content, lead-magnets, customer-research, referral-program, and more.
-`cp -r /tmp/marketingskills/skills/* ~/.claude/skills/`
-Source: github.com/coreyhaines31/marketingskills (updated Apr 13, 2026)
-**Use for:** GTM phase across all projects — freelance-system outreach, lool-ai B2B pricing, longevite launch, nutrIA content
-
-### cost-mode — INSTALLED 2026-04-15
+### cost-mode
 30-60% token cost reduction. Enforces concise responses and smart model routing.
 Activate with `/cost-mode` or "enable cost mode".
 
-### excalidraw-diagram — INSTALLED 2026-04-15
+### excalidraw-diagram
 Creates Excalidraw JSON diagram files for architecture visualization.
 Use when visualizing workflows, system architecture, or portfolio structure.
 
 ---
-
-## SESSION LOG — 2026-04-15 (evolve session)
-- Installed: marketingskills (36 skills), cost-mode, excalidraw-diagram
-- All 127 skills now available (36 marketing + 87 GSD + CKM + GSAP + ui-ux-pro-max)
-- `npx skills add` showed tree but didn't install — used direct `cp -r` from cloned repo instead
-
-## SESSION LOG — 2026-04-16 (system health check)
-- No skills were invoked this session despite frontend-design and feature-dev being available and relevant
-- GSD (/gsd:do) was not used for the ProcedureMap + Calendar build — should have been
-- frontend-design SKILL.md was not read before building UI components
-- **Lesson:** Skills only compound if the dispatch protocol actually runs Step 3 (LOOKUP)
 
 ## REJECTED / AVOID
 *(Populate as bad experiences accumulate)*

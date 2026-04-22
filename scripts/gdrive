@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-gdrive — minimal Google Drive CLI for Janus IA.
+gdrive — minimal Google Drive CLI for Pablo IA.
 
 Auth model: OAuth 2.0 installed/web client + user refresh token.
 Reads creds from env:

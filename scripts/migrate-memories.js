@@ -89,7 +89,7 @@ async function migrate() {
       name,
       content,
       type,
-      workspace: 'janus-ia',
+      workspace: 'pablo-ia',
       project: null,
       description,
       tags: [],
