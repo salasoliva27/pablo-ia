@@ -742,7 +742,7 @@ export function startServer(port: number): Promise<http.Server> {
             headers: {
               Authorization: `Bearer ${resolve("GITHUB_TOKEN")}`,
               Accept: "application/vnd.github+json",
-              "User-Agent": "janus-credentials-test",
+              "User-Agent": "pablo-credentials-test",
             },
           });
           const body = await r.text();
@@ -1114,7 +1114,7 @@ export function startServer(port: number): Promise<http.Server> {
         catch { buf = Buffer.from(data, "utf-8"); }
       }
       fs.writeFileSync(full, buf);
-      // Mirror to Google Drive under Janus_AI/_uploads/<YYYY-MM-DD>/ — async, never blocks.
+      // Mirror to Google Drive under Pablo_IA/_uploads/<YYYY-MM-DD>/ (configurable via scripts/gdrive-save) — async, never blocks.
       // Skipped silently if GOOGLE_REFRESH_TOKEN is missing. Local path is authoritative.
       if (process.env.GOOGLE_REFRESH_TOKEN) {
         const child = spawn(path.join(DASH_HOME, "scripts", "gdrive-save"), [full], {

@@ -26,8 +26,8 @@ NOTEBOOKS = [
             "What are the top 3 strategic priorities across the portfolio right now?",
             "Which project has the highest near-term revenue potential and why?",
             "What are the biggest risks across all active projects?",
-            "What does Jano's capacity look like given all active projects?",
-            "What patterns repeat across all four projects that Jano should be aware of?",
+            "What does Pablo's capacity look like given all active projects?",
+            "What patterns repeat across all four projects that Pablo should be aware of?",
         ],
     },
     {
@@ -37,7 +37,7 @@ NOTEBOOKS = [
         "questions": [
             "What is the best go-to-market strategy for lool-ai given the CDMX optical market?",
             "Flat fee vs. revenue share — which pricing model should lool-ai launch with and why?",
-            "What are the top 5 objections an optical store owner would have, and how should Jano respond to each?",
+            "What are the top 5 objections an optical store owner would have, and how should Pablo respond to each?",
             "What legal steps are required before lool-ai can collect real facial image data?",
             "What should the 60-second in-store demo script look like?",
         ],
@@ -71,10 +71,10 @@ NOTEBOOKS = [
         "sources": ["freelance-system.md"],
         "artifacts": ["report", "mind-map", "audio", "flashcards", "quiz"],
         "questions": [
-            "Which service type should Jano specialize in first to maximize win rate with zero reviews?",
+            "Which service type should Pablo specialize in first to maximize win rate with zero reviews?",
             "Write a sample proposal for a Python data migration project on Upwork following the 250-word rule.",
             "What are the top 5 red flags in a job post that signal a difficult client?",
-            "How should Jano sequence platform launches (PeoplePerHour vs Upwork vs Freelancer) in the first 60 days?",
+            "How should Pablo sequence platform launches (PeoplePerHour vs Upwork vs Freelancer) in the first 60 days?",
             "What demo would be most impressive for a chatbot/AI project proposal?",
         ],
     },

@@ -8,7 +8,7 @@
 set -euo pipefail
 
 # Workspace-aware: default to this script's repo, but honor WORKSPACE_ROOT so
-# the same preflight can run in any janus-fork.
+# the same preflight can run in any fork.
 SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 WORKSPACE="${WORKSPACE_ROOT:-$SCRIPT_DIR}"
 WORKSPACE_NAME="$(basename "$WORKSPACE")"
@@ -108,7 +108,7 @@ except Exception as e:
     MISSING)
       echo "  Session anchor: ✗ NO most-recent-context MEMORY EXISTS"
       echo "    → The previous session did NOT write a handoff. Context is lost."
-      echo "    → Do NOT treat this as normal. Acknowledge the gap to Jano."
+      echo "    → Do NOT treat this as normal. Acknowledge the gap to Pablo."
       ;;
     FRESH:*)
       HOURS="${ANCHOR_AGE#FRESH:}"
@@ -225,7 +225,7 @@ echo "  □ When tool outputs get large or tasks are multi-step, treat this as C
 echo "  □ Proactively snapshot a most-recent-context memory BEFORE the system auto-compacts"
 echo "  □ A snapshot MUST contain: in-flight task state, files touched, next 1-3 actions, blockers"
 echo "  □ Never stop silently mid-task. If context is tight, announce it and hand off cleanly."
-echo "  □ If previous session ended abnormally (no handoff), acknowledge the gap to Jano FIRST."
+echo "  □ If previous session ended abnormally (no handoff), acknowledge the gap to Pablo FIRST."
 echo ""
 echo "════════════════════════════════════════════════════════════"
 echo " DO NOT SKIP THESE PROTOCOLS. They exist because you"
@@ -281,7 +281,7 @@ try:
         if fallback:
             print('⚠ Previous session did NOT write a `most-recent-context`-tagged handoff.')
             print('⚠ Showing the most recent session-type memory as a fallback.')
-            print('⚠ This may be incomplete — verify with Jano before assuming state.')
+            print('⚠ This may be incomplete — verify with Pablo before assuming state.')
             print('')
         print(rec['content'].strip())
         print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')

@@ -16,7 +16,7 @@ dump/uploads/
 **/.claude/settings.local.json
 # Runtime logs
 *.log
-# Generated binaries — these go to Drive (Janus_AI/), never git.
+# Generated binaries — these go to Drive (Pablo_IA/), never git.
 # See CLAUDE.md STORAGE ROUTING.
 outputs/**/*.pdf
 outputs/**/*.docx

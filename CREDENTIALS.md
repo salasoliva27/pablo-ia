@@ -54,7 +54,7 @@ echo "=== VOYAGE AI (memory embeddings) ===" && \
 | Env var | Status | MCP server / tool it unlocks |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | ✅ Present | Claude API, memory embeddings fallback |
-| `GITHUB_TOKEN` | ✅ Present (Codespace-scoped) | GitHub MCP — push only to `janus`; **replace with PAT to unlock all repos** (see below) |
+| `GITHUB_TOKEN` | ✅ Present (Codespace-scoped) | GitHub MCP — push only to `pablo-ia`; **replace with PAT to unlock all repos** (see below) |
 | `BRAVE_API_KEY` | ✅ Present | Brave Search MCP |
 | `SUPABASE_URL` | ✅ Present | Cross-workspace memory MCP |
 | `SUPABASE_SERVICE_ROLE_KEY` | ✅ Present | Cross-workspace memory MCP |

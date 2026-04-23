@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# init-fork.sh — bootstrap a fresh janus-ia fork for a new user.
+# init-fork.sh — bootstrap a fresh pablo-ia workspace for a new user.
 #
-# Strips Jano-specific content (his project wikis, outputs, specific learnings)
+# Strips template-specific content (the original project wikis, outputs, and learnings)
 # while keeping the core agent framework intact: agents/, concepts/, scripts/,
 # dashboard/, mcp-servers/, registries, CLAUDE.md.
 #
@@ -26,23 +26,23 @@ for arg in "$@"; do
 done
 
 if [ ! -f "$REPO/CLAUDE.md" ] || [ ! -d "$REPO/agents" ]; then
-  echo "× $REPO doesn't look like a janus-ia fork (missing CLAUDE.md or agents/)" >&2
+  echo "× $REPO doesn't look like a pablo-ia workspace (missing CLAUDE.md or agents/)" >&2
   exit 1
 fi
 
 cat <<EOF
 ┌──────────────────────────────────────────────────────────┐
-│  JANUS FORK BOOTSTRAP                                     │
+│  PABLO FORK BOOTSTRAP                                     │
 ├──────────────────────────────────────────────────────────┤
-│  Stripping Jano-specific content:                         │
-│    - wiki/          (his project pages)                   │
-│    - projects/      (his dev/uat/prod tracking)           │
-│    - outputs/       (his generated docs + screenshots)    │
-│    - dump/          (his inbox)                           │
-│    - concepts/*     (his accumulated cross-project nodes) │
+│  Stripping template-specific content:                     │
+│    - wiki/          (original project pages)              │
+│    - projects/      (original dev/uat/prod tracking)      │
+│    - outputs/       (original generated docs + media)     │
+│    - dump/          (original inbox)                      │
+│    - concepts/*     (original cross-project nodes)        │
 │  Resetting to empty templates:                            │
 │    - PROJECTS.md                                          │
-│    - learnings/* (all his accumulated findings)           │
+│    - learnings/* (original accumulated findings)          │
 │                                                           │
 │  Keeping the framework:                                   │
 │    ✓ CLAUDE.md, agents/                                   │
@@ -63,7 +63,7 @@ if [ "$YES" != "1" ]; then
 fi
 
 echo ""
-echo "▸ removing Jano-specific dirs..."
+echo "▸ removing template-specific dirs..."
 for d in wiki projects outputs dump; do
   if [ -d "$REPO/$d" ]; then
     rm -rf "$REPO/$d"
@@ -71,7 +71,7 @@ for d in wiki projects outputs dump; do
   fi
 done
 
-# concepts/ is Jano's accumulated cross-project nodes. Wipe contents but
+# concepts/ contains accumulated cross-project nodes from the template. Wipe contents but
 # keep the directory so the agent framework's [[concepts/...]] links still
 # resolve to a real folder once Pablo writes his own.
 if [ -d "$REPO/concepts" ]; then
@@ -87,7 +87,7 @@ if [ -d "$REPO/agents/domain" ]; then
 fi
 
 # Wipe any pre-existing learnings — every file in here gets reset to a stub
-# below. This catches Jano-specific files (patterns.md, technical.md,
+# below. This catches template-specific files (patterns.md, technical.md,
 # mcp-registry.md, gtm.md) without us having to enumerate them by name.
 if [ -d "$REPO/learnings" ]; then
   rm -f "$REPO/learnings"/*.md
@@ -169,7 +169,7 @@ echo "▸ resetting README.md → $FORK_NAME..."
 cat > "$REPO/README.md" <<TEMPLATE
 # $FORK_NAME
 
-Personal AI brain — initialized from the [janus-ia](https://github.com/salasoliva27/janus-ia)
+Personal AI brain — initialized from the [pablo-ia](https://github.com/salasoliva27/pablo-ia)
 template. Built on Claude Code with an agent dispatch protocol, file-based
 memory, MCP integrations, and a workspace-aware dashboard.
 
@@ -202,21 +202,22 @@ it during discovery before doing real work.
 
 ---
 
-To pull updates from upstream janus-ia later:
+To pull updates from upstream pablo-ia later:
 \`\`\`bash
-git remote add upstream https://github.com/salasoliva27/janus-ia.git
+git remote add upstream https://github.com/salasoliva27/pablo-ia.git
 git fetch upstream && git merge upstream/main
 \`\`\`
 TEMPLATE
 
 # ─── Self-anchor hook + MCP paths ─────────────────────────────
-# .claude/settings.json hooks and .mcp.json paths reference
-# /workspaces/janus-ia. Point them at this fork instead.
-echo "▸ rewriting hardcoded /workspaces/janus-ia paths..."
+# .claude/settings.json hooks and .mcp.json paths may reference
+# /workspaces/janus-ia or /workspaces/pablo-ia. Point them at this fork instead.
+echo "▸ rewriting hardcoded workspace paths..."
 for f in "$REPO/.claude/settings.json" "$REPO/.mcp.json"; do
   if [ -f "$f" ]; then
     # Use | as sed delimiter since paths contain /
     sed -i "s|/workspaces/janus-ia|$REPO|g" "$f"
+    sed -i "s|/workspaces/pablo-ia|$REPO|g" "$f"
     echo "  rewrote $f"
   fi
 done

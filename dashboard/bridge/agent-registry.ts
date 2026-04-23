@@ -100,7 +100,7 @@ const codexAdapter: AgentAdapter = {
       : ["exec"];
     const model = modelId && codexModels.some(m => m.id === modelId) ? modelId : "gpt-5-codex";
     args.push("--model", model);
-    // Parity with Claude's --dangerously-skip-permissions. Jano's Codespace
+    // Parity with Claude's --dangerously-skip-permissions. Pablo's Codespace
     // is already the sandbox; extra gating would force Codex to refuse
     // anything that touches the network, filesystem, or subprocess (SQL,
     // curl, MCP stdio, etc.). See the Claude adapter for the same trade-off.

@@ -16,7 +16,7 @@ create extension if not exists pg_trgm;
 
 create table if not exists janus_memories (
   id            uuid primary key default gen_random_uuid(),
-  workspace     text        not null,           -- 'janus-ia', 'espacio-bosques', 'lool-ai', etc.
+  workspace     text        not null,           -- 'pablo-ia', 'janus-ia', 'espacio-bosques', 'lool-ai', etc.
   project       text,                           -- null = cross-project / portfolio-level
   type          text        not null,           -- 'user' | 'feedback' | 'project' | 'reference' | 'session' | 'decision' | 'learning'
   name          text        not null,           -- unique slug within workspace (e.g. 'feedback_testing')
@@ -73,5 +73,5 @@ create trigger janus_memories_updated_at
   for each row execute function janus_touch_updated_at();
 
 -- ── No RLS — accessed exclusively via service role key ────────────────────────
--- Memories are internal to Janus IA. No user-facing auth needed.
+-- Memories are internal to the portfolio brain. No user-facing auth needed.
 alter table janus_memories disable row level security;

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Janus IA — Cross-workspace Memory MCP Server v2
+ * Portfolio AI — Cross-workspace Memory MCP Server v2 (legacy id: janus-memory)
  *
  * Stores and retrieves memories across all project workspaces using
  * Supabase + pgvector. Captures everything: sessions, decisions,
@@ -128,7 +128,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         type: 'object',
         properties: {
           content: { type: 'string', description: 'The memory content to store' },
-          workspace: { type: 'string', description: 'Workspace: janus-ia | lool-ai | freelance-system | espacio-bosques | nutria | longevite | jp-ai | mercado-bot' },
+          workspace: { type: 'string', description: 'Workspace: pablo-ia | janus-ia | lool-ai | freelance-system | espacio-bosques | nutria | longevite | jp-ai | mercado-bot' },
           project: { type: 'string', description: 'Sub-project name if different from workspace (optional)' },
           type: {
             type: 'string',
