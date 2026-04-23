@@ -1,5 +1,5 @@
 # PORTFOLIO FINANCES
-## Last updated: 2026-03-16
+## Last updated: (not yet — populate during onboarding)
 
 ---
 
@@ -7,11 +7,8 @@
 
 | Item | MXN/month | Notes |
 |---|---|---|
-| Google One 2TB | $200 | Shared across all projects |
-| Cloudflare R2 | ~$0 | Free tier for now |
-| GitHub | $0 | Free tier |
-| Alchemy (Sepolia) | $0 | Free tier |
-| **Total burn** | **$200 MXN** | |
+| _(add rows as you wire up paid services)_ | | |
+| **Total burn** | **$0 MXN** | |
 
 ---
 
@@ -19,31 +16,17 @@
 
 | Project | MRR | Notes |
 |---|---|---|
-| freelance-system | $0 | No leads yet |
-| lool-ai | $0 | Pre-build |
-| espacio-bosques | $0 | POC/testnet |
+| _(no projects declared yet — add rows after intake)_ | $0 | |
 | **Total MRR** | **$0 MXN** | |
 
 ---
 
 ## Net position
-**Burning $200 MXN/month** on infrastructure. No revenue yet.
+**Burning $0 MXN/month.** No projects declared. Run intake to declare one.
 
 ---
 
 ## Project financial summaries
 
-### freelance-system
-- Costs: $0 (no tools with paid tier active)
-- Revenue: $0
-- Status: Pre-revenue, ready to operate
-
-### lool-ai  
-- Costs: $0 (not yet built)
-- Revenue: $0
-- Status: Pre-build
-
-### espacio-bosques
-- Costs: $0 (Alchemy free tier)
-- Revenue: $0 (testnet only — no real funds)
-- Status: POC phase
+_(empty — one section per declared project, updated by the financial agent
+after each material event: cost added, revenue logged, runway change.)_

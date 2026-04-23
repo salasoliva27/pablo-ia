@@ -1,6 +1,6 @@
 -- ============================================================
--- JANUS IA — Cross-workspace Memory Table
--- Run once in: supabase.com/dashboard/project/rycybujjedtofghigyxm/sql/new
+-- Cross-workspace Memory Table
+-- Run once in: supabase.com/dashboard/project/<your-project-ref>/sql/new
 -- ============================================================
 --
 -- Convention: janus_ prefix (shared instance, no RLS — service role only)
@@ -16,7 +16,7 @@ create extension if not exists pg_trgm;
 
 create table if not exists janus_memories (
   id            uuid primary key default gen_random_uuid(),
-  workspace     text        not null,           -- 'pablo-ia', 'janus-ia', 'espacio-bosques', 'lool-ai', etc.
+  workspace     text        not null,           -- e.g. 'pablo-ia' or any project slug you choose
   project       text,                           -- null = cross-project / portfolio-level
   type          text        not null,           -- 'user' | 'feedback' | 'project' | 'reference' | 'session' | 'decision' | 'learning'
   name          text        not null,           -- unique slug within workspace (e.g. 'feedback_testing')

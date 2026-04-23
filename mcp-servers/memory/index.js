@@ -128,7 +128,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         type: 'object',
         properties: {
           content: { type: 'string', description: 'The memory content to store' },
-          workspace: { type: 'string', description: 'Workspace: pablo-ia | janus-ia | lool-ai | freelance-system | espacio-bosques | nutria | longevite | jp-ai | mercado-bot' },
+          workspace: { type: 'string', description: 'Workspace identifier (e.g. pablo-ia, or any project slug you choose)' },
           project: { type: 'string', description: 'Sub-project name if different from workspace (optional)' },
           type: {
             type: 'string',
@@ -208,7 +208,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         type: 'object',
         properties: {
           cypher: { type: 'string', description: 'A read-only Cypher query. Common node labels: Project, Concept, Learning, Pattern, Session, Correction, Feedback, Decision, Agent, Module, Tag. Common edges: REFERENCES, MENTIONS, TAGGED.' },
-          params: { type: 'object', description: 'Optional parameters for the query (e.g. { project: "lool-ai" })' },
+          params: { type: 'object', description: 'Optional parameters for the query (e.g. { project: "my-project" })' },
           limit: { type: 'number', default: 50, description: 'Max rows to return (default 50, hard cap 500)' }
         },
         required: ['cypher']

@@ -1,44 +1,10 @@
 {
-  "forwardPorts": [3100, 3101, 5181],
+  "forwardPorts": [3100],
   "portsAttributes": {
     "3100": {
-      "label": "Venture OS Dashboard",
+      "label": "Pablo IA Dashboard",
       "onAutoForward": "openBrowser",
       "visibility": "public"
-    },
-    "3101": {
-      "label": "Ozum AI-OS (jp-ai)",
-      "onAutoForward": "notify",
-      "visibility": "public"
-    },
-    "5181": {
-      "label": "Ozum AI-OS Vite HMR",
-      "onAutoForward": "silent",
-      "visibility": "public"
-    }
-  },
-  "customizations": {
-    "codespaces": {
-      "repositories": {
-        "salasoliva27/dotfiles": {
-          "permissions": {
-            "contents": "write",
-            "metadata": "read"
-          }
-        },
-        "salasoliva27/lool-ai-dev": {
-          "permissions": "write-all"
-        },
-        "salasoliva27/espacio-bosques-dev": {
-          "permissions": "write-all"
-        },
-        "salasoliva27/nutria-app-dev": {
-          "permissions": "write-all"
-        },
-        "salasoliva27/longevite-therapeutics-dev": {
-          "permissions": "write-all"
-        }
-      }
     }
   }
 }

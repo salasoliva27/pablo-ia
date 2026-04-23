@@ -17,68 +17,19 @@ SOURCES_DIR = Path(__file__).parent / "sources"
 OUTPUTS_DIR = Path(__file__).parent / "outputs"
 OUTPUTS_DIR.mkdir(exist_ok=True)
 
-NOTEBOOKS = [
-    {
-        "name": "Pablo IA — Master Portfolio",
-        "sources": ["janus-master.md"],
-        "artifacts": ["report", "mind-map", "audio", "slide-deck", "flashcards", "quiz", "infographic", "data-table"],
-        "questions": [
-            "What are the top 3 strategic priorities across the portfolio right now?",
-            "Which project has the highest near-term revenue potential and why?",
-            "What are the biggest risks across all active projects?",
-            "What does Pablo's capacity look like given all active projects?",
-            "What patterns repeat across all four projects that Pablo should be aware of?",
-        ],
-    },
-    {
-        "name": "lool-ai — Virtual Try-On Widget",
-        "sources": ["lool-ai.md"],
-        "artifacts": ["report", "mind-map", "audio", "slide-deck", "flashcards", "quiz"],
-        "questions": [
-            "What is the best go-to-market strategy for lool-ai given the CDMX optical market?",
-            "Flat fee vs. revenue share — which pricing model should lool-ai launch with and why?",
-            "What are the top 5 objections an optical store owner would have, and how should Pablo respond to each?",
-            "What legal steps are required before lool-ai can collect real facial image data?",
-            "What should the 60-second in-store demo script look like?",
-        ],
-    },
-    {
-        "name": "espacio-bosques — Community DAO",
-        "sources": ["espacio-bosques.md"],
-        "artifacts": ["report", "mind-map", "audio", "slide-deck", "flashcards", "quiz"],
-        "questions": [
-            "What are the critical legal steps before espacio-bosques can handle real community funds?",
-            "What should the React frontend prioritize in v1 to validate community adoption?",
-            "How does espacio-bosques compare to global community investment platforms?",
-            "What is the minimum viable legal structure to launch with real (not testnet) funds in Mexico?",
-            "What are the top 5 governance risks in the smart contract design?",
-        ],
-    },
-    {
-        "name": "Longevité Therapeutics — IV Clinic",
-        "sources": ["longevite-therapeutics.md"],
-        "artifacts": ["report", "mind-map", "audio", "slide-deck", "flashcards"],
-        "questions": [
-            "What is the most effective content strategy for @longevitetherapeutics on Instagram?",
-            "How should the website's services section be ordered to maximize conversion?",
-            "What SEO keywords should the website target to rank in CDMX searches?",
-            "What are the top 5 reasons a Polanco/Lomas professional would choose Longevité over a competitor?",
-            "Write a WhatsApp CTA message template that converts a curious Instagram follower into a booked appointment.",
-        ],
-    },
-    {
-        "name": "Freelance System — Pipeline",
-        "sources": ["freelance-system.md"],
-        "artifacts": ["report", "mind-map", "audio", "flashcards", "quiz"],
-        "questions": [
-            "Which service type should Pablo specialize in first to maximize win rate with zero reviews?",
-            "Write a sample proposal for a Python data migration project on Upwork following the 250-word rule.",
-            "What are the top 5 red flags in a job post that signal a difficult client?",
-            "How should Pablo sequence platform launches (PeoplePerHour vs Upwork vs Freelancer) in the first 60 days?",
-            "What demo would be most impressive for a chatbot/AI project proposal?",
-        ],
-    },
-]
+# Populate this list with one entry per project you want NotebookLM to research.
+# Each entry: name (notebook title), sources (filenames in sources/), artifacts
+# (which to generate: report, mind-map, audio, slide-deck, flashcards, quiz,
+# infographic, data-table), and questions (asked against the notebook contents).
+#
+# Example shape — uncomment and edit per project:
+#   {
+#       "name": "<project> — <short label>",
+#       "sources": ["<filename-in-sources-dir>.md"],
+#       "artifacts": ["report", "mind-map", "audio", "slide-deck", "flashcards", "quiz"],
+#       "questions": ["..."],
+#   },
+NOTEBOOKS: list[dict] = []
 
 ARTIFACT_DOWNLOAD_MAP = {
     "audio": "audio",
@@ -112,6 +63,10 @@ def run(cmd: str) -> tuple[int, str]:
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 def main():
+    if not NOTEBOOKS:
+        print("NOTEBOOKS list is empty. Edit this file and declare your notebooks first.")
+        sys.exit(0)
+
     # ── 0. Auth check ────────────────────────────────────────────────────────
     log("0. Checking authentication")
     code, out = run("notebooklm auth check")

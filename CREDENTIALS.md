@@ -6,16 +6,24 @@
 
 ## HOW THIS WORKS
 
-All secrets live in a private dotfiles repo, loaded as environment variables into every Codespace automatically.
+Secrets are loaded as environment variables. There are two supported layouts —
+the dashboard auto-detects which one you're using:
 
-**Never store secrets in any project repo.** Never ask Pablo for a key in a conversation.
+- **Repo-local `.env`** (default for new users): the dashboard's Credentials
+  panel writes a `.env` at the repo root. It's added to `.gitignore`
+  automatically and never committed.
+- **Shared dotfiles repo** (optional): if you maintain a private dotfiles repo
+  with `.env` mounted at `/workspaces/.codespaces/.persistedshare/dotfiles/`,
+  the dashboard writes there instead, then commits + pushes so every
+  Codespace you spin up loads the same keys on creation.
+
+**Never store secrets in any project repo's tracked files.** Never paste a key
+into a chat — use the Credentials panel.
 
 When a project needs a tool credential:
 - Its own TOOLS.md declares which tools it uses
 - It references this file (`pablo-ia/CREDENTIALS.md`) for setup procedure
 - It does NOT manage credentials itself
-
-If a project is ever handed off to someone outside the portfolio, copy the relevant rows from this file into that project's own CREDENTIALS.md at handoff time.
 
 ---
 
@@ -54,7 +62,7 @@ echo "=== VOYAGE AI (memory embeddings) ===" && \
 | Env var | Status | MCP server / tool it unlocks |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | ✅ Present | Claude API, memory embeddings fallback |
-| `GITHUB_TOKEN` | ✅ Present (Codespace-scoped) | GitHub MCP — push only to `pablo-ia`; **replace with PAT to unlock all repos** (see below) |
+| `GITHUB_TOKEN` | ✅ Present (Codespace-scoped) | GitHub MCP — push only to the current repo; **replace with PAT to unlock all repos** (see below) |
 | `BRAVE_API_KEY` | ✅ Present | Brave Search MCP |
 | `SUPABASE_URL` | ✅ Present | Cross-workspace memory MCP |
 | `SUPABASE_SERVICE_ROLE_KEY` | ✅ Present | Cross-workspace memory MCP |
@@ -66,14 +74,27 @@ echo "=== VOYAGE AI (memory embeddings) ===" && \
 | `GOOGLE_CLIENT_SECRET` | ⚠️ In dotfiles, not loaded yet | Google Workspace MCP — needs Codespace rebuild to load |
 | `N8N_API_KEY` | ⏸️ Deferred | n8n MCP — activate only when a client project requires it |
 | `N8N_BASE_URL` | ⏸️ Deferred | n8n MCP |
-| `CLOUDFLARE_API_TOKEN` | ⏸️ Deferred | Cloudflare MCP — needed at lool-ai pilot stage for client catalog images |
+| `CLOUDFLARE_API_TOKEN` | ⏸️ Deferred | Cloudflare MCP — activate only when a project needs R2/Workers/Pages |
 | `CLOUDFLARE_ACCOUNT_ID` | ⏸️ Deferred | Cloudflare MCP |
 
 ---
 
 ## FIXING MISSING CREDENTIALS
 
-All changes go into `salasoliva27/dotfiles/.env`. They auto-load into all future Codespaces. For the current session, also run `export VAR=value` in terminal after editing.
+Two ways to add a key. Use whichever fits your setup.
+
+**Option A — dashboard Credentials panel (recommended for new users):**
+Open the Pablo IA dashboard → click the key icon → expand the relevant
+provider → paste the value → save. The bridge writes to `.env` at the repo
+root (auto-gitignored, never committed) and updates `process.env` so the
+running bridge sees the new value immediately.
+
+**Option B — shared dotfiles repo (for cross-Codespace sync):**
+If you maintain a private `dotfiles` repo with a `.env` file that loads into
+every Codespace you create, append the key there and push. The dashboard
+detects this layout (`/workspaces/.codespaces/.persistedshare/dotfiles/.env`)
+and writes there instead — committing + pushing automatically. For the current
+session you can also `export VAR=value` in any terminal.
 
 ---
 
@@ -142,7 +163,8 @@ This opens a browser, you approve access, tokens are saved to `/home/codespace/.
 - Fastest path: [app.n8n.cloud](https://app.n8n.cloud) — free tier includes 5 active workflows
 - For production: deploy via Railway, Render, or a VPS. See [n8n self-hosting docs](https://docs.n8n.io/hosting/)
 
-Add to `salasoliva27/dotfiles/.env`:
+Add via the dashboard Credentials panel (writes to repo `.env`), or to your
+shared dotfiles `.env` if you maintain one:
 ```
 N8N_API_KEY=<your_n8n_api_key>
 N8N_BASE_URL=https://your-instance.app.n8n.cloud
@@ -177,7 +199,8 @@ N8N_BASE_URL=https://your-instance.app.n8n.cloud
    - Zone: DNS — Edit (if you want DNS control)
 5. Copy the token immediately — shown only once
 
-Add to `salasoliva27/dotfiles/.env`:
+Add via the dashboard Credentials panel (writes to repo `.env`), or to your
+shared dotfiles `.env` if you maintain one:
 ```
 CLOUDFLARE_API_TOKEN=<your_cloudflare_api_token>
 CLOUDFLARE_ACCOUNT_ID=<your_account_id>
@@ -197,37 +220,39 @@ CLOUDFLARE_ACCOUNT_ID=<your_account_id>
 3. API Keys → Create key
 4. Free tier includes 50M tokens/month — sufficient for this use case
 
-Add to `salasoliva27/dotfiles/.env`:
+Add via the dashboard Credentials panel (writes to repo `.env`), or to your
+shared dotfiles `.env` if you maintain one:
 ```
 VOYAGE_API_KEY=<your_voyage_api_key>
 ```
 
 ---
 
-### 5. GITHUB_TOKEN — Permanent cross-repo PAT (do this once, never again)
+### 5. GITHUB_TOKEN — Cross-repo PAT (only if you want to push to other repos)
 
-**Current situation:** Every new Codespace injects a scoped `GITHUB_TOKEN` that only works for that repo. This causes 403 on cross-repo pushes and would require manual work every time a new project is created.
+**Current situation:** Every new Codespace injects a scoped `GITHUB_TOKEN` that
+only works for that repo. This causes 403 on cross-repo pushes.
 
-**Permanent fix:** One Classic PAT with no expiration in dotfiles. It overrides the scoped Codespace token everywhere — current and future Codespaces get it automatically from dotfiles on creation. Zero per-project setup.
+**Fix (only if you need it):** Replace it with a Classic PAT. If you maintain
+a shared dotfiles repo, drop it there once and every future Codespace gets it
+on creation. If you only work in this repo, you can skip this step entirely.
 
-**Steps (one time only):**
+**Steps (one time):**
 1. github.com → Settings → Developer Settings → Personal access tokens → **Tokens (classic)**
 2. "Generate new token (classic)"
-3. **Expiration: No expiration**
-4. **Scopes: check `repo`** (full control of all private repos under your account)
+3. **Expiration: No expiration** (or set a rotation date you'll honor)
+4. **Scopes: check `repo`**
 5. Generate → copy immediately (shown only once)
 
-Add to `salasoliva27/dotfiles/.env`:
+Add via the dashboard Credentials panel, or to your shared dotfiles `.env`:
 ```
 GITHUB_TOKEN=ghp_your_new_pat_here
 ```
 
 **Why Classic PAT, not Fine-grained?**
-Fine-grained PATs support "All repositories" but max out at 1 year expiration — you'd rotate it annually. Classic PATs can be set to no expiration. For a solo portfolio, that tradeoff is worth it.
-
-**After this:**
-- New Codespaces: PAT loads automatically, push works to any repo from day one
-- New projects Claude creates: no manual token step needed ever
+Fine-grained PATs support "All repositories" but max out at 1 year expiration.
+Classic PATs can be set to no expiration. For a solo portfolio, that tradeoff
+is worth it.
 
 ---
 
@@ -317,21 +342,21 @@ Notes: Intended for codebase structure graph per repo. Try again when a stable v
 
 ### SUPABASE_ACCESS_TOKEN
 Where to get: supabase.com/dashboard/account/tokens → Generate new token → name "pablo-ia-mcp"
-Add to dotfiles: `export SUPABASE_ACCESS_TOKEN=your_token`
-Status: ✅ In dotfiles — loaded
+Add via the dashboard Credentials panel, or to your shared dotfiles `.env`.
 
 ### SUPABASE_PROJECT_REF
-Value: rycybujjedtofghigyxm
-Add to dotfiles: `export SUPABASE_PROJECT_REF=rycybujjedtofghigyxm`
-Status: ✅ In dotfiles — loaded
+Value: your Supabase project ref (visible in the project's URL on supabase.com/dashboard).
+Add via the dashboard Credentials panel, or to your shared dotfiles `.env`.
 
 ---
 
 ## ADDING A NEW TOOL
 
-1. Add env var to `salasoliva27/dotfiles/.env`
-2. Add to `.mcp.json` in pablo-ia
-3. Add row to the status table above
-4. Add "where to find" section below if non-obvious
+The dashboard's **Credentials → Add tool** form does steps 1 + 2 in one
+submit: it writes the env var to `.env` and (optionally) registers an MCP
+server in `.mcp.json`. After that:
+
+3. Add a row to the status table above so future you remembers what's wired
+4. Add a "where to find" section below if the key isn't obvious to regenerate
 5. Update `TOOLS.md` with the new tool entry
 6. Restart Claude Code (MCP servers load at startup)

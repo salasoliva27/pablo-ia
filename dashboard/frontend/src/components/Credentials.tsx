@@ -77,7 +77,7 @@ const DEFAULT_CREDENTIALS: CredentialEntry[] = [
     howTo: 'Account → Access Tokens → Generate new token. Project ref is the subdomain of your project URL (e.g. xxx in xxx.supabase.co).',
     fields: [
       { id: 'supabase-access',       label: 'Access token',        envVar: 'SUPABASE_ACCESS_TOKEN',       type: 'password', placeholder: 'sbp_...' },
-      { id: 'supabase-project-ref',  label: 'Project ref',         envVar: 'SUPABASE_PROJECT_REF',        type: 'text',     placeholder: 'rycybujjedtofghigyxm' },
+      { id: 'supabase-project-ref',  label: 'Project ref',         envVar: 'SUPABASE_PROJECT_REF',        type: 'text',     placeholder: 'your-project-ref' },
     ],
   },
   {
