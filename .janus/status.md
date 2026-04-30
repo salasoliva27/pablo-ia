@@ -4,6 +4,9 @@ stage: dev
 phase: ""
 phaseProgress: 0
 summary: "Personal AI brain for Pablo — initialized from janus-ia template"
+lastSyncedAt: "2026-04-30T19:01:15.564Z"
+lastSyncedCommit: "7f02833"
+lastSyncedCommitMessage: "fix(blank-slate): scrub Jano-specific identifiers from template"
 ---
 
 ## Next Steps
