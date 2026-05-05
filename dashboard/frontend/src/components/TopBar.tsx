@@ -117,12 +117,40 @@ function timeAgo(ts: number): string {
 }
 
 function StatusRing({ status, processing }: { status: ConnectionStatus; processing: boolean }) {
-  const cls = status === 'disconnected' ? 'status-ring--disconnected' : processing ? 'status-ring--processing' : '';
+  const [restarting, setRestarting] = useState(false);
+  const effectiveStatus: ConnectionStatus = restarting ? 'connecting' : status;
+  const cls = effectiveStatus === 'disconnected'
+    ? 'status-ring--disconnected'
+    : (restarting || processing) ? 'status-ring--processing' : '';
+
+  // Reset the local "restarting" flag once the WS reconnects.
+  useEffect(() => {
+    if (restarting && status === 'connected') setRestarting(false);
+  }, [restarting, status]);
+
+  async function handleRestart() {
+    if (restarting) return;
+    setRestarting(true);
+    try {
+      await fetch('/api/bridge/restart', { method: 'POST' });
+    } catch {
+      // Expected — bridge often closes the connection before flushing the body.
+    }
+    // Failsafe: if the bridge doesn't come back within 30s, drop the spinner.
+    setTimeout(() => setRestarting(false), 30_000);
+  }
+
   return (
-    <div className={`status-ring ${cls}`} title={`Bridge: ${status}`}>
+    <button
+      type="button"
+      className={`status-ring ${cls}`}
+      title={restarting ? 'Bridge: restarting…' : `Bridge: ${status} — click to restart`}
+      onClick={handleRestart}
+      style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+    >
       <div className="status-ring__circle" />
       <div className="status-ring__inner" />
-    </div>
+    </button>
   );
 }
 
@@ -153,16 +181,34 @@ function AgentPicker({ onCredentials }: { onCredentials?: () => void }) {
 
   useEffect(() => {
     let cancelled = false;
-    async function load() {
+    async function load(force = false) {
       try {
-        const r = await fetch('/api/agents');
+        const r = await fetch(`/api/agents${force ? '?refresh=1' : ''}`);
         const j = await r.json();
-        if (!cancelled && Array.isArray(j.agents)) setAgents(j.agents);
+        if (!cancelled && Array.isArray(j.agents)) {
+          setAgents(j.agents);
+          const current = localStorage.getItem('venture-os-agent') || active;
+          const currentAgent = j.agents.find((a: AgentInfo) => a.id === current);
+          const fallback = j.agents.find((a: AgentInfo) => a.available);
+          if ((!currentAgent || !currentAgent.available) && fallback) {
+            localStorage.setItem('venture-os-agent', fallback.id);
+            setActive(fallback.id);
+            window.dispatchEvent(new CustomEvent('venture-os:agent-change', { detail: { agentId: fallback.id } }));
+          }
+        }
       } catch { /* bridge warming up */ }
     }
     load();
     const i = setInterval(load, 15_000);
-    return () => { cancelled = true; clearInterval(i); };
+    function onCredentialsChanged() {
+      void load(true);
+    }
+    window.addEventListener('venture-os:credentials-changed', onCredentialsChanged);
+    return () => {
+      cancelled = true;
+      clearInterval(i);
+      window.removeEventListener('venture-os:credentials-changed', onCredentialsChanged);
+    };
   }, []);
 
   useEffect(() => {
@@ -189,7 +235,7 @@ function AgentPicker({ onCredentials }: { onCredentials?: () => void }) {
       <button
         className="agent-picker__btn"
         onClick={() => setOpen(v => !v)}
-        title={activeAgent?.reason || `Agent: ${activeLabel}`}
+        title={activeAgent?.reason || `Engine: ${activeLabel}`}
       >
         <span className="agent-picker__dot" style={{
           background: activeAgent?.available === false ? 'oklch(0.65 0.2 25)' : 'var(--color-accent)',
@@ -205,7 +251,7 @@ function AgentPicker({ onCredentials }: { onCredentials?: () => void }) {
               key={a.id}
               className={`agent-picker__item ${a.id === active ? 'agent-picker__item--active' : ''} ${!a.available ? 'agent-picker__item--disabled' : ''}`}
               onClick={() => a.available && pick(a.id)}
-              disabled={!a.available}
+              aria-disabled={!a.available}
             >
               <span className="agent-picker__item-dot" style={{
                 background: a.available ? 'var(--color-accent)' : 'oklch(0.65 0.2 25)',
@@ -243,16 +289,24 @@ function ModelPicker() {
 
   useEffect(() => {
     let cancelled = false;
-    async function load() {
+    async function load(force = false) {
       try {
-        const r = await fetch('/api/agents');
+        const r = await fetch(`/api/agents${force ? '?refresh=1' : ''}`);
         const j = await r.json();
         if (!cancelled && Array.isArray(j.agents)) setAgents(j.agents);
       } catch { /* bridge warming up */ }
     }
     load();
     const i = setInterval(load, 30_000);
-    return () => { cancelled = true; clearInterval(i); };
+    function onCredentialsChanged() {
+      void load(true);
+    }
+    window.addEventListener('venture-os:credentials-changed', onCredentialsChanged);
+    return () => {
+      cancelled = true;
+      clearInterval(i);
+      window.removeEventListener('venture-os:credentials-changed', onCredentialsChanged);
+    };
   }, []);
 
   // Listen for agent changes so the model dropdown swaps its list
@@ -408,6 +462,11 @@ const MODEL_CONTEXT_WINDOWS: Record<string, number> = {
   'claude-sonnet-4-6': 200_000,
   'claude-sonnet-4-5': 200_000,
   'claude-haiku-4-5': 200_000,
+  'gpt-5.5': 1_000_000,
+  'gpt-5.4': 1_000_000,
+  'gpt-5.4-mini': 400_000,
+  'gpt-5.4-nano': 400_000,
+  'gpt-5.2-codex': 400_000,
   'gpt-5-codex': 200_000,
   'gpt-5': 200_000,
   'gpt-4.1': 1_000_000,
@@ -453,7 +512,7 @@ function ContextUsage() {
   const modelId = useActiveModelId();
 
   // Rough token estimate: ~1 token per 4 chars of content, plus overhead per message/tool call
-  const BASE_TOKENS = 20_000; // system prompt + CLAUDE.md
+  const BASE_TOKENS = 20_000; // system prompt + AGENTS.md
   const CONTEXT_LIMIT = MODEL_CONTEXT_WINDOWS[modelId] ?? DEFAULT_CONTEXT_WINDOW;
   const msgTokens = chatMessages.reduce((sum, m) => {
     const contentTokens = Math.ceil(m.content.length / 4);
@@ -512,8 +571,6 @@ export function TopBar({ connectionStatus, onThemeToggle, lastMessage, onCredent
       </div>
       <ContextUsage />
       <div className="top-bar__right">
-        <AgentPicker onCredentials={onCredentials} />
-        <ModelPicker />
         {onThemeToggle && (
           <button
             onClick={onThemeToggle}

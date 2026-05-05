@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# init-fork.sh — bootstrap a fresh pablo-ia workspace for a new user.
+# init-fork.sh — bootstrap a fresh janus-ia fork for a new user.
 #
-# Strips template-specific content (the original project wikis, outputs, and learnings)
+# Strips Jano-specific content (his project wikis, outputs, specific learnings)
 # while keeping the core agent framework intact: agents/, concepts/, scripts/,
-# dashboard/, mcp-servers/, registries, CLAUDE.md.
+# dashboard/, mcp-servers/, registries, AGENTS.md, and CLAUDE.md loader.
 #
 # Run ONCE after cloning/forking. It's idempotent — safe to re-run, but it
 # will warn before deleting directories that already look stripped.
@@ -25,27 +25,27 @@ for arg in "$@"; do
   esac
 done
 
-if [ ! -f "$REPO/CLAUDE.md" ] || [ ! -d "$REPO/agents" ]; then
-  echo "× $REPO doesn't look like a pablo-ia workspace (missing CLAUDE.md or agents/)" >&2
+if [ ! -f "$REPO/AGENTS.md" ] || [ ! -f "$REPO/CLAUDE.md" ] || [ ! -d "$REPO/agents" ]; then
+  echo "× $REPO doesn't look like a janus-ia fork (missing AGENTS.md, CLAUDE.md loader, or agents/)" >&2
   exit 1
 fi
 
 cat <<EOF
 ┌──────────────────────────────────────────────────────────┐
-│  PABLO FORK BOOTSTRAP                                     │
+│  JANUS FORK BOOTSTRAP                                     │
 ├──────────────────────────────────────────────────────────┤
-│  Stripping template-specific content:                     │
-│    - wiki/          (original project pages)              │
-│    - projects/      (original dev/uat/prod tracking)      │
-│    - outputs/       (original generated docs + media)     │
-│    - dump/          (original inbox)                      │
-│    - concepts/*     (original cross-project nodes)        │
+│  Stripping Jano-specific content:                         │
+│    - wiki/          (his project pages)                   │
+│    - projects/      (his dev/uat/prod tracking)           │
+│    - outputs/       (his generated docs + screenshots)    │
+│    - dump/          (his inbox)                           │
+│    - concepts/*     (his accumulated cross-project nodes) │
 │  Resetting to empty templates:                            │
 │    - PROJECTS.md                                          │
-│    - learnings/* (original accumulated findings)          │
+│    - learnings/* (all his accumulated findings)           │
 │                                                           │
 │  Keeping the framework:                                   │
-│    ✓ CLAUDE.md, agents/                                   │
+│    ✓ AGENTS.md, CLAUDE.md loader, agents/                 │
 │    ✓ scripts/, dashboard/, mcp-servers/                   │
 │    ✓ tools/registry.md, skills/registry.md                │
 │                                                           │
@@ -63,7 +63,7 @@ if [ "$YES" != "1" ]; then
 fi
 
 echo ""
-echo "▸ removing template-specific dirs..."
+echo "▸ removing Jano-specific dirs..."
 for d in wiki projects outputs dump; do
   if [ -d "$REPO/$d" ]; then
     rm -rf "$REPO/$d"
@@ -71,7 +71,7 @@ for d in wiki projects outputs dump; do
   fi
 done
 
-# concepts/ contains accumulated cross-project nodes from the template. Wipe contents but
+# concepts/ is Jano's accumulated cross-project nodes. Wipe contents but
 # keep the directory so the agent framework's [[concepts/...]] links still
 # resolve to a real folder once Pablo writes his own.
 if [ -d "$REPO/concepts" ]; then
@@ -87,7 +87,7 @@ if [ -d "$REPO/agents/domain" ]; then
 fi
 
 # Wipe any pre-existing learnings — every file in here gets reset to a stub
-# below. This catches template-specific files (patterns.md, technical.md,
+# below. This catches Jano-specific files (patterns.md, technical.md,
 # mcp-registry.md, gtm.md) without us having to enumerate them by name.
 if [ -d "$REPO/learnings" ]; then
   rm -f "$REPO/learnings"/*.md
@@ -169,9 +169,8 @@ echo "▸ resetting README.md → $FORK_NAME..."
 cat > "$REPO/README.md" <<TEMPLATE
 # $FORK_NAME
 
-Personal AI brain — initialized from the [pablo-ia](https://github.com/salasoliva27/pablo-ia)
-template. Built on Claude Code with an agent dispatch protocol, file-based
-memory, MCP integrations, and a workspace-aware dashboard.
+Personal AI brain. Built on Claude Code with an agent dispatch protocol,
+file-based memory, MCP integrations, and a workspace-aware dashboard.
 
 ## First run
 
@@ -181,7 +180,7 @@ memory, MCP integrations, and a workspace-aware dashboard.
 
 In the first chat turn, tell the AI: **\`run discovery\`**. It will walk you
 through declaring your projects, your stack, and personalizing the agents in
-\`agents/\` and \`CLAUDE.md\` for your work.
+\`agents/\`, \`AGENTS.md\`, and provider adapter files for your work.
 
 ## Layout
 
@@ -194,30 +193,56 @@ mcp-servers/    local MCP servers (memory, etc.)
 scripts/        bootstrap, preflight, gdrive, dash-link, init-fork
 tools/          tool registry + configs
 skills/         skills registry
-CLAUDE.md       master brain — read this first
+AGENTS.md       canonical brain and agent registry
+CLAUDE.md       Claude Code compatibility loader
 \`\`\`
 
-\`CLAUDE.md\` is the source of truth for how the system behaves. Personalize
-it during discovery before doing real work.
-
----
-
-To pull updates from upstream pablo-ia later:
-\`\`\`bash
-git remote add upstream https://github.com/salasoliva27/pablo-ia.git
-git fetch upstream && git merge upstream/main
-\`\`\`
+\`AGENTS.md\` is the provider-neutral source of truth. Personalize it during
+discovery before doing real work.
 TEMPLATE
 
+# ─── Drop stale planning artifacts and project-specific agents ──
+echo "▸ removing stale planning + project-specific agents..."
+for d in "$REPO/.planning" "$REPO/dashboard/.planning" "$REPO/agents/legal"; do
+  if [ -d "$d" ]; then
+    rm -rf "$d"
+    echo "  removed ${d#$REPO/}"
+  fi
+done
+
+# ─── Bulk rewrite janus/Jano prose in user-facing markdown ──────
+# Derive a friendly owner name from the fork dir: "pablo-ia" → "Pablo".
+# Strips trailing -ia/-ai/-brain suffixes, then capitalizes.
+OWNER="$(echo "$FORK_NAME" | sed -E 's/-(ia|ai|brain)$//; s/^./\U&/')"
+DISPLAY="${OWNER} IA"
+echo "▸ rewriting brand references → owner=\"$OWNER\", display=\"$DISPLAY\"..."
+
+# Find user-facing markdown (skip .git, node_modules, dist, .planning).
+# Apply four ordered substitutions per file.
+find "$REPO" \
+  -path "$REPO/.git" -prune -o \
+  -path "*/node_modules" -prune -o \
+  -path "*/dist" -prune -o \
+  -path "*/.planning" -prune -o \
+  -type f -name "*.md" -print | while read -r f; do
+    # Order matters: longer/more-specific first to avoid partial overwrites.
+    sed -i \
+      -e "s|JANUS IA|$(echo "$DISPLAY" | tr '[:lower:]' '[:upper:]')|g" \
+      -e "s|Janus IA|$DISPLAY|g" \
+      -e "s|janus-ia|$FORK_NAME|g" \
+      -e "s|\bJano\b|$OWNER|g" \
+      "$f"
+  done
+echo "  rewrote brand refs across all user-facing .md"
+
 # ─── Self-anchor hook + MCP paths ─────────────────────────────
-# .claude/settings.json hooks and .mcp.json paths may reference
-# /workspaces/janus-ia or /workspaces/pablo-ia. Point them at this fork instead.
-echo "▸ rewriting hardcoded workspace paths..."
+# .claude/settings.json hooks and .mcp.json paths reference
+# /workspaces/janus-ia. Point them at this fork instead.
+echo "▸ rewriting hardcoded /workspaces/janus-ia paths..."
 for f in "$REPO/.claude/settings.json" "$REPO/.mcp.json"; do
   if [ -f "$f" ]; then
     # Use | as sed delimiter since paths contain /
     sed -i "s|/workspaces/janus-ia|$REPO|g" "$f"
-    sed -i "s|/workspaces/pablo-ia|$REPO|g" "$f"
     echo "  rewrote $f"
   fi
 done

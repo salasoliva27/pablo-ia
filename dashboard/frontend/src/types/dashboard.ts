@@ -1,4 +1,4 @@
-// Pablo IA Dashboard — All Types
+// Venture OS Dashboard — All Types
 
 export interface Project {
   id: string;
@@ -17,6 +17,69 @@ export interface Project {
   nextActions: string[];
   color: string;
   repo?: string;
+  memoryCount?: number;
+  // Discovery metadata — which GitHub identity surfaced this repo.
+  // `account` is the short label from GITHUB_TOKEN_SOURCES (e.g. 'personal',
+  // 'reece'). `owner` is the GitHub login. Both are absent for legacy /
+  // non-discovered projects.
+  account?: string;
+  owner?: string;
+  // STATUS.md-derived (only present once a repo has been bootstrapped):
+  summary?: string;
+  hasStatusFile?: boolean;
+  statusValue?: string;       // active | paused | done | archived
+  nextSteps?: Array<{ id: string; title: string; priority: string; effortHours: number; done: boolean }>;
+  milestones?: Array<{ date: string; description: string }>;
+}
+
+export interface ScheduledEvent {
+  id: string;
+  projectId: string;
+  projectName: string;
+  title: string;
+  start: string;
+  end: string;
+  priority: string;
+  color: string;
+  notes?: string;
+}
+
+export interface JiraTicket {
+  key: string;
+  summary: string;
+  status: string;
+  statusCategory: string;
+  priority: string | null;
+  assigneeName: string | null;
+  reporterName: string | null;
+  projectKey: string;
+  projectName: string;
+  issueType: string;
+  updated: string;
+  created: string;
+  duedate: string | null;
+  url: string;
+  labels: string[];
+}
+
+export interface TalendJob {
+  id: string;
+  name: string;
+  workspace: string;
+  workspaceId: string;
+  environment: string;
+  environmentId: string;
+  description: string;
+  scheduleEnabled: boolean;
+  scheduleSummary: string | null;
+  lastExecutionId: string | null;
+  lastStatus: string | null;
+  lastStartedAt: string | null;
+  lastFinishedAt: string | null;
+  artifactName: string | null;
+  artifactType: string | null;
+  versions: string[];
+  latestVersion: string | null;
 }
 
 export interface AgentDispatch {
@@ -175,6 +238,14 @@ export interface DashboardState {
   learnings: Learning[];
   terminalLines: string[];
   calendarSlots: CalendarSlot[];
+  /** Calendar events scheduled by Janus from each project's STATUS.md.
+   *  When non-empty, supersedes the hardcoded calendar fixtures. */
+  scheduledEvents: ScheduledEvent[];
+  /** Talend tasks pulled from Qlik Talend Cloud — populated by `talend_jobs_set`. */
+  talendJobs: TalendJob[];
+  /** Jira tickets pulled from Atlassian Cloud — populated by `tickets_set`
+   *  WebSocket message. Empty until the first poll completes. */
+  jiraTickets: JiraTicket[];
   fileActivities: FileActivity[];
   documents: Document[];
   uploadedDocuments: Document[];
@@ -239,6 +310,14 @@ export interface SessionChatState {
   inflightTokens: number | null;
   /** Sibling summaries — what other forks are doing */
   siblingUpdates: { sessionId: string; summary: string; timestamp: number }[];
+  /** Per-session engine binding. Falls back to the global default when absent. */
+  agentId?: string;
+  /** Per-session model binding (within the chosen agent). Falls back to the agent's default. */
+  modelId?: string;
+  /** The top-level chat this session descends from — own id for roots, parent's root for forks. */
+  rootSessionId?: string;
+  /** Human-friendly label for top-level chats ("Chat A", "Chat B"…). Forks reuse parent's root label. */
+  rootLabel?: string;
 }
 
 export interface DashboardActions {
@@ -258,6 +337,17 @@ export interface DashboardActions {
   setRightPanelTab: (tab: 'memory' | 'documents' | 'uploaded' | 'editor') => void;
   addUploadedDocument: (doc: Document) => void;
   forkChat: (parentSessionId: string, label: string) => string;
+  /** Switch the engine bound to a specific chat session (mid-conversation). */
+  setSessionAgent: (sessionId: string, agentId: string, modelId?: string) => void;
+  /** Switch the model within the current agent for one chat session. */
+  setSessionModel: (sessionId: string, modelId: string) => void;
+  /** Create a brand-new top-level chat (no parent). Returns the new sessionId. */
+  newChat: (opts?: { agentId?: string; modelId?: string; label?: string }) => string;
+  /** Wipe this chat's visible conversation + engine context, but keep the
+   *  window, label, agent/model bindings, and all global memory intact. The
+   *  same sessionId is reused — the next user message starts a fresh engine
+   *  session under that id. */
+  restartSession: (sessionId: string) => void;
 }
 
 // White-label configuration

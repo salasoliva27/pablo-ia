@@ -8,9 +8,10 @@ never relies on training data alone for current information.
 ### Tool priority for research
 1. NotebookLM MCP — if a notebook exists for this topic: query it first
    Gives source-grounded, citation-backed answers from uploaded docs
-2. Brave Search MCP — current web results
+2. Brave Search MCP — current web results, Mexico/LATAM focus
 3. Firecrawl MCP — when a specific site needs to be scraped
-4. Domain-specific APIs (e.g. USDA FoodData Central for nutrition) via fetch MCP
+4. USDA FoodData Central API — nutritional data (fetch MCP)
+5. Open Food Facts — Mexican branded products (fetch MCP, no key)
 
 ### Before any research task
 1. Check tools/registry.md — what research tools are GOOD and available?
@@ -24,42 +25,50 @@ Never leave research only in the chat — always save to outputs/
 ### Research report format
 - Source for each claim
 - Date of information
-- Jurisdictional relevance flagged (global vs local — do not assume global numbers apply locally)
+- Mexico/LATAM relevance flagged
 - Confidence level (verified / inferred / uncertain)
 - Recommended next steps
 
 ---
 
 ## Applies to
-_(Add per-project entries as products are spun up — `run discovery` in chat to personalize.)_
+- [[wiki/lool-ai]] — optical market research, CDMX store prospecting
+- [[wiki/espacio-bosques]] — DAO market, Bosques de las Lomas community
+- [[wiki/nutria]] — clinical nutrition research
+- [[wiki/jp-ai]] — corporate events / incentive travel market
 
 ---
 
-## Jurisdiction-specific sources
-_(Populate during discovery with primary-source databases, regulators, and newsletters for Pablo's jurisdiction. Template:)_
-
+## Mexico-specific sources (priority order for MX market research)
 | Source | What it covers | Access |
 |---|---|---|
-| (statistical office) | Population, economic census | Free API |
-| (regulator public data portal) | Licensed entities, sector stats | Free download |
+| Miranda Intelligence (miranda-intelligence.com) | MX fintech regulatory updates, Bitso, CNBV | Free articles |
+| INEGI (inegi.org.mx) | Population, economic census, household surveys | Free API |
+| CNBV public data portal (cnbv.gob.mx) | Licensed fintech entities, banking stats | Free download |
+| Profeco (profeco.gob.mx) | Consumer complaints by sector | Free |
+| SAT open data (sat.gob.mx) | RFC registry, CFDI stats | Free |
 | Brave Search MCP | Current web, news, competitor sites | $BRAVE_API_KEY |
 
 ## Source priority matrix
 | Research type | First tool | Second tool | Third tool |
 |---|---|---|---|
-| Market size / growth | Brave Search | Statistical office API | Training data (flag as estimate) |
+| MX market size / growth | Brave Search | INEGI | Training data (flag as estimate) |
 | Competitor analysis | Brave Search | OctagonAI MCP | Firecrawl (scrape their site) |
-| Regulatory / legal | Jurisdiction-specific portal | Legal-focused newsletter | Brave Search |
+| Regulatory / legal | Miranda Intelligence | CNBV portal | Brave Search |
+| Nutrition / clinical | USDA FoodData API | PubMed (Brave) | Open Food Facts |
+| Corporate events / travel | Brave Search | jp-ai domain agent | LinkedIn (Brave) |
 
 ## Research report mandatory fields
 Every saved research output must include:
 - **Date:** when the data was retrieved
-- **Source:** URL or API endpoint for each claim
+- **Source:** URL or API endpoint for each claim  
 - **Confidence:** verified (primary source) / inferred (secondary) / uncertain (estimate)
-- **Jurisdictional relevance:** explicit flag if a global stat is being applied locally
+- **MX/LATAM relevance:** explicit flag if global stat is being applied to Mexico
 - **Expires:** when this data should be re-checked (market data: 6mo, regulatory: 3mo)
 
 ## Vault connections
 - [[CLAUDE]] · [[agents/core/legal]] · [[agents/core/financial]]
+- [[wiki/lool-ai]] · [[wiki/espacio-bosques]] · [[wiki/nutria]] · [[wiki/jp-ai]]
+- [[concepts/cdmx-neighborhood-targeting]] · [[concepts/ley-fintech-compliance]]
 - [[learnings/market]] · [[learnings/cross-project-map]]
 - [[tools/registry]] — check before any research task

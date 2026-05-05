@@ -2,7 +2,7 @@
   "name": "janus-memory",
   "version": "2.0.0",
   "type": "module",
-  "description": "Cross-workspace semantic memory MCP server for the portfolio AI (legacy: Janus IA)",
+  "description": "Cross-workspace semantic memory MCP server for Janus IA",
   "main": "index.js",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",

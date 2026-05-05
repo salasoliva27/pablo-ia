@@ -5,7 +5,7 @@ argument-hint: "[DURATION] (e.g., 30m, 1h) | continue | status"
 
 # /evolve — Self-Improvement Mode
 
-You are entering **evolve mode** — a timed self-improvement loop where you make yourself better at serving Pablo's venture portfolio.
+You are entering **evolve mode** — a timed self-improvement loop where you make yourself better at serving Jano's venture portfolio.
 
 ## Parse Arguments
 
@@ -79,7 +79,7 @@ Search for tools and capabilities that fill the gaps:
 1. **GitHub**: `mcp__github__search_repositories` — MCP servers, Claude skills, relevant tools
 2. **Web**: `mcp__brave-search__brave_web_search` — awesome lists, blog posts, new releases
 3. **Awesome lists**: Search for `awesome-mcp-servers`, `awesome-claude-code`, agent skill repos
-4. **Domain-specific**: Based on gaps surfaced in Phase 2 — search by domain keyword
+4. **Domain-specific**: Based on gaps — legal MX, nutrition, fintech, optical, biotech
 
 Evaluate each find against: relevance to gaps, maintenance status, compatibility, quality, security.
 
@@ -104,12 +104,12 @@ Record and prepare for next iteration:
 3. Write significant findings to auto-memory files
 4. **Context check**: If context is getting full:
    - Write `.planning/evolve/handoff.md` with full state for next session
-   - Tell Pablo: "Context is filling up. Start a new session and run `/evolve continue` to pick up where I left off."
+   - Tell Jano: "Context is filling up. Start a new session and run `/evolve continue` to pick up where I left off."
    - Stop the loop
 5. **Time check**: If time budget is exhausted:
    - Complete this cycle
    - Set `status: "completed"` in state.json
-   - Report summary to Pablo
+   - Report summary to Jano
    - Stop the loop
 6. If time remains: use `/loop` (ScheduleWakeup) to schedule the next iteration
 
@@ -123,7 +123,7 @@ After each cycle, if time remains, schedule the next iteration:
 
 ## Reporting
 
-After every 3 cycles, or when the budget expires, report to Pablo:
+After every 3 cycles, or when the budget expires, report to Jano:
 ```
 **Evolve Report — Cycle N/M**
 - Memories consolidated: [count]
@@ -139,6 +139,6 @@ After every 3 cycles, or when the budget expires, report to Pablo:
 - You are upgrading the SYSTEM, not building product features
 - Never touch project source code — only tools, configs, registries, and memory
 - Be honest: "found nothing useful" is fine
-- Prioritize what helps Pablo's active projects over interesting-but-irrelevant tools
+- Prioritize what helps Jano's active projects over interesting-but-irrelevant tools
 - Respect the time budget strictly
-- If you can't install something (needs API key, costs money), queue it with a note for Pablo
+- If you can't install something (needs API key, costs money), queue it with a note for Jano
