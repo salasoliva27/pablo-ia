@@ -4,9 +4,9 @@ stage: dev
 phase: ""
 phaseProgress: 0
 summary: "Personal AI brain for Pablo — initialized from janus-ia template"
-lastSyncedAt: "2026-05-05T21:06:05.983Z"
-lastSyncedCommit: "db92b1b"
-lastSyncedCommitMessage: "chore(janus): sync from janus-ia@858ad87"
+lastSyncedAt: "2026-05-05T22:14:06.914Z"
+lastSyncedCommit: "f30615b"
+lastSyncedCommitMessage: "chore(janus): sync from janus-ia@e81a2a8"
 ---
 
 ## Next Steps
