@@ -4,9 +4,9 @@ stage: dev
 phase: ""
 phaseProgress: 0
 summary: "Personal AI brain for Pablo — initialized from janus-ia template"
-lastSyncedAt: "2026-05-05T20:00:05.312Z"
-lastSyncedCommit: "382d978"
-lastSyncedCommitMessage: "feat(brand): add Pablo AI.cmd (per-instance launcher, JANUS_BRAND=Pablo AI)"
+lastSyncedAt: "2026-05-05T21:06:05.983Z"
+lastSyncedCommit: "db92b1b"
+lastSyncedCommitMessage: "chore(janus): sync from janus-ia@858ad87"
 ---
 
 ## Next Steps
