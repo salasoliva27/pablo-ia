@@ -421,3 +421,243 @@
   font-size: 8px;
   color: var(--color-text-muted);
 }
+
+/* Body fills the remaining vertical space below the toolbar so both the
+   week/month grid AND the empty-state CTA have a stable height to render in. */
+.cal-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── Empty state — no scheduled events yet ── */
+.cal-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  height: 100%;
+  padding: 32px;
+  gap: 14px;
+  color: var(--color-text-muted);
+}
+.cal-empty__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+  letter-spacing: 0.02em;
+}
+.cal-empty__body {
+  max-width: 480px;
+  font-size: 12px;
+  line-height: 1.55;
+}
+.cal-empty__body code {
+  font-family: var(--font-family-mono);
+  font-size: 11px;
+  background: var(--color-bg-secondary);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+.cal-empty__body strong {
+  color: var(--color-text);
+}
+.cal-empty__steps {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  text-align: left;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 10px 14px;
+  max-width: 480px;
+}
+.cal-empty__steps strong { color: var(--color-text); }
+.cal-empty__steps code {
+  font-family: var(--font-family-mono);
+  font-size: 10px;
+  background: var(--color-bg-primary);
+  padding: 1px 4px;
+  border-radius: 2px;
+}
+
+/* ── Event details / edit modal ── */
+.cal-modal__backdrop {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in oklch, black 55%, transparent);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.cal-modal {
+  width: min(480px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  font-family: var(--font-family-mono);
+  color: var(--color-text);
+}
+.cal-modal__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cal-modal__color-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.cal-modal__title-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+  outline: none;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+.cal-modal__title-input:focus {
+  background: var(--color-bg-primary);
+}
+.cal-modal__close {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.cal-modal__close:hover {
+  background: var(--color-bg-primary);
+  color: var(--color-text);
+}
+.cal-modal__row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cal-modal__row--split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.cal-modal__label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+}
+.cal-modal__input,
+.cal-modal__textarea {
+  background: var(--color-bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-family: var(--font-family-mono);
+  font-size: 12px;
+  color: var(--color-text);
+  outline: none;
+}
+.cal-modal__input:focus,
+.cal-modal__textarea:focus {
+  border-color: var(--color-accent);
+}
+.cal-modal__textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+.cal-modal__priority {
+  display: flex;
+  gap: 4px;
+}
+.cal-modal__priority-btn {
+  flex: 1;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-family: var(--font-family-mono);
+  font-size: 11px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.cal-modal__priority-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-text);
+}
+.cal-modal__priority-btn--active {
+  border-color: var(--color-accent);
+  background: color-mix(in oklch, var(--color-accent) 12%, transparent);
+  color: var(--color-text);
+}
+.cal-modal__footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 4px;
+}
+.cal-modal__footer-right {
+  display: flex;
+  gap: 8px;
+}
+.cal-modal__btn {
+  background: var(--color-bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-family: var(--font-family-mono);
+  font-size: 11px;
+  color: var(--color-text);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.cal-modal__btn:hover {
+  border-color: var(--color-accent);
+}
+.cal-modal__btn--primary {
+  background: var(--color-accent);
+  color: var(--color-bg-primary);
+  border-color: var(--color-accent);
+  font-weight: 600;
+}
+.cal-modal__btn--ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--color-danger, oklch(0.65 0.22 25));
+}
+.cal-modal__btn--ghost:hover {
+  background: color-mix(in oklch, var(--color-danger, oklch(0.65 0.22 25)) 10%, transparent);
+}
+/* Reset button defaults so calendar events render as buttons cleanly. */
+.cal-week__event,
+.cal-month__event {
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+.cal-week__event:hover,
+.cal-month__event:hover {
+  filter: brightness(1.15);
+}

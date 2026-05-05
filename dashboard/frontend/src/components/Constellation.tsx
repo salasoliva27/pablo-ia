@@ -4,7 +4,17 @@ import type { CenterView } from '../types/dashboard';
 const STAGE_ICON: Record<string, string> = { idea: '\u2727', dev: '\u2692', uat: '\u2691', prod: '\u2713' };
 
 export function Constellation() {
-  const { projects, agents, sessionEvents, selectProject, centerView, setCenterView, projectCounts } = useDashboard();
+  const { projects, agents, sessionEvents, selectProject, centerView, setCenterView, projectCounts, scheduledEvents } = useDashboard();
+
+  // Build a set of scheduled task IDs per project so we can mark next-step
+  // items that already have a calendar slot. Scheduled event ids follow
+  // `sch-<projectId>-<taskId>` (see scheduler.ts). Defensive default in case
+  // a tab loaded an older persisted state that predates this field.
+  const scheduledTaskKeys = new Set<string>();
+  for (const ev of (scheduledEvents ?? [])) {
+    const m = ev.id.match(/^sch-(.+?)-(.+)$/);
+    if (m) scheduledTaskKeys.add(`${m[1]}|${m[2]}`);
+  }
 
   // Determine which projects are currently active (agent working on them)
   const activeMap = new Map<string, { agent: string; phase: string; message: string; status: string }>();
@@ -47,12 +57,14 @@ export function Constellation() {
           const isActive = !!active;
           const count = projectCounts[p.id] || 0;
 
+          const accountClass = p.account ? `project-grid__tile--account-${p.account}` : '';
           return (
             <div
               key={p.id}
-              className={`project-grid__tile ${isActive ? 'project-grid__tile--active' : ''}`}
+              className={`project-grid__tile ${accountClass} ${isActive ? 'project-grid__tile--active' : ''}`}
               style={{ '--proj-color': p.color } as React.CSSProperties}
               onClick={() => selectProject(p.id)}
+              title={p.owner ? `${p.owner}/${p.name}` : p.name}
             >
               {/* Glow layer for active projects */}
               {isActive && <div className="project-grid__glow" />}
@@ -62,6 +74,11 @@ export function Constellation() {
                   {STAGE_ICON[p.stage] || '\u2727'}
                 </span>
                 <span className={`project-grid__health project-grid__health--${p.health}`} />
+                {p.account && (
+                  <span className={`project-grid__account project-grid__account--${p.account}`}>
+                    {p.account}
+                  </span>
+                )}
                 {count > 0 && (
                   <span className="project-grid__count">{count}</span>
                 )}
@@ -74,7 +91,47 @@ export function Constellation() {
               <div className="project-grid__progress">
                 <div className="project-grid__progress-fill" style={{ width: `${p.phaseProgress * 100}%` }} />
               </div>
-              <div className="project-grid__phase">{p.currentPhase}</div>
+              <div className="project-grid__phase">{p.currentPhase || (p.hasStatusFile === false ? 'no .janus/status.md yet' : ' ')}</div>
+
+              {/* Summary from STATUS.md */}
+              {p.summary && (
+                <div className="project-grid__summary">{p.summary}</div>
+              )}
+
+              {/* Next steps from STATUS.md (top 3 open items). 'sch' badge
+                  marks tasks Janus has already placed on the calendar. */}
+              {p.nextSteps && p.nextSteps.filter(t => !t.done).length > 0 && (
+                <ul className="project-grid__next">
+                  {p.nextSteps.filter(t => !t.done).slice(0, 3).map(t => {
+                    const isScheduled = scheduledTaskKeys.has(`${p.id}|${t.id}`);
+                    return (
+                      <li key={t.id} className="project-grid__next-item">
+                        <span className={`project-grid__next-pri project-grid__next-pri--${t.priority.toLowerCase()}`}>{t.priority}</span>
+                        <span className="project-grid__next-title">{t.title}</span>
+                        {isScheduled && (
+                          <span className="project-grid__next-sched" title="On the calendar">sch</span>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+
+              {/* Empty-state hint when no STATUS.md exists */}
+              {p.hasStatusFile === false && (!p.nextSteps || p.nextSteps.length === 0) && (
+                <div className="project-grid__empty">
+                  No <code>.janus/status.md</code> in this repo yet.
+                </div>
+              )}
+
+              {/* Latest milestone */}
+              {p.milestones && p.milestones.length > 0 && (
+                <div className="project-grid__milestone">
+                  <span className="project-grid__milestone-icon">✓</span>
+                  <span className="project-grid__milestone-date">{p.milestones[0].date}</span>
+                  <span className="project-grid__milestone-text">{p.milestones[0].description}</span>
+                </div>
+              )}
 
               {/* Stack badges */}
               <div className="project-grid__stack">

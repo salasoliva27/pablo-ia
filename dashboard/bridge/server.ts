@@ -5,26 +5,87 @@ import type { ClientMessage, ServerMessage } from "./types.js";
 import { isValidClientMessage } from "./types.js";
 import { SessionManager } from "./session-manager.js";
 import { PermissionManager } from "./permissions.js";
-import { listAgentAvailability } from "./agent-registry.js";
+import { clearAgentAuthCache, getAgent, getClaudeSubscriptionAuthStatus, kickClaudeProbeBackground, listAgentAvailability, readVarFromDotfiles } from "./agent-registry.js";
 import { startWatchers, stopWatchers, broadcastInitialLearnings } from "./file-watcher.js";
+import {
+  broadcastInitialProjectStates,
+  startProjectStateRefresh,
+  refreshOneProject,
+  wikiSlugFromPath,
+  projectStateSnapshot,
+  sendProjectsSnapshot,
+  sendCalendarSnapshot,
+  discoveredReposForSync,
+} from "./project-state.js";
+import { bootstrapAllRepos } from "./bootstrap-status.js";
+import { syncAllWikis, syncOneWiki } from "./wiki-sync.js";
+import {
+  startJiraPolling,
+  pollJiraOnce,
+  fetchTicketDetail,
+  sendTicketsSnapshot,
+  jiraSnapshot,
+  getCachedTickets,
+  listTransitions,
+  applyTransition,
+  addComment,
+} from "./jira.js";
+import {
+  startTalendPolling,
+  pollTalendOnce,
+  sendTalendSnapshot,
+  talendSnapshot,
+  getCachedJobs,
+  fetchExecutionsFor,
+  triggerJob,
+  getCachedSchedules,
+  createSchedule,
+  updateSchedule,
+  deleteSchedule,
+} from "./talend.js";
 import type { FSWatcher } from "chokidar";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
-import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import { execFile, execFileSync, spawn } from "node:child_process";
 import { McpSupervisor, defaultSidecars } from "./mcp-supervisor.js";
+import { memoryHealthSnapshot, captureSessionSummary } from "./memory-capture.js";
+import { mountAuth } from "./auth.js";
+import { syncCodexMcpConfig } from "./codex-config.js";
+import { workspaceStateSlug } from "./path-utils.js";
 
-// DASH_HOME = where the dashboard code lives (pablo-ia/dashboard/..). Always
+// DASH_HOME = where the dashboard code lives (janus-ia/dashboard/..). Always
 // derived from this file's own location so it works regardless of wrapper mode.
 // WORKSPACE_ROOT = the repo the bridge is serving (may differ from DASH_HOME
 // when launched via a wrapper in another repo).
-const DASH_HOME = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..", "..");
+const DASH_HOME = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const WORKSPACE_ROOT = process.env.WORKSPACE_ROOT || DASH_HOME;
 const WORKSPACE_NAME = path.basename(WORKSPACE_ROOT);
-const CLAUDE_PROJECT_DIR = WORKSPACE_ROOT.replace(/\//g, "-");
+const ENGINE_PROJECT_DIR = workspaceStateSlug(WORKSPACE_ROOT);
+const IS_CODESPACES = process.env.CODESPACES === "true" || !!process.env.CODESPACE_NAME;
+const CLAUDE_CODESPACES_OAUTH_MESSAGE =
+  "Claude subscription OAuth cannot be completed from Codespaces because Claude redirects to a localhost callback owned by the CLI process. Run the dashboard or Claude CLI from your local machine to refresh subscription auth, or use ANTHROPIC_API_KEY in this Codespace.";
 const UPLOADS_DIR = path.join(WORKSPACE_ROOT, "dump", "uploads");
-const THEMES_DIR = path.join(os.homedir(), ".claude", "projects", CLAUDE_PROJECT_DIR, "themes");
-const MEMORY_DIR = path.join(os.homedir(), ".claude", "projects", CLAUDE_PROJECT_DIR, "memory");
+const JANUS_STATE_DIR = path.join(os.homedir(), ".janus", "projects", ENGINE_PROJECT_DIR);
+const LEGACY_CLAUDE_STATE_DIR = path.join(os.homedir(), ".claude", "projects", ENGINE_PROJECT_DIR);
+const THEMES_DIR = path.join(JANUS_STATE_DIR, "themes");
+const LEGACY_THEMES_DIR = path.join(LEGACY_CLAUDE_STATE_DIR, "themes");
+const MEMORY_DIR = path.join(JANUS_STATE_DIR, "memory");
+const LEGACY_MEMORY_DIR = path.join(LEGACY_CLAUDE_STATE_DIR, "memory");
+const MEMORY_DIRS = Array.from(new Set([MEMORY_DIR, LEGACY_MEMORY_DIR]));
+
+function existingMemoryDirs(): string[] {
+  return MEMORY_DIRS.filter(dir => fs.existsSync(dir));
+}
+
+function findMemoryFile(name: string): string | null {
+  for (const dir of existingMemoryDirs()) {
+    const full = path.join(dir, name);
+    if (fs.existsSync(full)) return full;
+  }
+  return null;
+}
 
 // Persistent Snowflake connection — auth once at first query, reuse forever.
 // MFA token caching means even a fresh process skips the Duo push for ~4h.
@@ -77,12 +138,21 @@ export function startServer(port: number): Promise<http.Server> {
   // PDF becomes ~14MB base64. 30MB gives comfortable headroom.
   app.use(express.json({ limit: "30mb" }));
 
-  // Bridge owns MCP sidecar lifecycle so UI-driven Claude Code sessions don't
-  // lose MCPs across conversations. Each sidecar runs HTTP transport; .mcp.json
-  // references them by URL instead of stdio-spawning them inside Claude Code.
+  // Bridge owns MCP sidecar lifecycle so UI-driven engine sessions don't lose
+  // MCPs across conversations. Each sidecar runs HTTP transport; .mcp.json
+  // references them by URL instead of binding lifecycle to one provider CLI.
   const mcpSupervisor = new McpSupervisor();
   for (const def of defaultSidecars(DASH_HOME)) {
     mcpSupervisor.spawn(def);
+  }
+  try {
+    const sync = syncCodexMcpConfig(WORKSPACE_ROOT, DASH_HOME);
+    console.log(
+      `[codex-mcp] ${sync.written ? "updated" : "checked"} ${sync.path} (${sync.servers.length} server${sync.servers.length === 1 ? "" : "s"})`,
+    );
+    if (sync.skipped.length > 0) console.warn("[codex-mcp] skipped:", sync.skipped.join("; "));
+  } catch (err) {
+    console.warn("[codex-mcp] sync failed:", err);
   }
   const shutdownMcp = () => {
     mcpSupervisor.shutdown().catch(err => console.error("mcp shutdown error:", err));
@@ -90,16 +160,21 @@ export function startServer(port: number): Promise<http.Server> {
   process.once("SIGTERM", shutdownMcp);
   process.once("SIGINT", shutdownMcp);
 
+  // Auth gate (no-op when ENFORCE is false — see auth.ts). Mounted BEFORE any
+  // routes so the cookie-session middleware applies to all of them, and
+  // requireAuth fires before the route handlers.
+  const auth = mountAuth(app);
+
   app.get("/api/mcp/status", (_req, res) => {
     res.json({ sidecars: mcpSupervisor.status() });
   });
 
   app.get("/api/workspace", (_req, res) => {
-    res.json({ root: WORKSPACE_ROOT, name: WORKSPACE_NAME, memoryDir: MEMORY_DIR });
+    res.json({ root: WORKSPACE_ROOT, name: WORKSPACE_NAME, memoryDir: MEMORY_DIR, memoryDirs: MEMORY_DIRS });
   });
 
   // Serve frontend static files in production
-  const frontendDist = path.join(path.dirname(new URL(import.meta.url).pathname), "..", "frontend", "dist");
+  const frontendDist = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "frontend", "dist");
   if (fs.existsSync(frontendDist)) {
     app.use(express.static(frontendDist));
   }
@@ -107,6 +182,223 @@ export function startServer(port: number): Promise<http.Server> {
   // Health check
   app.get("/health", (_req, res) => {
     res.json({ status: "ok", uptime: process.uptime() });
+  });
+
+  // Build version — lets the UI show what's running and detect when the
+  // on-disk checkout has moved past the version this tab loaded. When the
+  // working tree is dirty, also returns `editedAt` so the badge can reflect
+  // uncommitted edits (e.g. while the user is iterating on the UI). Cached
+  // for 5s so polling clients don't repeat git/fs work on every request.
+  type VersionPayload = {
+    commit: string | null;
+    commitTime: string | null;
+    pulledAt: string | null;
+    dirty: boolean;
+    editedAt: string | null;
+  };
+  let versionCache: { value: VersionPayload; at: number } | null = null;
+  const SOURCE_ROOTS = [
+    path.join(DASH_HOME, "dashboard", "frontend", "src"),
+    path.join(DASH_HOME, "dashboard", "bridge"),
+  ];
+  const SOURCE_EXCLUDES = new Set(["node_modules", "dist", ".git", ".next", "build"]);
+  function maxMtime(root: string): number {
+    let max = 0;
+    const stack: string[] = [root];
+    while (stack.length) {
+      const dir = stack.pop()!;
+      let entries: fs.Dirent[];
+      try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { continue; }
+      for (const e of entries) {
+        if (SOURCE_EXCLUDES.has(e.name)) continue;
+        const full = path.join(dir, e.name);
+        if (e.isDirectory()) {
+          stack.push(full);
+        } else if (e.isFile()) {
+          try {
+            const m = fs.statSync(full).mtimeMs;
+            if (m > max) max = m;
+          } catch {}
+        }
+      }
+    }
+    return max;
+  }
+  app.get("/api/version", (_req, res) => {
+    const now = Date.now();
+    if (versionCache && now - versionCache.at < 5_000) {
+      res.json(versionCache.value);
+      return;
+    }
+    const value: VersionPayload = {
+      commit: null, commitTime: null, pulledAt: null, dirty: false, editedAt: null,
+    };
+    try {
+      value.commit = execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: DASH_HOME, encoding: "utf8" }).trim();
+    } catch {}
+    try {
+      value.commitTime = execFileSync("git", ["show", "-s", "--format=%cI", "HEAD"], { cwd: DASH_HOME, encoding: "utf8" }).trim();
+    } catch {}
+    try {
+      const fetchHead = path.join(DASH_HOME, ".git", "FETCH_HEAD");
+      const headFile = path.join(DASH_HOME, ".git", "HEAD");
+      const stat = fs.existsSync(fetchHead) ? fs.statSync(fetchHead) : fs.existsSync(headFile) ? fs.statSync(headFile) : null;
+      if (stat) value.pulledAt = stat.mtime.toISOString();
+    } catch {}
+    try {
+      const status = execFileSync("git", ["status", "--porcelain"], { cwd: DASH_HOME, encoding: "utf8" });
+      value.dirty = status.trim().length > 0;
+    } catch {}
+    if (value.dirty) {
+      let max = 0;
+      for (const r of SOURCE_ROOTS) max = Math.max(max, maxMtime(r));
+      if (max > 0) value.editedAt = new Date(max).toISOString();
+    }
+    versionCache = { value, at: now };
+    res.json(value);
+  });
+
+  // Bridge restart — exits the current process so the supervisor (bin/venture-os.ts
+  // in parent mode) respawns a fresh bridge. The frontend's WebSocket reconnect
+  // logic brings the status ring back to green within ~1s of the new bridge
+  // listening. If the bridge wasn't launched under the supervisor, this is a
+  // hard shutdown and the user has to relaunch manually.
+  app.post("/api/bridge/restart", (_req, res) => {
+    const supervised = process.env.JANUS_BRIDGE_CHILD === "1";
+    res.json({ ok: true, supervised, message: supervised ? "restarting" : "exiting (no supervisor — relaunch manually)" });
+    setTimeout(() => process.exit(0), 200);
+  });
+
+  // Diagnostic: shows which GitHub accounts the bridge sees, how many repos
+  // each one discovered, and the merged project list. Useful when the
+  // projects window is empty and you want to know whether discovery ran.
+  app.get("/api/projects/state", (_req, res) => {
+    try {
+      res.json(projectStateSnapshot());
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
+  // Force a fresh discovery pass + broadcast — exposed so the user can
+  // trigger it from the UI / a curl without restarting the bridge.
+  app.post("/api/projects/refresh", async (_req, res) => {
+    try {
+      await broadcastInitialProjectStates(broadcast);
+      res.json({ ok: true, ...projectStateSnapshot() });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: String(err) });
+    }
+  });
+
+  // ── Jira ────────────────────────────────────────────────────────────
+  app.get("/api/jira/tickets", (_req, res) => {
+    res.json({ tickets: getCachedTickets() });
+  });
+
+  app.get("/api/jira/tickets/:key", async (req, res) => {
+    const detail = await fetchTicketDetail(req.params.key);
+    if (!detail) return void res.status(404).json({ error: "ticket not found or Jira not configured" });
+    res.json(detail);
+  });
+
+  app.post("/api/jira/refresh", async (_req, res) => {
+    await pollJiraOnce(broadcast);
+    res.json({ ok: true, ...jiraSnapshot() });
+  });
+
+  app.get("/api/jira/state", (_req, res) => {
+    res.json(jiraSnapshot());
+  });
+
+  // Available status transitions for a ticket (e.g. "Start", "Done").
+  app.get("/api/jira/tickets/:key/transitions", async (req, res) => {
+    const transitions = await listTransitions(req.params.key);
+    res.json({ transitions });
+  });
+
+  // Apply a status transition. Body: { transitionId: string }
+  app.post("/api/jira/tickets/:key/transition", async (req, res) => {
+    const { transitionId } = (req.body || {}) as { transitionId?: string };
+    if (!transitionId) return void res.status(400).json({ ok: false, error: "transitionId required" });
+    const r = await applyTransition(req.params.key, transitionId);
+    if (r.ok) {
+      // Refresh so the new status surfaces in the panel immediately.
+      pollJiraOnce(broadcast).catch(() => {});
+    }
+    res.status(r.ok ? 200 : 502).json(r);
+  });
+
+  // Post a comment to a ticket. Body: { body: string }
+  app.post("/api/jira/tickets/:key/comment", async (req, res) => {
+    const { body } = (req.body || {}) as { body?: string };
+    if (!body || !body.trim()) return void res.status(400).json({ ok: false, error: "body required" });
+    const r = await addComment(req.params.key, body.trim());
+    res.status(r.ok ? 200 : 502).json(r);
+  });
+
+  // ── Talend ────────────────────────────────────────────────────────────
+  app.get("/api/talend/jobs", (_req, res) => {
+    res.json({ jobs: getCachedJobs() });
+  });
+  app.get("/api/talend/jobs/:id/executions", async (req, res) => {
+    const limit = Math.max(1, Math.min(100, parseInt(String(req.query.limit ?? "20"), 10) || 20));
+    const executions = await fetchExecutionsFor(req.params.id, limit);
+    res.json({ executions });
+  });
+  app.post("/api/talend/jobs/:id/run", async (req, res) => {
+    const r = await triggerJob(req.params.id);
+    if (r.ok) pollTalendOnce(broadcast).catch(() => {});
+    res.status(r.ok ? 200 : 502).json(r);
+  });
+  app.post("/api/talend/refresh", async (_req, res) => {
+    await pollTalendOnce(broadcast);
+    res.json({ ok: true, ...talendSnapshot() });
+  });
+  app.get("/api/talend/state", (_req, res) => {
+    res.json(talendSnapshot());
+  });
+
+  // Schedules — read/create/update/delete. The PAT scope blocks `/executables`
+  // but allows full CRUD on `/schedules`, so this is what's actually possible
+  // today. Body shape (POST/PUT):
+  //   { executableId, environmentId, description?, trigger: { type, ... } }
+  app.get("/api/talend/schedules", (_req, res) => {
+    res.json({ schedules: getCachedSchedules() });
+  });
+  app.post("/api/talend/schedules", async (req, res) => {
+    const r = await createSchedule(req.body);
+    if (r.ok) pollTalendOnce(broadcast).catch(() => {});
+    res.status(r.ok ? 200 : 502).json(r);
+  });
+  app.put("/api/talend/schedules/:id", async (req, res) => {
+    const r = await updateSchedule(req.params.id, req.body);
+    if (r.ok) pollTalendOnce(broadcast).catch(() => {});
+    res.status(r.ok ? 200 : 502).json(r);
+  });
+  app.delete("/api/talend/schedules/:id", async (req, res) => {
+    const r = await deleteSchedule(req.params.id);
+    if (r.ok) pollTalendOnce(broadcast).catch(() => {});
+    res.status(r.ok ? 200 : 502).json(r);
+  });
+
+  // Bootstrap `.janus/status.md` across all owned repos. Defaults to PR mode
+  // (one PR per repo on the `janus/bootstrap-status` branch). Pass
+  // `?mode=commit` to push directly to default branches instead, or
+  // `?dryRun=1` to preview the targets without making any GitHub calls.
+  app.post("/api/projects/bootstrap", async (req, res) => {
+    const mode = (req.query.mode === "commit" ? "commit" : "pr") as "pr" | "commit";
+    const dryRun = req.query.dryRun === "1" || req.query.dryRun === "true";
+    try {
+      const summary = await bootstrapAllRepos({ mode, dryRun });
+      // Refresh discovery so newly-bootstrapped repos surface their status data.
+      if (!dryRun) {
+        broadcastInitialProjectStates(broadcast).catch(() => {});
+      }
+      res.json({ ok: true, mode, dryRun, ...summary });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: String(err) });
+    }
   });
 
   // Graph data from real filesystem
@@ -146,47 +438,164 @@ export function startServer(port: number): Promise<http.Server> {
   // ─── Claude subscription auth (drives `claude auth ...` CLI) ────
   // Holds the active `claude auth login` child while we wait for the user
   // to complete the OAuth flow in their browser. One at a time.
-  let claudeLoginChild: import("node:child_process").ChildProcess | null = null;
+  type LoginChild = import("node:child_process").ChildProcess;
+  function isLoginChildRunning(child: LoginChild | null): child is LoginChild {
+    return child !== null && child.exitCode === null && child.signalCode === null;
+  }
+
+  let claudeLoginChild: LoginChild | null = null;
   let claudeLoginUrl: string | null = null;
 
-  app.get("/api/claude-auth/status", async (_req, res) => {
+  function claudeCleanEnv(): NodeJS.ProcessEnv {
+    const cleanEnv = { ...process.env };
+    delete cleanEnv.ANTHROPIC_API_KEY;
+    return cleanEnv;
+  }
+
+  function readClaudeCredentialMeta(): { expiresAt?: number; accessTokenExpired?: boolean } {
+    try {
+      const file = path.join(os.homedir(), ".claude", ".credentials.json");
+      const parsed = JSON.parse(fs.readFileSync(file, "utf-8"));
+      const expiresAt = Number(parsed?.claudeAiOauth?.expiresAt);
+      if (!Number.isFinite(expiresAt)) return {};
+      return { expiresAt, accessTokenExpired: expiresAt <= Date.now() };
+    } catch {
+      return {};
+    }
+  }
+
+  type ClaudeAuthStatus = {
+    loggedIn?: boolean;
+    authMethod?: string;
+    envKeySet?: boolean;
+    expiresAt?: number;
+    accessTokenExpired?: boolean;
+    usableForChat?: boolean;
+    reauthRequired?: boolean;
+    authProbeReason?: string;
+    oauthUnavailableReason?: string;
+    error?: string;
+    raw?: string;
+    [key: string]: unknown;
+  };
+
+  function isUsableClaudeSubscription(status: ClaudeAuthStatus): boolean {
+    return status.loggedIn === true &&
+      status.authMethod === "claude.ai" &&
+      status.accessTokenExpired !== true;
+  }
+
+  function addClaudeOAuthAvailability(status: ClaudeAuthStatus): ClaudeAuthStatus {
+    if (!IS_CODESPACES) return status;
+    return {
+      ...status,
+      oauthUnavailableReason: CLAUDE_CODESPACES_OAUTH_MESSAGE,
+    };
+  }
+
+  function getClaudeAuthStatus(): Promise<ClaudeAuthStatus> {
     // claude auth status hides OAuth subscription details when ANTHROPIC_API_KEY
     // is in env (env wins, so it reports the env source instead). Strip the env
     // var for this probe so the UI sees the true subscription state.
-    const cleanEnv = { ...process.env };
-    delete cleanEnv.ANTHROPIC_API_KEY;
-    try {
-      const { execFile } = await import("node:child_process");
-      execFile("claude", ["auth", "status", "--json"], { env: cleanEnv, timeout: 5_000 }, (err, stdout) => {
+    return new Promise((resolveStatus) => {
+      execFile("claude", ["auth", "status", "--json"], { env: claudeCleanEnv(), timeout: 5_000, shell: process.platform === "win32" }, (err, stdout) => {
         if (err && !stdout) {
-          res.json({ loggedIn: false, error: String(err.message ?? err) });
+          resolveStatus({ loggedIn: false, error: String(err.message ?? err) });
           return;
         }
         try {
           const parsed = JSON.parse(stdout);
-          res.json({ ...parsed, envKeySet: !!process.env.ANTHROPIC_API_KEY });
+          const baseStatus = addClaudeOAuthAvailability({ ...parsed, ...readClaudeCredentialMeta(), envKeySet: !!process.env.ANTHROPIC_API_KEY });
+          const subscriptionProbe = isUsableClaudeSubscription(baseStatus)
+            ? getClaudeSubscriptionAuthStatus()
+            : { present: false, reason: undefined };
+          // Only treat the probe as a hard auth failure when it explicitly
+          // returns a 401 / "Reconnect" message. Generic execution failures
+          // (CLI spawn errors, Windows PATH issues, timeouts) are transient —
+          // trust the OAuth token that claude auth status already validated.
+          const probeIsAuthError = typeof subscriptionProbe.reason === "string" &&
+            /401|Reconnect/i.test(subscriptionProbe.reason);
+          const oauthValid = isUsableClaudeSubscription(baseStatus);
+          const status = {
+            ...baseStatus,
+            usableForChat: oauthValid ? (subscriptionProbe.present || !probeIsAuthError) : false,
+            reauthRequired: oauthValid && !subscriptionProbe.present && probeIsAuthError,
+            authProbeReason: subscriptionProbe.reason,
+          };
+          if (subscriptionProbe.present) clearAgentAuthCache("claude");
+          resolveStatus(status);
         } catch {
-          res.json({ loggedIn: false, error: "could not parse claude output", raw: stdout.slice(0, 200) });
+          resolveStatus({ loggedIn: false, error: "could not parse claude output", raw: stdout.slice(0, 200) });
         }
       });
+    });
+  }
+
+  app.get("/api/claude-auth/status", async (_req, res) => {
+    try {
+      res.json(await getClaudeAuthStatus());
     } catch (err) {
       res.status(500).json({ loggedIn: false, error: String(err) });
     }
   });
 
-  app.post("/api/claude-auth/login", async (_req, res) => {
-    if (claudeLoginChild && !claudeLoginChild.killed) {
-      // Already mid-flow — return the same URL so the UI can re-open it.
-      res.json({ url: claudeLoginUrl, alreadyRunning: true });
+  app.post("/api/claude-auth/login", async (req, res) => {
+    const force = req.query.force === "1";
+    const status = await getClaudeAuthStatus();
+    let forceRefresh = force;
+    if (!force && isUsableClaudeSubscription(status)) {
+      clearAgentAuthCache("claude");
+      const subscriptionProbe = getClaudeSubscriptionAuthStatus();
+      if (subscriptionProbe.present) {
+        res.json({ loggedIn: true, alreadyLoggedIn: true, status: { ...status, usableForChat: true, reauthRequired: false } });
+        return;
+      }
+      forceRefresh = true;
+      status.usableForChat = false;
+      status.reauthRequired = true;
+      status.authProbeReason = subscriptionProbe.reason;
+    }
+
+    if (IS_CODESPACES) {
+      if (isLoginChildRunning(claudeLoginChild)) {
+        try { claudeLoginChild.kill(); } catch { /* ignore */ }
+      }
+      claudeLoginChild = null;
+      claudeLoginUrl = null;
+      res.status(409).json({ error: CLAUDE_CODESPACES_OAUTH_MESSAGE, status });
+      return;
+    }
+
+    if (claudeLoginChild && !isLoginChildRunning(claudeLoginChild)) {
+      claudeLoginChild = null;
+      claudeLoginUrl = null;
+    }
+    if (isLoginChildRunning(claudeLoginChild)) {
+      // Already mid-flow. Newer Claude builds may open the browser directly
+      // without printing a URL, so a null URL still means "keep waiting".
+      res.json({ url: claudeLoginUrl, opened: !claudeLoginUrl, alreadyRunning: true });
       return;
     }
     try {
-      const { spawn } = await import("node:child_process");
-      const cleanEnv = { ...process.env, NO_COLOR: "1", FORCE_COLOR: "0" };
-      delete cleanEnv.ANTHROPIC_API_KEY;
+      const cleanEnv: NodeJS.ProcessEnv = { ...claudeCleanEnv(), NO_COLOR: "1", FORCE_COLOR: "0" };
+      if (forceRefresh) {
+        try {
+          execFileSync("claude", ["auth", "logout"], {
+            env: cleanEnv,
+            timeout: 5_000,
+            shell: process.platform === "win32",
+            stdio: "ignore",
+          });
+        } catch {
+          // Continue into login; logout may report "not logged in" or be
+          // shadowed by a broken token, and login is still the repair path.
+        }
+        clearAgentAuthCache("claude");
+      }
       const child = spawn("claude", ["auth", "login", "--claudeai"], {
         env: cleanEnv,
         stdio: ["ignore", "pipe", "pipe"],
+        shell: process.platform === "win32",
       });
       claudeLoginChild = child;
       claudeLoginUrl = null;
@@ -201,9 +610,9 @@ export function startServer(port: number): Promise<http.Server> {
 
       const tryExtractUrl = () => {
         // Strip ANSI escapes that --claudeai sometimes still emits, then look
-        // for the first https://claude.ai/... URL.
+        // for the first current Claude/Anthropic OAuth URL.
         const clean = buf.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, "");
-        const m = clean.match(/https:\/\/(?:claude\.ai|console\.anthropic\.com)\/[^\s\)\]\}>"']+/);
+        const m = clean.match(/https:\/\/(?:(?:www\.)?claude\.ai|(?:www\.)?claude\.com|platform\.claude\.com|console\.anthropic\.com)\/[^\s\)\]\}>"']+/);
         if (m) {
           claudeLoginUrl = m[0];
           finish(200, { url: m[0] });
@@ -212,16 +621,163 @@ export function startServer(port: number): Promise<http.Server> {
 
       child.stdout?.on("data", (d) => { buf += d.toString(); tryExtractUrl(); });
       child.stderr?.on("data", (d) => { buf += d.toString(); tryExtractUrl(); });
-      child.on("exit", () => {
+      child.on("exit", async (code, signal) => {
         claudeLoginChild = null;
-        if (!resolved) finish(500, { error: "claude exited before printing a URL", raw: buf.slice(0, 500) });
+        clearAgentAuthCache("claude");
+        // Kick an async probe so the availability cache is warm for the next
+        // /api/agents or /api/claude-auth/status poll. Non-blocking.
+        kickClaudeProbeBackground();
+        if (!resolved) {
+          const status = await getClaudeAuthStatus();
+          if (isUsableClaudeSubscription(status)) {
+            finish(200, { loggedIn: true, alreadyLoggedIn: true, status });
+            return;
+          }
+          finish(500, {
+            error: "claude exited before opening an OAuth flow",
+            exitCode: code,
+            signal,
+            raw: buf.slice(0, 500),
+          });
+        }
       });
       child.on("error", (e) => {
         claudeLoginChild = null;
         if (!resolved) finish(500, { error: String(e.message ?? e) });
       });
 
-      // Safety: if no URL appears in 8s, give up.
+      // Safety: if no URL appears in 8s, do not kill the CLI. Claude Code
+      // often opens the browser itself and never prints a URL on stdout/stderr.
+      // Return success so the UI can poll auth status while the child process
+      // stays alive to receive the OAuth callback.
+      setTimeout(() => {
+        if (!resolved) {
+          finish(200, {
+            opened: true,
+            message: "Claude OAuth is running. Finish the browser authorization, then this panel will update.",
+            raw: buf.slice(0, 500),
+          });
+        }
+      }, 8_000);
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
+  app.post("/api/claude-auth/logout", async (_req, res) => {
+    try {
+      // Kill any in-flight login so it doesn't write fresh creds after we logout.
+      if (isLoginChildRunning(claudeLoginChild)) {
+        try { claudeLoginChild.kill(); } catch { /* ignore */ }
+        claudeLoginChild = null;
+        claudeLoginUrl = null;
+      }
+      execFile("claude", ["auth", "logout"], { env: claudeCleanEnv(), timeout: 5_000, shell: process.platform === "win32" }, (err, stdout, stderr) => {
+        if (err) {
+          res.status(500).json({ ok: false, error: String(err.message ?? err), stderr: String(stderr).slice(0, 300) });
+          return;
+        }
+        clearAgentAuthCache("claude");
+        res.json({ ok: true, output: stdout.trim() });
+      });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: String(err) });
+    }
+  });
+
+  // ─── Codex (OpenAI) subscription auth ────────────────
+  // Mirrors the Claude flow: spawn `codex login`, parse the OAuth URL it
+  // prints, return it to the UI. The CLI hosts its own localhost callback.
+  // Tokens persist in ~/.codex/ — survive bridge restart and new shells.
+  let codexLoginChild: import("node:child_process").ChildProcess | null = null;
+  let codexLoginUrl: string | null = null;
+
+  app.get("/api/codex-auth/status", async (_req, res) => {
+    try {
+      const { execFile } = await import("node:child_process");
+      // `codex login status` returns plain text: "Logged in" or "Not logged in".
+      // OPENAI_API_KEY in env doesn't override OAuth the way Claude's does, but
+      // we still report envKeySet so the UI can call out the fallback path.
+      execFile("codex", ["login", "status"], { timeout: 5_000, shell: process.platform === "win32" }, (err, stdout, stderr) => {
+        if (err && !stdout) {
+          res.json({ loggedIn: false, error: String(err.message ?? err), envKeySet: !!(process.env.OPENAI_API_KEY || readVarFromDotfiles("OPENAI_API_KEY")) });
+          return;
+        }
+        const out = (stdout + stderr).trim();
+        const loggedIn = /logged\s*in/i.test(out) && !/not\s*logged\s*in/i.test(out);
+        // Try to extract auth method (ChatGPT OAuth vs API key) from output.
+        const isChatgpt = /chatgpt|oauth/i.test(out);
+        const isApiKey = /api[-_\s]?key/i.test(out);
+        const authMethod = loggedIn
+          ? (isChatgpt ? "chatgpt" : (isApiKey ? "api-key" : "unknown"))
+          : undefined;
+        const emailMatch = out.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/);
+        const planMatch = out.match(/plan:?\s*([A-Za-z]+)/i);
+        res.json({
+          loggedIn,
+          authMethod,
+          email: emailMatch ? emailMatch[0] : null,
+          subscriptionType: planMatch ? planMatch[1] : null,
+          envKeySet: !!(process.env.OPENAI_API_KEY || readVarFromDotfiles("OPENAI_API_KEY")),
+          raw: out.slice(0, 200),
+        });
+      });
+    } catch (err) {
+      res.status(500).json({ loggedIn: false, error: String(err) });
+    }
+  });
+
+  app.post("/api/codex-auth/login", async (_req, res) => {
+    if (codexLoginChild && !codexLoginChild.killed) {
+      res.json({ url: codexLoginUrl, alreadyRunning: true });
+      return;
+    }
+    try {
+      const { spawn } = await import("node:child_process");
+      // `codex login` (no flags) triggers ChatGPT OAuth browser flow and
+      // prints the auth URL on stdout/stderr. Strip OPENAI_API_KEY so the CLI
+      // doesn't short-circuit to API-key mode when one is present in env.
+      const cleanEnv: NodeJS.ProcessEnv = { ...process.env, NO_COLOR: "1", FORCE_COLOR: "0" };
+      delete cleanEnv.OPENAI_API_KEY;
+      const child = spawn("codex", ["login"], {
+        env: cleanEnv,
+        stdio: ["ignore", "pipe", "pipe"],
+        shell: process.platform === "win32",
+      });
+      codexLoginChild = child;
+      codexLoginUrl = null;
+
+      let buf = "";
+      let resolved = false;
+      const finish = (status: number, body: object) => {
+        if (resolved) return;
+        resolved = true;
+        res.status(status).json(body);
+      };
+
+      const tryExtractUrl = () => {
+        const clean = buf.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, "");
+        // Match any of the OAuth URL shapes codex prints: chatgpt.com for the
+        // browser flow, auth.openai.com for device code, platform.openai.com
+        // as a secondary redirect host.
+        const m = clean.match(/https:\/\/(?:chatgpt\.com|auth\.openai\.com|platform\.openai\.com)\/[^\s\)\]\}>"']+/);
+        if (m) {
+          codexLoginUrl = m[0];
+          finish(200, { url: m[0] });
+        }
+      };
+
+      child.stdout?.on("data", (d) => { buf += d.toString(); tryExtractUrl(); });
+      child.stderr?.on("data", (d) => { buf += d.toString(); tryExtractUrl(); });
+      child.on("exit", () => {
+        codexLoginChild = null;
+        if (!resolved) finish(500, { error: "codex exited before printing a URL", raw: buf.slice(0, 500) });
+      });
+      child.on("error", (e) => {
+        codexLoginChild = null;
+        if (!resolved) finish(500, { error: String(e.message ?? e) });
+      });
+
       setTimeout(() => {
         if (!resolved) {
           try { child.kill(); } catch { /* ignore */ }
@@ -233,16 +789,15 @@ export function startServer(port: number): Promise<http.Server> {
     }
   });
 
-  app.post("/api/claude-auth/logout", async (_req, res) => {
+  app.post("/api/codex-auth/logout", async (_req, res) => {
     try {
-      // Kill any in-flight login so it doesn't write fresh creds after we logout.
-      if (claudeLoginChild && !claudeLoginChild.killed) {
-        try { claudeLoginChild.kill(); } catch { /* ignore */ }
-        claudeLoginChild = null;
-        claudeLoginUrl = null;
+      if (codexLoginChild && !codexLoginChild.killed) {
+        try { codexLoginChild.kill(); } catch { /* ignore */ }
+        codexLoginChild = null;
+        codexLoginUrl = null;
       }
       const { execFile } = await import("node:child_process");
-      execFile("claude", ["auth", "logout"], { timeout: 5_000 }, (err, stdout, stderr) => {
+      execFile("codex", ["logout"], { timeout: 5_000, shell: process.platform === "win32" }, (err, stdout, stderr) => {
         if (err) {
           res.status(500).json({ ok: false, error: String(err.message ?? err), stderr: String(stderr).slice(0, 300) });
           return;
@@ -273,7 +828,7 @@ export function startServer(port: number): Promise<http.Server> {
   // Calendar API — proxy Google Calendar events
   app.get("/api/calendar/events", async (_req, res) => {
     try {
-      // Try Google Calendar MCP via Claude session (executes tool call)
+      // Try Google Calendar through an engine/tool session when available.
       // For now, return from environment if available, or use MCP direct
       const now = new Date();
       const timeMin = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
@@ -301,17 +856,25 @@ export function startServer(port: number): Promise<http.Server> {
     }
   });
 
+  // Path helpers — the file APIs accept/emit forward-slash paths so the browser
+  // can round-trip them safely on any OS. On Windows, `path.join` produces
+  // backslashes; if we didn't normalize, the frontend would send backslash
+  // paths back and the `startsWith(WORKSPACE_ROOT)` guard would reject them.
+  const slash = (p: string) => p.replace(/\\/g, "/");
+  const WORKSPACE_ROOT_SLASH = slash(WORKSPACE_ROOT);
+  const isInsideWorkspace = (p: string) => slash(p).startsWith(WORKSPACE_ROOT_SLASH);
+
   // File API — read files for the editor
   app.get("/api/file", (req, res) => {
     const filePath = req.query.path as string;
-    if (!filePath || !filePath.startsWith(WORKSPACE_ROOT)) {
+    if (!filePath || !isInsideWorkspace(filePath)) {
       res.status(400).json({ error: "Invalid path" });
       return;
     }
     try {
       const content = fs.readFileSync(filePath, "utf-8");
       const stat = fs.statSync(filePath);
-      res.json({ path: filePath, content, size: stat.size, modified: stat.mtimeMs });
+      res.json({ path: slash(filePath), content, size: stat.size, modified: stat.mtimeMs });
     } catch (err) {
       res.status(404).json({ error: `File not found: ${filePath}` });
     }
@@ -320,7 +883,7 @@ export function startServer(port: number): Promise<http.Server> {
   // File API — write files from the editor
   app.post("/api/file", (req, res) => {
     const { path: filePath, content } = req.body;
-    if (!filePath || typeof filePath !== "string" || !filePath.startsWith("/workspaces/")) {
+    if (!filePath || typeof filePath !== "string" || !isInsideWorkspace(filePath)) {
       res.status(400).json({ error: "Invalid path" });
       return;
     }
@@ -331,7 +894,7 @@ export function startServer(port: number): Promise<http.Server> {
     try {
       fs.mkdirSync(path.dirname(filePath), { recursive: true });
       fs.writeFileSync(filePath, content, "utf-8");
-      res.json({ ok: true, path: filePath, size: content.length });
+      res.json({ ok: true, path: slash(filePath), size: content.length });
     } catch (err) {
       res.status(500).json({ error: String(err) });
     }
@@ -340,7 +903,7 @@ export function startServer(port: number): Promise<http.Server> {
   // File API — list directory
   app.get("/api/files", (req, res) => {
     const dirPath = (req.query.path as string) || path.join(WORKSPACE_ROOT, "dashboard/frontend/src");
-    if (!dirPath.startsWith(WORKSPACE_ROOT)) {
+    if (!isInsideWorkspace(dirPath)) {
       res.status(400).json({ error: "Invalid path" });
       return;
     }
@@ -348,24 +911,23 @@ export function startServer(port: number): Promise<http.Server> {
       const entries = fs.readdirSync(dirPath, { withFileTypes: true });
       const items = entries.map(e => ({
         name: e.name,
-        path: path.join(dirPath, e.name),
+        path: slash(path.join(dirPath, e.name)),
         isDir: e.isDirectory(),
       })).sort((a, b) => {
         if (a.isDir !== b.isDir) return a.isDir ? -1 : 1;
         return a.name.localeCompare(b.name);
       });
-      res.json({ path: dirPath, items });
+      res.json({ path: slash(dirPath), items });
     } catch {
       res.status(404).json({ error: "Directory not found" });
     }
   });
 
   // File API — write a single file. Used by the document editor in the UI.
-  // Path-restricted to /workspaces/ to prevent escapes outside the codespace.
   app.post("/api/files/write", (req, res) => {
     const { path: filePath, content } = req.body || {};
-    if (typeof filePath !== "string" || !filePath.startsWith("/workspaces/")) {
-      res.status(400).json({ ok: false, error: "Invalid path — must be under /workspaces/" });
+    if (typeof filePath !== "string" || !isInsideWorkspace(filePath)) {
+      res.status(400).json({ ok: false, error: "Invalid path — must be inside the workspace" });
       return;
     }
     if (typeof content !== "string") {
@@ -376,7 +938,7 @@ export function startServer(port: number): Promise<http.Server> {
       fs.mkdirSync(path.dirname(filePath), { recursive: true });
       fs.writeFileSync(filePath, content, "utf8");
       const stat = fs.statSync(filePath);
-      res.json({ ok: true, path: filePath, size: stat.size, mtime: stat.mtimeMs });
+      res.json({ ok: true, path: slash(filePath), size: stat.size, mtime: stat.mtimeMs });
     } catch (err) {
       res.status(500).json({ ok: false, error: String(err) });
     }
@@ -396,14 +958,14 @@ export function startServer(port: number): Promise<http.Server> {
   // File API — move/rename
   app.post("/api/file/move", (req, res) => {
     const { from, to } = req.body;
-    if (!from || !to || !from.startsWith("/workspaces/") || !to.startsWith("/workspaces/")) {
+    if (!from || !to || !isInsideWorkspace(from) || !isInsideWorkspace(to)) {
       res.status(400).json({ error: "Invalid paths" });
       return;
     }
     try {
       fs.mkdirSync(path.dirname(to), { recursive: true });
       fs.renameSync(from, to);
-      res.json({ ok: true, from, to });
+      res.json({ ok: true, from: slash(from), to: slash(to) });
     } catch (err) {
       res.status(500).json({ error: String(err) });
     }
@@ -690,7 +1252,7 @@ export function startServer(port: number): Promise<http.Server> {
     const out: Record<string, boolean> = {};
     for (const n of names) {
       if (typeof n !== "string" || !/^[A-Z_][A-Z0-9_]*$/.test(n)) continue;
-      const v = process.env[n];
+      const v = process.env[n] || readVarFromDotfiles(n);
       out[n] = typeof v === "string" && v.trim().length > 0;
     }
     res.json({ ok: true, envVars: out });
@@ -735,14 +1297,16 @@ export function startServer(port: number): Promise<http.Server> {
           if (!r.ok) return void res.json({ ok: false, status: r.status, error: `OpenAI /v1/models returned ${r.status}`, details: body.slice(0, 500) });
           return void res.json({ ok: true, message: "OpenAI API key valid." });
         }
-        case "github": {
-          const miss = missing(["GITHUB_TOKEN"]);
+        case "github":
+        case "github-reece": {
+          const envName = entryId === "github-reece" ? "GITHUB_TOKEN_REECE" : "GITHUB_TOKEN";
+          const miss = missing([envName]);
           if (miss.length) return void res.json({ ok: false, error: `Missing: ${miss.join(", ")}` });
           const r = await fetch("https://api.github.com/user", {
             headers: {
-              Authorization: `Bearer ${resolve("GITHUB_TOKEN")}`,
+              Authorization: `Bearer ${resolve(envName)}`,
               Accept: "application/vnd.github+json",
-              "User-Agent": "pablo-credentials-test",
+              "User-Agent": "janus-credentials-test",
             },
           });
           const body = await r.text();
@@ -750,6 +1314,33 @@ export function startServer(port: number): Promise<http.Server> {
           let login = "unknown";
           try { login = (JSON.parse(body) as { login?: string }).login || "unknown"; } catch {}
           return void res.json({ ok: true, message: `GitHub token valid (user: ${login}).` });
+        }
+        case "jira": {
+          const miss = missing(["JIRA_API_KEY", "JIRA_EMAIL", "JIRA_BASE_URL"]);
+          if (miss.length) return void res.json({ ok: false, error: `Missing: ${miss.join(", ")}` });
+          const baseUrl = resolve("JIRA_BASE_URL")!.replace(/\/+$/, "");
+          const auth = Buffer.from(`${resolve("JIRA_EMAIL")}:${resolve("JIRA_API_KEY")}`, "utf-8").toString("base64");
+          const r = await fetch(`${baseUrl}/rest/api/3/myself`, {
+            headers: { Authorization: `Basic ${auth}`, Accept: "application/json" },
+          });
+          const body = await r.text();
+          if (!r.ok) return void res.json({ ok: false, status: r.status, error: `Jira /myself returned ${r.status}`, details: body.slice(0, 500) });
+          let display = "unknown";
+          try { display = (JSON.parse(body) as { displayName?: string }).displayName || "unknown"; } catch {}
+          return void res.json({ ok: true, message: `Jira credentials valid (${display}).` });
+        }
+        case "talend": {
+          const miss = missing(["TALEND_API_KEY"]);
+          if (miss.length) return void res.json({ ok: false, error: `Missing: ${miss.join(", ")}` });
+          // Probe the us-west tenant; if the user is on a different region, the
+          // dashboard auto-detects on first real call. 200/401 both confirm the
+          // token is well-formed (401 means the region is wrong, not the token).
+          const r = await fetch("https://api.us-west.cloud.talend.com/orchestration/executables/", {
+            headers: { Authorization: `Bearer ${resolve("TALEND_API_KEY")}`, Accept: "application/json" },
+          });
+          if (r.ok) return void res.json({ ok: true, message: "Talend token valid (us-west region)." });
+          if (r.status === 401 || r.status === 403) return void res.json({ ok: false, status: r.status, error: "Talend rejected the token — wrong region or expired." });
+          return void res.json({ ok: false, status: r.status, error: `Talend returned ${r.status}` });
         }
         case "brave": {
           const miss = missing(["BRAVE_API_KEY"]);
@@ -842,10 +1433,14 @@ export function startServer(port: number): Promise<http.Server> {
     }
   });
 
-  // Credentials save — writes env vars to the dotfiles .env, mirrors to ~/.env
-  // and process.env, then commits + pushes to origin and grep-verifies the
-  // values landed. Per the 2026-04-16 correction rule, nothing is reported as
-  // "saved" unless all four steps succeed (write + commit + push + verify).
+  // Credentials save — writes env vars to the most appropriate .env file:
+  //   1. Jano's Codespace dotfiles repo (sync'd across all his Codespaces)
+  //      → commits + pushes + grep-verifies (4-step gate)
+  //   2. If dotfiles dir doesn't exist (template/blank-slate fork), falls
+  //      back to <WORKSPACE_ROOT>/.env — secrets stay local, no commit
+  //      (and we make sure .env is gitignored so they don't leak)
+  // process.env is updated either way so the running bridge sees the new
+  // values on the next request without restart.
   app.post("/api/credentials/save", async (req, res) => {
     const body = (req.body || {}) as { fields?: Array<{ envVar?: unknown; value?: unknown }> };
     const fields = Array.isArray(body.fields) ? body.fields : [];
@@ -874,11 +1469,15 @@ export function startServer(port: number): Promise<http.Server> {
     const DOTFILES_DIR = "/workspaces/.codespaces/.persistedshare/dotfiles";
     const DOTFILES_ENV = path.join(DOTFILES_DIR, ".env");
     const HOME_ENV = path.join(os.homedir(), ".env");
+    const REPO_ENV = path.join(WORKSPACE_ROOT, ".env");
+    const REPO_GITIGNORE = path.join(WORKSPACE_ROOT, ".gitignore");
 
-    if (!fs.existsSync(DOTFILES_ENV)) {
-      res.status(500).json({ ok: false, error: `Dotfiles .env not found at ${DOTFILES_ENV}` });
-      return;
-    }
+    // Mode select: dotfiles repo if present, else local repo .env. The
+    // dotfiles path is owner-specific (Jano's Codespace setup) — anyone
+    // forking this template won't have it, so we write to their repo
+    // root and never commit secrets into source control.
+    const useDotfiles = fs.existsSync(DOTFILES_ENV);
+    const TARGET_ENV = useDotfiles ? DOTFILES_ENV : REPO_ENV;
 
     // Double-quote-safe shell escaping: preserve the value verbatim when the
     // file is sourced by bash. Must escape \ " $ ` so the shell doesn't
@@ -892,10 +1491,14 @@ export function startServer(port: number): Promise<http.Server> {
       return `"${escaped}"`;
     };
 
-    // Upsert each env var into the file contents, preserving order and
-    // surrounding lines. If a line already defines the var, replace it in
-    // place; otherwise append at the end.
-    let contents = fs.readFileSync(DOTFILES_ENV, "utf-8");
+    // Ensure the target file exists and read current contents.
+    let contents = "";
+    if (fs.existsSync(TARGET_ENV)) {
+      contents = fs.readFileSync(TARGET_ENV, "utf-8");
+    }
+
+    // Upsert each env var, preserving order and surrounding lines. If a line
+    // already defines the var, replace it in place; otherwise append at end.
     const written: string[] = [];
     for (const { envVar, value } of clean) {
       const lineRe = new RegExp(`^(?:export\\s+)?${envVar}=.*$`, "m");
@@ -903,15 +1506,30 @@ export function startServer(port: number): Promise<http.Server> {
       if (lineRe.test(contents)) {
         contents = contents.replace(lineRe, newLine);
       } else {
-        if (!contents.endsWith("\n")) contents += "\n";
+        if (contents.length > 0 && !contents.endsWith("\n")) contents += "\n";
         contents += newLine + "\n";
       }
       written.push(envVar);
     }
 
     try {
-      fs.writeFileSync(DOTFILES_ENV, contents, { encoding: "utf-8", mode: 0o600 });
-      fs.writeFileSync(HOME_ENV, contents, { encoding: "utf-8", mode: 0o600 });
+      fs.writeFileSync(TARGET_ENV, contents, { encoding: "utf-8", mode: 0o600 });
+      // Mirror to ~/.env only when we own the dotfiles flow — otherwise we
+      // could clobber another tenant's home env.
+      if (useDotfiles) {
+        fs.writeFileSync(HOME_ENV, contents, { encoding: "utf-8", mode: 0o600 });
+      }
+      // In repo-local mode, make sure .env is gitignored so the user's
+      // secrets don't get accidentally committed into a public template.
+      if (!useDotfiles) {
+        let gi = fs.existsSync(REPO_GITIGNORE) ? fs.readFileSync(REPO_GITIGNORE, "utf-8") : "";
+        const hasEnv = gi.split("\n").some(l => l.trim() === ".env");
+        if (!hasEnv) {
+          if (gi.length > 0 && !gi.endsWith("\n")) gi += "\n";
+          gi += ".env\n";
+          fs.writeFileSync(REPO_GITIGNORE, gi, "utf-8");
+        }
+      }
       for (const { envVar, value } of clean) {
         process.env[envVar] = value;
       }
@@ -920,6 +1538,36 @@ export function startServer(port: number): Promise<http.Server> {
       return;
     }
 
+    // Grep-verify: re-read the file and confirm every env var we claimed to
+    // save is physically present with the expected value.
+    const onDisk = fs.readFileSync(TARGET_ENV, "utf-8");
+    const verified: string[] = [];
+    const missing: string[] = [];
+    for (const { envVar, value } of clean) {
+      const expected = `export ${envVar}=${shellQuote(value)}`;
+      if (onDisk.split("\n").includes(expected)) verified.push(envVar);
+      else missing.push(envVar);
+    }
+
+    // Repo-local mode: write-and-verify is the whole gate. No commit; the
+    // user's .env stays out of git so secrets don't leak.
+    if (!useDotfiles) {
+      const allVerified = missing.length === 0;
+      res.json({
+        ok: allVerified,
+        saved: allVerified ? written : [],
+        staged: !allVerified ? written : [],
+        verified,
+        missing,
+        target: TARGET_ENV,
+        mode: "repo-local",
+        committed: false,
+        pushed: false,
+      });
+      return;
+    }
+
+    // Dotfiles mode: full 4-step gate (write + commit + push + verify).
     const { execFileSync } = await import("node:child_process");
     const git = (args: string[]): { ok: boolean; out: string } => {
       try {
@@ -948,17 +1596,6 @@ export function startServer(port: number): Promise<http.Server> {
     const commitSha = commitRes.ok ? git(["rev-parse", "HEAD"]).out.trim() : null;
     const pushRes = git(["push", "origin", "HEAD"]);
 
-    // Grep-verify: re-read the committed file and confirm every env var we
-    // claimed to save is physically present with the expected value.
-    const onDisk = fs.readFileSync(DOTFILES_ENV, "utf-8");
-    const verified: string[] = [];
-    const missing: string[] = [];
-    for (const { envVar, value } of clean) {
-      const expected = `export ${envVar}=${shellQuote(value)}`;
-      if (onDisk.split("\n").includes(expected)) verified.push(envVar);
-      else missing.push(envVar);
-    }
-
     const allVerified = missing.length === 0;
     const fullySaved = allVerified && commitRes.ok && pushRes.ok;
     res.json({
@@ -967,6 +1604,8 @@ export function startServer(port: number): Promise<http.Server> {
       staged: !fullySaved ? written : [],
       verified,
       missing,
+      target: TARGET_ENV,
+      mode: "dotfiles",
       commit: commitSha,
       committed: commitRes.ok,
       pushed: pushRes.ok,
@@ -975,25 +1614,213 @@ export function startServer(port: number): Promise<http.Server> {
     });
   });
 
+  // Custom tools registry — definitions for user-added tools (e.g. "Postmark").
+  // Stored at <WORKSPACE_ROOT>/.dashboard/custom-tools.json so they survive
+  // page reloads and can be shared across browsers/sessions on the same repo.
+  // Only the *definition* lives here (env var names, MCP spec template, docs
+  // link). Actual secret values still go to .env via /api/credentials/save.
+  const TOOLS_REGISTRY_PATH = path.join(WORKSPACE_ROOT, ".dashboard", "custom-tools.json");
+
+  type CustomToolField = {
+    id: string;
+    label: string;
+    envVar: string;
+    type: "password" | "text";
+    placeholder?: string;
+  };
+  type CustomToolEntry = {
+    id: string;
+    name: string;
+    scope: string;
+    docsUrl?: string;
+    fields: CustomToolField[];
+    mcp?: { name: string; spec: Record<string, unknown> };
+    createdAt: string;
+  };
+
+  function readToolsRegistry(): CustomToolEntry[] {
+    if (!fs.existsSync(TOOLS_REGISTRY_PATH)) return [];
+    try {
+      const raw = fs.readFileSync(TOOLS_REGISTRY_PATH, "utf-8");
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed?.entries) ? parsed.entries : [];
+    } catch { return []; }
+  }
+
+  function writeToolsRegistry(entries: CustomToolEntry[]): void {
+    const dir = path.dirname(TOOLS_REGISTRY_PATH);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(TOOLS_REGISTRY_PATH, JSON.stringify({ entries }, null, 2) + "\n", "utf-8");
+  }
+
+  app.get("/api/tools/list", (_req, res) => {
+    res.json({ ok: true, entries: readToolsRegistry(), path: TOOLS_REGISTRY_PATH });
+  });
+
+  app.post("/api/tools/register", async (req, res) => {
+    const body = (req.body || {}) as Partial<CustomToolEntry>;
+    const name = typeof body.name === "string" ? body.name.trim() : "";
+    if (!name) {
+      res.status(400).json({ ok: false, error: "name is required" });
+      return;
+    }
+    const fields = Array.isArray(body.fields) ? body.fields : [];
+    if (fields.length === 0) {
+      res.status(400).json({ ok: false, error: "at least one credential field is required" });
+      return;
+    }
+    const ENV_VAR_RE = /^[A-Z_][A-Z0-9_]*$/;
+    const cleanFields: CustomToolField[] = [];
+    for (const f of fields) {
+      if (!f || typeof f !== "object") {
+        res.status(400).json({ ok: false, error: "field must be an object" });
+        return;
+      }
+      const ff = f as Partial<CustomToolField>;
+      if (typeof ff.envVar !== "string" || !ENV_VAR_RE.test(ff.envVar)) {
+        res.status(400).json({ ok: false, error: `invalid env var: ${String(ff.envVar)}` });
+        return;
+      }
+      const type = ff.type === "text" ? "text" : "password";
+      cleanFields.push({
+        id: typeof ff.id === "string" && ff.id ? ff.id : ff.envVar.toLowerCase(),
+        label: typeof ff.label === "string" && ff.label ? ff.label : ff.envVar,
+        envVar: ff.envVar,
+        type,
+        placeholder: typeof ff.placeholder === "string" ? ff.placeholder : undefined,
+      });
+    }
+
+    const id = `custom-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const entry: CustomToolEntry = {
+      id,
+      name,
+      scope: typeof body.scope === "string" ? body.scope : "Custom credential",
+      docsUrl: typeof body.docsUrl === "string" ? body.docsUrl : undefined,
+      fields: cleanFields,
+      mcp: undefined,
+      createdAt: new Date().toISOString(),
+    };
+
+    // Optional: also register the tool as an MCP server in .mcp.json. We
+    // delegate to the same validation + write path used by /api/mcp/add so
+    // a tool with an MCP server is wired up in one shot.
+    let mcpResult: { ok: boolean; committed?: boolean; pushed?: boolean; commit?: string | null; error?: string } | null = null;
+    if (body.mcp && typeof body.mcp === "object") {
+      const m = body.mcp as { name?: unknown; spec?: unknown };
+      const mcpName = typeof m.name === "string" ? m.name.trim() : "";
+      if (!MCP_NAME_RE.test(mcpName)) {
+        res.status(400).json({ ok: false, error: "mcp.name must be alphanumeric/hyphen/underscore (≤64 chars)" });
+        return;
+      }
+      const validation = validateServerSpec(m.spec);
+      if (!validation.ok) {
+        res.status(400).json({ ok: false, error: `mcp.spec invalid: ${validation.error}` });
+        return;
+      }
+      let cfg: { mcpServers: Record<string, unknown> };
+      try { cfg = readMcpConfig(); }
+      catch (err) { res.status(500).json({ ok: false, error: `read .mcp.json: ${String(err)}` }); return; }
+      if (Object.prototype.hasOwnProperty.call(cfg.mcpServers, mcpName)) {
+        res.status(409).json({ ok: false, error: `MCP '${mcpName}' already exists in .mcp.json — pick a different name` });
+        return;
+      }
+      cfg.mcpServers[mcpName] = m.spec as Record<string, unknown>;
+      try { writeMcpConfig(cfg); }
+      catch (err) { res.status(500).json({ ok: false, error: `write .mcp.json: ${String(err)}` }); return; }
+      const git = await gitCommitMcpChange("add", mcpName);
+      mcpResult = {
+        ok: git.committed && git.pushed,
+        committed: git.committed,
+        pushed: git.pushed,
+        commit: git.sha,
+      };
+      entry.mcp = { name: mcpName, spec: m.spec as Record<string, unknown> };
+    }
+
+    const all = readToolsRegistry();
+    all.push(entry);
+    try { writeToolsRegistry(all); }
+    catch (err) {
+      res.status(500).json({ ok: false, error: `failed to persist registry: ${String(err)}` });
+      return;
+    }
+
+    res.json({ ok: true, entry, mcp: mcpResult });
+  });
+
+  app.delete("/api/tools/:id", async (req, res) => {
+    const id = String(req.params.id || "").trim();
+    if (!id) {
+      res.status(400).json({ ok: false, error: "id is required" });
+      return;
+    }
+    const all = readToolsRegistry();
+    const idx = all.findIndex(e => e.id === id);
+    if (idx === -1) {
+      res.status(404).json({ ok: false, error: `tool '${id}' not found in registry` });
+      return;
+    }
+    const removed = all.splice(idx, 1)[0];
+
+    // If this tool registered an MCP server, also remove it from .mcp.json
+    // so the cleanup is symmetric.
+    let mcpResult: { ok: boolean; committed?: boolean; pushed?: boolean; commit?: string | null } | null = null;
+    if (removed.mcp?.name) {
+      try {
+        const cfg = readMcpConfig();
+        if (Object.prototype.hasOwnProperty.call(cfg.mcpServers, removed.mcp.name)) {
+          delete cfg.mcpServers[removed.mcp.name];
+          writeMcpConfig(cfg);
+          const git = await gitCommitMcpChange("remove", removed.mcp.name);
+          mcpResult = {
+            ok: git.committed && git.pushed,
+            committed: git.committed,
+            pushed: git.pushed,
+            commit: git.sha,
+          };
+        }
+      } catch (err) {
+        // Non-fatal: tool registry update succeeds even if MCP cleanup fails.
+        mcpResult = { ok: false };
+        console.error("mcp cleanup on tool delete failed:", err);
+      }
+    }
+
+    try { writeToolsRegistry(all); }
+    catch (err) {
+      res.status(500).json({ ok: false, error: `failed to persist registry: ${String(err)}` });
+      return;
+    }
+
+    res.json({ ok: true, removed: removed.id, mcp: mcpResult });
+  });
+
   // Agents API — lists available CLI-based coding agents and whether each is
   // ready to use. listAgentAvailability checks both env var presence and CLI
   // presence on PATH (cached 5s), so the picker can grey out adapters whose
   // binary isn't installed instead of letting a turn fail at spawn time.
-  app.get("/api/agents", (_req, res) => {
+  app.get("/api/agents", (req, res) => {
+    if (req.query.refresh === "1") clearAgentAuthCache();
     res.json({ agents: listAgentAvailability() });
   });
 
   // Memory API — exposes auto-memory index so chat can show "what's loaded"
   app.get("/api/memory/index", (_req, res) => {
     try {
-      const memDir = MEMORY_DIR;
-      if (!fs.existsSync(memDir)) {
-        res.json({ entries: [], indexContent: "", dir: memDir });
+      const memDirs = existingMemoryDirs();
+      if (memDirs.length === 0) {
+        res.json({ entries: [], indexContent: "", dir: MEMORY_DIR, dirs: MEMORY_DIRS });
         return;
       }
 
-      const indexPath = path.join(memDir, "MEMORY.md");
-      const indexContent = fs.existsSync(indexPath) ? fs.readFileSync(indexPath, "utf-8") : "";
+      const indexContents = memDirs
+        .map(dir => {
+          const indexPath = path.join(dir, "MEMORY.md");
+          return fs.existsSync(indexPath) ? fs.readFileSync(indexPath, "utf-8") : "";
+        })
+        .filter(Boolean);
+      const indexContent = indexContents.join("\n\n");
 
       const entries: Array<{
         file: string;
@@ -1004,38 +1831,42 @@ export function startServer(port: number): Promise<http.Server> {
         preview: string;
       }> = [];
 
-      for (const f of fs.readdirSync(memDir)) {
-        if (f === "MEMORY.md" || !f.endsWith(".md")) continue;
-        try {
-          const full = path.join(memDir, f);
-          const stat = fs.statSync(full);
-          const raw = fs.readFileSync(full, "utf-8");
+      const seen = new Set<string>();
+      for (const memDir of memDirs) {
+        for (const f of fs.readdirSync(memDir)) {
+          if (f === "MEMORY.md" || !f.endsWith(".md") || seen.has(f)) continue;
+          seen.add(f);
+          try {
+            const full = path.join(memDir, f);
+            const stat = fs.statSync(full);
+            const raw = fs.readFileSync(full, "utf-8");
 
-          // Parse frontmatter between --- blocks
-          const fmMatch = raw.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
-          const fm = fmMatch?.[1] || "";
-          const body = fmMatch?.[2] || raw;
+            // Parse frontmatter between --- blocks
+            const fmMatch = raw.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+            const fm = fmMatch?.[1] || "";
+            const body = fmMatch?.[2] || raw;
 
-          const nameMatch = fm.match(/^name:\s*(.+)$/m);
-          const descMatch = fm.match(/^description:\s*(.+)$/m);
-          const typeMatch = fm.match(/^type:\s*(\w+)/m);
+            const nameMatch = fm.match(/^name:\s*(.+)$/m);
+            const descMatch = fm.match(/^description:\s*(.+)$/m);
+            const typeMatch = fm.match(/^type:\s*(\w+)/m);
 
-          const preview = body.trim().slice(0, 240);
-          entries.push({
-            file: f,
-            name: nameMatch?.[1]?.trim() || f.replace(/\.md$/, ""),
-            description: descMatch?.[1]?.trim() || "",
-            type: typeMatch?.[1]?.trim() || "memory",
-            updatedAt: stat.mtimeMs,
-            preview,
-          });
-        } catch { /* skip unreadable files */ }
+            const preview = body.trim().slice(0, 240);
+            entries.push({
+              file: f,
+              name: nameMatch?.[1]?.trim() || f.replace(/\.md$/, ""),
+              description: descMatch?.[1]?.trim() || "",
+              type: typeMatch?.[1]?.trim() || "memory",
+              updatedAt: stat.mtimeMs,
+              preview,
+            });
+          } catch { /* skip unreadable files */ }
+        }
       }
 
       // Most recent first
       entries.sort((a, b) => b.updatedAt - a.updatedAt);
 
-      res.json({ entries, indexContent, dir: memDir });
+      res.json({ entries, indexContent, dir: memDirs[0], dirs: memDirs });
     } catch (err) {
       res.status(500).json({ error: String(err), entries: [] });
     }
@@ -1050,9 +1881,8 @@ export function startServer(port: number): Promise<http.Server> {
         res.status(400).json({ error: "Invalid memory file name" });
         return;
       }
-      const memDir = MEMORY_DIR;
-      const full = path.join(memDir, name);
-      if (!fs.existsSync(full)) {
+      const full = findMemoryFile(name);
+      if (!full || !fs.existsSync(full)) {
         res.status(404).json({ error: "Not found" });
         return;
       }
@@ -1063,26 +1893,70 @@ export function startServer(port: number): Promise<http.Server> {
     }
   });
 
+  // Memory health — surfaces both the supervised MCP sidecar state AND the
+  // last write to Supabase memories for this workspace. Lets the UI show a
+  // visible "memory: ok / 2d stale / down" badge so silent rot stops being
+  // possible (the April 28 bug where nothing wrote for 5 days).
+  app.get("/api/memory/health", async (_req, res) => {
+    try {
+      const sidecars = mcpSupervisor.status();
+      const memorySidecar = sidecars.find(s => s.name === "janus-memory") ?? null;
+      const supabase = await memoryHealthSnapshot(WORKSPACE_NAME);
+      res.json({
+        sidecar: memorySidecar,
+        supabase,
+        workspace: WORKSPACE_NAME,
+      });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
+  // Manual capture — lets the user / a button in the UI force a session
+  // summary write right now. Useful for closing the historical gap from
+  // April 30 → today, and as an "I'm wrapping up, save what we did" action.
+  app.post("/api/memory/capture-now", async (req, res) => {
+    try {
+      const { sessionId, conversationLog, decisions, learnings, nextSteps, filesChanged, toolsUsed } = (req.body || {}) as {
+        sessionId?: string;
+        conversationLog?: string[];
+        decisions?: string[];
+        learnings?: string[];
+        nextSteps?: string[];
+        filesChanged?: string[];
+        toolsUsed?: string[];
+      };
+      const r = await captureSessionSummary({
+        workspace: WORKSPACE_NAME,
+        sessionId,
+        conversationLog: Array.isArray(conversationLog) ? conversationLog : [],
+        decisions, learnings, nextSteps, filesChanged, toolsUsed,
+      });
+      res.status(r.ok ? 200 : 502).json(r);
+    } catch (err) {
+      res.status(500).json({ ok: false, error: String(err) });
+    }
+  });
+
   // Session API — expose persisted dashboard-session state (so frontend can show continuity)
   app.get("/api/session/:id", (req, res) => {
     try {
       const id = req.params.id.replace(/[^a-zA-Z0-9_-]/g, "_");
-      const file = path.join(
-        os.homedir(),
-        ".claude",
-        "projects",
-        CLAUDE_PROJECT_DIR,
-        "dashboard-sessions",
-        `${id}.json`,
-      );
-      if (!fs.existsSync(file)) {
+      const file = path.join(JANUS_STATE_DIR, "dashboard-sessions", `${id}.json`);
+      const legacyFile = path.join(LEGACY_CLAUDE_STATE_DIR, "dashboard-sessions", `${id}.json`);
+      const source = fs.existsSync(file) ? file : legacyFile;
+      if (!fs.existsSync(source)) {
         res.json({ persisted: false });
         return;
       }
-      const data = JSON.parse(fs.readFileSync(file, "utf-8"));
+      const data = JSON.parse(fs.readFileSync(source, "utf-8"));
+      const activeAgentId = data.activeAgentId || data.agentId || "claude";
+      const engineSessionIds = data.engineSessionIds || (data.claudeSessionId ? { claude: data.claudeSessionId } : {});
       res.json({
         persisted: true,
-        claudeSessionId: data.claudeSessionId || null,
+        activeAgentId,
+        engineSessionId: engineSessionIds[activeAgentId] || null,
+        claudeSessionId: data.claudeSessionId || engineSessionIds.claude || null,
         updatedAt: data.updatedAt || 0,
         turnCount: Array.isArray(data.conversationLog) ? data.conversationLog.length : 0,
       });
@@ -1091,7 +1965,7 @@ export function startServer(port: number): Promise<http.Server> {
     }
   });
 
-  // Chat file upload — stores files under dump/uploads/ so Claude's Read tool can consume them
+  // Chat file upload — stores files under dump/uploads/ so the active engine can consume them
   app.post("/api/chat/upload", (req, res) => {
     try {
       const { name, type, data } = (req.body || {}) as { name?: string; type?: string; data?: string };
@@ -1114,7 +1988,7 @@ export function startServer(port: number): Promise<http.Server> {
         catch { buf = Buffer.from(data, "utf-8"); }
       }
       fs.writeFileSync(full, buf);
-      // Mirror to Google Drive under Pablo_IA/_uploads/<YYYY-MM-DD>/ (configurable via scripts/gdrive-save) — async, never blocks.
+      // Mirror to Google Drive under Janus_AI/_uploads/<YYYY-MM-DD>/ — async, never blocks.
       // Skipped silently if GOOGLE_REFRESH_TOKEN is missing. Local path is authoritative.
       if (process.env.GOOGLE_REFRESH_TOKEN) {
         const child = spawn(path.join(DASH_HOME, "scripts", "gdrive-save"), [full], {
@@ -1174,7 +2048,7 @@ Do not include anything except the JSON object.`;
 
       const { spawn } = await import("node:child_process");
       const cleanEnv = { ...process.env };
-      delete cleanEnv.ANTHROPIC_API_KEY;
+      if (getClaudeSubscriptionAuthStatus().present) delete cleanEnv.ANTHROPIC_API_KEY;
       const proc = spawn(
         "claude",
         ["-p", prompt, "--output-format", "text", "--dangerously-skip-permissions", "--disable-slash-commands"],
@@ -1216,11 +2090,16 @@ Do not include anything except the JSON object.`;
   // List custom themes — frontend merges these into the theme picker
   app.get("/api/theme/custom", (_req, res) => {
     try {
-      if (!fs.existsSync(THEMES_DIR)) { res.json({ themes: [] }); return; }
+      const themeDirs = [THEMES_DIR, LEGACY_THEMES_DIR].filter(dir => fs.existsSync(dir));
+      if (themeDirs.length === 0) { res.json({ themes: [] }); return; }
       const themes: unknown[] = [];
-      for (const f of fs.readdirSync(THEMES_DIR)) {
-        if (!f.endsWith(".json")) continue;
-        try { themes.push(JSON.parse(fs.readFileSync(path.join(THEMES_DIR, f), "utf-8"))); } catch {}
+      const seenThemes = new Set<string>();
+      for (const themeDir of themeDirs) {
+        for (const f of fs.readdirSync(themeDir)) {
+          if (!f.endsWith(".json") || seenThemes.has(f)) continue;
+          seenThemes.add(f);
+          try { themes.push(JSON.parse(fs.readFileSync(path.join(themeDir, f), "utf-8"))); } catch {}
+        }
       }
       res.json({ themes });
     } catch (err) {
@@ -1249,10 +2128,14 @@ Do not include anything except the JSON object.`;
   }
 
   const server = http.createServer(app);
-  const wss = new WebSocketServer({ server });
+  // noServer: auth.bindWs handles the upgrade event so it can validate the
+  // session cookie before letting the WS through. When auth is disabled the
+  // bindWs handler still wires the same upgrade pass-through.
+  const wss = new WebSocketServer({ noServer: true });
+  auth.bindWs(server, wss);
 
   // One SessionManager per bridge process, not per WS connection. This lets
-  // Claude child processes survive browser blips / tab reloads / Codespaces
+  // Engine child processes survive browser blips / tab reloads / Codespaces
   // forwarded-port recycling: the WS detaches cleanly, the CLI keeps running,
   // and the new connection re-attaches without losing the turn.
   const sessionManager = new SessionManager();
@@ -1275,6 +2158,49 @@ Do not include anything except the JSON object.`;
         ws.send(JSON.stringify(msg));
       }
     });
+
+    // Send the bridge's current project list to this newly-connected client
+    // straight from the in-memory cache — no GitHub round-trip, and it's sent
+    // every time regardless of whether the list changed since the previous
+    // broadcast (the unconditional cache-skip in broadcastInitialProjectStates
+    // would otherwise silently drop the message for any tab that connects
+    // after the first one).
+    sendProjectsSnapshot((msg) => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(msg));
+      }
+    });
+
+    // Replay the latest scheduler output too, so the calendar isn't blank
+    // until the next 5-min discovery refresh.
+    sendCalendarSnapshot((msg) => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(msg));
+      }
+    });
+
+    // Same pattern for Jira tickets — populate the panel instantly from cache.
+    sendTicketsSnapshot((msg) => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(msg));
+      }
+    });
+
+    // Same pattern for Talend jobs.
+    sendTalendSnapshot((msg) => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(msg));
+      }
+    });
+
+    // Background re-pull from GitHub for *this* connection, so any changes the
+    // user just made (merged a STATUS.md PR, edited a status file directly on
+    // GitHub, created a new repo) surface within seconds of opening a tab —
+    // no manual "Refresh discovery" button needed. Cached snapshot above is
+    // already on-screen; this updates it in place when fresh data lands.
+    broadcastInitialProjectStates(broadcast).catch((e) =>
+      console.error("[project-state] background refresh failed:", e?.message ?? e),
+    );
 
     // Re-target existing sessions at the new WS and flush any queued output.
     sessionManager.attachWs(ws);
@@ -1363,13 +2289,23 @@ Do not include anything except the JSON object.`;
             msg.parentSessionId, msg.newSessionId, msg.forkLabel, msg.forkMessageIndex
           );
           if (forked) {
+            const forkedAdapter = getAgent(forked.getAgent());
             // Send session_start for the new session
             ws.send(JSON.stringify({
               type: "session_start",
-              auth: "subscription",
+              auth: forkedAdapter.authMethod === "oauth" ? "subscription" : "api_key",
               sessionId: msg.newSessionId,
             } satisfies ServerMessage));
           }
+          break;
+        }
+        case "restart_session": {
+          // Drop the engine session entirely; the next "start" message on
+          // this same sessionId will recreate it from scratch (the start
+          // handler already does close+recreate when appropriate). Frontend
+          // owns the visible state reset (messages, input, attachments).
+          console.log(`[ws:${msg.sessionId}] restart requested — closing engine session`);
+          sessionManager.closeSession(msg.sessionId);
           break;
         }
       }
@@ -1389,6 +2325,12 @@ Do not include anything except the JSON object.`;
   function shutdown() {
     console.log("\n[bridge] shutting down...");
     stopWatchers(watchers).catch(() => {});
+    const t = (server as unknown as { _projectRefresh?: NodeJS.Timeout })._projectRefresh;
+    if (t) clearInterval(t);
+    const ws = (server as unknown as { _wikiSync?: NodeJS.Timeout })._wikiSync;
+    if (ws) clearInterval(ws);
+    const jp = (server as unknown as { _jiraPoll?: NodeJS.Timeout })._jiraPoll;
+    if (jp) clearInterval(jp);
     wss.close();
     server.close(() => process.exit(0));
     setTimeout(() => process.exit(1), 3000);
@@ -1406,6 +2348,58 @@ Do not include anything except the JSON object.`;
       watchers = startWatchers(broadcast);
       broadcastInitialLearnings(broadcast);
       ensureHookConfig(port);
+
+      // Live project cards: initial fetch + 5-min refresh + per-wiki-change.
+      // Initial discovery, then sync every wiki to its repo's .janus/status.md,
+      // then a final discovery pass so the dashboard reads the freshly-synced
+      // status files. The sync is idempotent (skips repos whose status content
+      // already matches what's generated), so this no-ops on subsequent boots.
+      broadcastInitialProjectStates(broadcast)
+        .then(() => syncAllWikis(discoveredReposForSync()))
+        .then(() => broadcastInitialProjectStates(broadcast))
+        .catch((e) => console.error("[project-state] initial fetch/sync failed:", e?.message ?? e));
+      const projRefresh = startProjectStateRefresh(broadcast);
+      (server as unknown as { _projectRefresh?: NodeJS.Timeout })._projectRefresh = projRefresh;
+
+      // Wiki ↔ status sync on a 5-min cadence. Independent of discovery so
+      // wiki edits get pushed to repos even if the discovery list is unchanged.
+      const wikiSyncTimer = setInterval(() => {
+        syncAllWikis(discoveredReposForSync())
+          .then(() => broadcastInitialProjectStates(broadcast))
+          .catch((e) => console.error("[wiki-sync] periodic run failed:", e?.message ?? e));
+      }, 5 * 60 * 1000);
+      (server as unknown as { _wikiSync?: NodeJS.Timeout })._wikiSync = wikiSyncTimer;
+
+      // Jira polling: kicks off immediately + every 2 min.
+      const jiraTimer = startJiraPolling(broadcast);
+      (server as unknown as { _jiraPoll?: NodeJS.Timeout })._jiraPoll = jiraTimer;
+
+      // Talend polling: same cadence.
+      const talendTimer = startTalendPolling(broadcast);
+      (server as unknown as { _talendPoll?: NodeJS.Timeout })._talendPoll = talendTimer;
+
+      // Hook the existing vault watcher: when a wiki/<project>.md changes,
+      // (a) re-broadcast the corresponding project card, AND (b) push the
+      // updated wiki content to the matching repo's .janus/status.md so the
+      // user's edit shows up everywhere within seconds.
+      if (watchers[0]) {
+        watchers[0].on("change", (filePath: string) => {
+          const slug = wikiSlugFromPath(filePath);
+          if (slug) refreshOneProject(broadcast, slug).catch(() => {});
+          if (filePath.match(/\/wiki\/[^/]+\.md$/)) {
+            const wikiName = filePath.replace(/.*\/wiki\//, "");
+            syncOneWiki(wikiName, discoveredReposForSync())
+              .then((r) => {
+                if (r.result === "committed-new" || r.result === "committed-updated") {
+                  // Pull fresh content into the dashboard immediately.
+                  broadcastInitialProjectStates(broadcast).catch(() => {});
+                }
+              })
+              .catch((e) => console.error("[wiki-sync] on-change failed:", e?.message ?? e));
+          }
+        });
+      }
+
       resolve(server);
     });
   });
@@ -1554,10 +2548,12 @@ function buildGraphFromFs(): { nodes: GraphNode[]; edges: { source: string; targ
   }
 
   // Scan memory files (persistent learnings)
-  const memoryDir = MEMORY_DIR;
-  if (fs.existsSync(memoryDir)) {
+  const memoryDirs = existingMemoryDirs();
+  const scannedMemory = new Set<string>();
+  for (const memoryDir of memoryDirs) {
     for (const f of fs.readdirSync(memoryDir)) {
-      if (f === "MEMORY.md" || !f.endsWith(".md")) continue;
+      if (f === "MEMORY.md" || !f.endsWith(".md") || scannedMemory.has(f)) continue;
+      scannedMemory.add(f);
       const name = f.replace(".md", "");
       try {
         const content = fs.readFileSync(path.join(memoryDir, f), "utf-8");
@@ -1609,7 +2605,7 @@ function buildGraphFromFs(): { nodes: GraphNode[]; edges: { source: string; targ
       path.join(root, "agents", "domain", `${n.label}.md`),
       path.join(root, "learnings", `${n.label}.md`),
       path.join(root, "concepts", `${n.label}.md`),
-      path.join(memoryDir, labelFile),
+      ...memoryDirs.map(memoryDir => path.join(memoryDir, labelFile)),
     ];
     for (const p of possiblePaths) {
       if (fs.existsSync(p)) {
@@ -1649,7 +2645,7 @@ function buildGraphFromFs(): { nodes: GraphNode[]; edges: { source: string; targ
 }
 
 function ensureHookConfig(port: number): void {
-  const configDir = path.join(path.dirname(new URL(import.meta.url).pathname), "..", ".claude");
+  const configDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", ".claude");
   const configPath = path.join(configDir, "settings.json");
   const hookUrl = `http://localhost:${port}/hooks/post-tool-use`;
 

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "type": "module",
   "private": true,
-  "description": "Portfolio graph layer — schema init and vault-to-Neo4j projector (legacy janus naming)",
+  "description": "Janus-IA graph layer — schema init and vault-to-Neo4j projector",
   "scripts": {
     "init-schema": "node init-schema.mjs",
     "project": "node project-vault.mjs"

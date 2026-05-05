@@ -35,7 +35,10 @@ const PROVIDERS: { id: string; label: string; color: string }[] = [
   { id: 'snowflake',  label: 'Snowflake',    color: 'oklch(0.75 0.14 210)' },
   { id: 'google',     label: 'Google',       color: 'oklch(0.72 0.16 265)' },
   { id: 'openai',     label: 'OpenAI',       color: 'oklch(0.70 0.15 155)' },
+  { id: 'gemini',     label: 'Gemini',       color: 'oklch(0.72 0.14 240)' },
   { id: 'github',     label: 'GitHub',       color: 'oklch(0.70 0.08 280)' },
+  { id: 'atlassian',  label: 'Atlassian',    color: 'oklch(0.72 0.18 250)' },
+  { id: 'talend',     label: 'Talend',       color: 'oklch(0.70 0.18 30)'  },
   { id: 'search',     label: 'Search',       color: 'oklch(0.70 0.18 85)'  },
   { id: 'whatsapp',   label: 'WhatsApp',     color: 'oklch(0.74 0.16 150)' },
   { id: 'custom',     label: 'Custom',       color: 'oklch(0.65 0.10 220)' },
@@ -77,7 +80,7 @@ const DEFAULT_CREDENTIALS: CredentialEntry[] = [
     howTo: 'Account → Access Tokens → Generate new token. Project ref is the subdomain of your project URL (e.g. xxx in xxx.supabase.co).',
     fields: [
       { id: 'supabase-access',       label: 'Access token',        envVar: 'SUPABASE_ACCESS_TOKEN',       type: 'password', placeholder: 'sbp_...' },
-      { id: 'supabase-project-ref',  label: 'Project ref',         envVar: 'SUPABASE_PROJECT_REF',        type: 'text',     placeholder: 'your-project-ref' },
+      { id: 'supabase-project-ref',  label: 'Project ref',         envVar: 'SUPABASE_PROJECT_REF',        type: 'text',     placeholder: 'rycybujjedtofghigyxm' },
     ],
   },
   {
@@ -134,7 +137,7 @@ const DEFAULT_CREDENTIALS: CredentialEntry[] = [
     id: 'openai',
     provider: 'openai',
     name: 'OpenAI API',
-    scope: 'Call OpenAI models (chat, embeddings, images — whatever the key allows)',
+    scope: 'Call OpenAI models (chat, embeddings, images — whatever the key allows). Or sign in with your ChatGPT subscription below.',
     docsUrl: 'https://platform.openai.com/api-keys',
     howTo: 'Platform → API keys → Create new secret key. Pick a project; key is shown once.',
     fields: [
@@ -142,14 +145,63 @@ const DEFAULT_CREDENTIALS: CredentialEntry[] = [
     ],
   },
   {
+    id: 'gemini',
+    provider: 'gemini',
+    name: 'Google Gemini API',
+    scope: 'Call Gemini models via the Gemini CLI (gemini-2.5-pro, gemini-2.5-flash, gemini-2.0-flash).',
+    docsUrl: 'https://aistudio.google.com/apikey',
+    howTo: 'Google AI Studio → Get API key → Create API key. Free tier available. (Gemini CLI also supports interactive Google account login on first run, but that flow isn\'t headless-friendly — use an API key here for the dashboard.)',
+    fields: [
+      { id: 'gemini-key',            label: 'API Key',             envVar: 'GEMINI_API_KEY',              type: 'password', placeholder: 'AIza...' },
+    ],
+  },
+  {
     id: 'github',
     provider: 'github',
-    name: 'GitHub',
-    scope: 'Repo access — scope depends on the PAT (repo:read, repo:write, workflow, etc.)',
+    name: 'GitHub — Personal',
+    scope: 'Personal account repo access — scope depends on the PAT (repo:read, repo:write, workflow, etc.)',
     docsUrl: 'https://github.com/settings/tokens',
-    howTo: 'Settings → Developer settings → Personal access tokens. Prefer fine-grained tokens scoped to specific repos. For full repo + workflow access, classic PAT with "repo" + "workflow" scopes.',
+    howTo: 'Logged in as your personal account → Settings → Developer settings → Personal access tokens. Prefer fine-grained tokens scoped to specific repos. For full repo + workflow access, classic PAT with "repo" + "workflow" scopes.',
     fields: [
       { id: 'github-token',          label: 'Personal access token', envVar: 'GITHUB_TOKEN',              type: 'password', placeholder: 'ghp_... or github_pat_...' },
+    ],
+  },
+  {
+    id: 'github-reece',
+    provider: 'github',
+    name: 'GitHub — REECE (work)',
+    scope: 'Work account repo access (REECE) — used alongside the personal token so both sets of repos appear in the dashboard.',
+    docsUrl: 'https://github.com/settings/tokens',
+    howTo: 'Sign in to your REECE GitHub account → Settings → Developer settings → Personal access tokens. Use the same scopes as the personal token (repo + workflow for full access).',
+    fields: [
+      { id: 'github-token-reece',    label: 'REECE access token',    envVar: 'GITHUB_TOKEN_REECE',        type: 'password', placeholder: 'ghp_... or github_pat_...' },
+    ],
+  },
+  {
+    id: 'jira',
+    provider: 'atlassian',
+    name: 'Jira (Atlassian Cloud)',
+    scope: 'Read tickets assigned to you, view descriptions + comments, transition status, and add comments — needs all three fields.',
+    docsUrl: 'https://id.atlassian.com/manage-profile/security/api-tokens',
+    howTo: 'Atlassian → Account → Security → Create API token. Email is the address you log into Jira with. Base URL is your tenant — e.g. https://reeceusa.atlassian.net.',
+    fields: [
+      { id: 'jira-key',    label: 'API token',  envVar: 'JIRA_API_KEY',  type: 'password', placeholder: 'ATATT3x...',
+        hint: 'mint at id.atlassian.com → Security → API tokens' },
+      { id: 'jira-email',  label: 'Email',      envVar: 'JIRA_EMAIL',    type: 'text',     placeholder: 'you@company.com',
+        hint: 'the email you log into Jira with' },
+      { id: 'jira-url',    label: 'Base URL',   envVar: 'JIRA_BASE_URL', type: 'text',     placeholder: 'https://your-tenant.atlassian.net',
+        hint: 'no trailing slash' },
+    ],
+  },
+  {
+    id: 'talend',
+    provider: 'talend',
+    name: 'Talend (Qlik Talend Cloud)',
+    scope: 'List/create/manage TMC tasks, schedules, environments, workspaces.',
+    docsUrl: 'https://docs.qlik.com/talend/en-US/cloud-management-console/Content/cloud-management-console/personal-access-tokens.htm',
+    howTo: 'Talend Cloud → User profile → Personal Access Tokens → Add token. Region is part of the API endpoint (us-west, eu, etc.).',
+    fields: [
+      { id: 'talend-key',  label: 'API token',  envVar: 'TALEND_API_KEY',  type: 'password' },
     ],
   },
   {
@@ -222,7 +274,7 @@ const DEFAULT_CREDENTIALS: CredentialEntry[] = [
   },
 ];
 
-type ClaudeAuthStatus = {
+type SubscriptionAuthStatus = {
   loggedIn: boolean;
   authMethod?: string;
   apiProvider?: string;
@@ -230,57 +282,99 @@ type ClaudeAuthStatus = {
   email?: string | null;
   subscriptionType?: string | null;
   envKeySet?: boolean;
+  expiresAt?: number;
+  accessTokenExpired?: boolean;
+  usableForChat?: boolean;
+  reauthRequired?: boolean;
+  authProbeReason?: string;
+  oauthUnavailableReason?: string;
   error?: string;
 };
 
-function ClaudeSubscriptionPanel() {
-  const [status, setStatus] = useState<ClaudeAuthStatus | null>(null);
+type SubscriptionPanelProps = {
+  /** REST prefix under /api, e.g. "claude-auth" or "codex-auth" */
+  endpoint: string;
+  /** Heading shown above the button */
+  title: string;
+  /** Value of status.authMethod that means "subscription auth is live" */
+  subscriptionAuthMethod: string;
+  /** Bottom-line help text shown when nothing is in flight */
+  idleHint: React.ReactNode;
+  /** Env var kept as fallback when subscription auth is not usable. */
+  apiFallbackEnvVar?: string | null;
+};
+
+function SubscriptionPanel({ endpoint, title, subscriptionAuthMethod, idleHint, apiFallbackEnvVar }: SubscriptionPanelProps) {
+  const [status, setStatus] = useState<SubscriptionAuthStatus | null>(null);
   const [phase, setPhase] = useState<'idle' | 'starting' | 'awaiting' | 'error'>('idle');
   const [url, setUrl] = useState<string | null>(null);
   const [errMsg, setErrMsg] = useState<string | null>(null);
 
+  function notifyCredentialsChanged() {
+    window.dispatchEvent(new CustomEvent('venture-os:credentials-changed', { detail: { endpoint } }));
+  }
+
   const refresh = async () => {
     try {
-      const r = await fetch('/api/claude-auth/status');
+      const r = await fetch(`/api/${endpoint}/status`);
       const d = await r.json();
       setStatus(d);
-      return d as ClaudeAuthStatus;
+      if (d?.loggedIn && d.authMethod === subscriptionAuthMethod && !d.accessTokenExpired && !d.reauthRequired) {
+        notifyCredentialsChanged();
+      }
+      return d as SubscriptionAuthStatus;
     } catch {
       return null;
     }
   };
 
-  useEffect(() => {
-    refresh();
-  }, []);
+  useEffect(() => { refresh(); }, []);
 
   // Poll while waiting for the OAuth callback to land.
   useEffect(() => {
     if (phase !== 'awaiting') return;
     const t = window.setInterval(async () => {
       const d = await refresh();
-      if (d?.loggedIn && d.authMethod === 'claude.ai') {
+      // Exit awaiting as soon as claude auth status confirms the OAuth token is
+      // valid. Don't gate on reauthRequired — the subscription probe can briefly
+      // 401 right after a fresh OAuth callback before the API accepts the new
+      // token. The idle state handles the reauthRequired warning separately.
+      if (d?.loggedIn && d.authMethod === subscriptionAuthMethod && !d.accessTokenExpired) {
         setPhase('idle');
         setUrl(null);
+        notifyCredentialsChanged();
       }
     }, 2000);
     return () => window.clearInterval(t);
-  }, [phase]);
+  }, [phase, subscriptionAuthMethod]);
 
-  const startLogin = async () => {
+  const startLogin = async (force = false) => {
+    if (status?.oauthUnavailableReason) {
+      setPhase('error');
+      setErrMsg(status.oauthUnavailableReason);
+      return;
+    }
     setPhase('starting');
     setErrMsg(null);
     try {
-      const r = await fetch('/api/claude-auth/login', { method: 'POST' });
+      const r = await fetch(`/api/${endpoint}/login${force ? '?force=1' : ''}`, { method: 'POST' });
       const d = await r.json();
-      if (!r.ok || !d.url) {
+      if (d.status) setStatus(d.status);
+      if (d.loggedIn) {
+        if (!d.status) await refresh();
+        notifyCredentialsChanged();
+        setPhase('idle');
+        setUrl(null);
+        return;
+      }
+      if (!r.ok || (!d.url && !d.opened)) {
         setPhase('error');
         setErrMsg(d.error || 'failed to start login');
         return;
       }
-      setUrl(d.url);
+      setUrl(d.url || null);
       setPhase('awaiting');
-      window.open(d.url, '_blank', 'noopener');
+      if (d.url && endpoint !== 'claude-auth') window.open(d.url, '_blank', 'noopener');
     } catch (e) {
       setPhase('error');
       setErrMsg(String(e));
@@ -289,29 +383,54 @@ function ClaudeSubscriptionPanel() {
 
   const signOut = async () => {
     try {
-      await fetch('/api/claude-auth/logout', { method: 'POST' });
+      await fetch(`/api/${endpoint}/logout`, { method: 'POST' });
     } finally {
       await refresh();
+      notifyCredentialsChanged();
       setPhase('idle');
       setUrl(null);
     }
   };
 
-  const subActive = status?.loggedIn && status?.authMethod === 'claude.ai';
+  const signedInSubscription = status?.loggedIn && status?.authMethod === subscriptionAuthMethod;
+  const statusLoading = status === null;
+  const subscriptionNeedsRefresh = signedInSubscription && (status?.accessTokenExpired || status?.reauthRequired);
+  const subActive = signedInSubscription && !subscriptionNeedsRefresh;
+  const loginUnavailableReason = status?.oauthUnavailableReason;
+  const loginDisabled = statusLoading || phase === 'starting' || phase === 'awaiting' || !!loginUnavailableReason;
 
   return (
     <div className="credentials__sub-panel">
       <div className="credentials__sub-panel-head">
-        <span className="credentials__sub-panel-title">Claude subscription (Pro / Max)</span>
-        {subActive ? (
+        <span className="credentials__sub-panel-title">{title}</span>
+        {statusLoading ? (
+          <button className="credentials__save-btn" disabled>
+            checking...
+          </button>
+        ) : subActive ? (
           <button className="credentials__test-btn credentials__test-btn--pass" onClick={signOut}>
             sign out
+          </button>
+        ) : subscriptionNeedsRefresh ? (
+          <>
+            {!loginUnavailableReason && (
+              <button className="credentials__save-btn" onClick={() => startLogin(true)} disabled={loginDisabled}>
+                {phase === 'starting' ? 'starting…' : phase === 'awaiting' ? 'waiting for browser…' : status?.reauthRequired ? 'reauthorize' : 'refresh login'}
+              </button>
+            )}
+            <button className="credentials__test-btn" onClick={signOut}>
+              sign out
+            </button>
+          </>
+        ) : loginUnavailableReason ? (
+          <button className="credentials__save-btn" disabled>
+            local only
           </button>
         ) : (
           <button
             className="credentials__save-btn"
-            onClick={startLogin}
-            disabled={phase === 'starting' || phase === 'awaiting'}
+            onClick={() => startLogin()}
+            disabled={loginDisabled}
           >
             {phase === 'starting' ? 'starting…' : phase === 'awaiting' ? 'waiting for browser…' : 'use subscription'}
           </button>
@@ -322,28 +441,47 @@ function ClaudeSubscriptionPanel() {
           ✓ Signed in
           {status?.email ? <> as <strong>{status.email}</strong></> : null}
           {status?.subscriptionType ? <> · plan: {status.subscriptionType}</> : null}
-          {status?.envKeySet && (
+          {apiFallbackEnvVar && status?.envKeySet && (
             <span className="credentials__sub-panel-warn">
-              {' '}— ANTHROPIC_API_KEY is set in env, which overrides subscription auth at runtime. Clear it from dotfiles if you want chat to use your subscription quota.
+              {' '}— {apiFallbackEnvVar} is saved as fallback. Subscription auth takes precedence.
             </span>
           )}
         </div>
       )}
-      {!subActive && phase === 'awaiting' && url && (
+      {loginUnavailableReason && phase !== 'awaiting' && (
+        <div className="credentials__sub-panel-line credentials__sub-panel-warn">
+          {loginUnavailableReason}
+        </div>
+      )}
+      {subscriptionNeedsRefresh && phase !== 'awaiting' && (
         <div className="credentials__sub-panel-line">
-          A browser tab opened. If it didn't,{' '}
-          <a href={url} target="_blank" rel="noreferrer noopener" className="credentials__howto-link">
-            click here ↗
-          </a>{' '}
-          to finish signing in. This panel will update automatically.
+          {status?.reauthRequired ? 'Claude Code could not use the saved subscription login' : 'Local OAuth token is expired'}
+          {status?.email ? <> for <strong>{status.email}</strong></> : null}
+          {status?.authProbeReason ? <> — {status.authProbeReason}</> : null}
+          {loginUnavailableReason ? '. Refresh it from a local dashboard or local Claude CLI.' : '. Reauthorize to restore subscription chat.'}
+        </div>
+      )}
+      {!subActive && phase === 'awaiting' && (
+        <div className="credentials__sub-panel-line">
+          {url ? (
+            <>
+              A browser tab opened. If it didn't,{' '}
+              <a href={url} target="_blank" rel="noreferrer noopener" className="credentials__howto-link">
+                click here ↗
+              </a>{' '}
+              to finish signing in. This panel will update automatically.
+            </>
+          ) : (
+            <>Finish the authorization in the browser tab. This panel will update automatically.</>
+          )}
         </div>
       )}
       {phase === 'error' && errMsg && (
         <div className="credentials__test-error">{errMsg}</div>
       )}
-      {!subActive && phase === 'idle' && (
+      {!statusLoading && !subActive && phase === 'idle' && !loginUnavailableReason && (
         <div className="credentials__sub-panel-line credentials__sub-panel-hint">
-          Sign in with your Anthropic account instead of pasting an API key. Same flow as <code>claude auth login</code>.
+          {idleHint}
         </div>
       )}
     </div>
@@ -365,7 +503,7 @@ type TestState = { status: 'idle' | 'testing' | 'pass' | 'fail'; message?: strin
 
 type SaveState = { status: 'idle' | 'saving' | 'saved' | 'error'; message?: string };
 
-export function Credentials({ onClose }: { onClose: () => void }) {
+export function Credentials({ onClose, initialProviderId }: { onClose: () => void; initialProviderId?: string }) {
   const { tools, sendChatMessage } = useDashboard();
 
   // Per-field input state, keyed by field id.
@@ -380,11 +518,50 @@ export function Credentials({ onClose }: { onClose: () => void }) {
   // Per-entry save state (idle | saving | saved | error + last message).
   const [saves, setSaves] = useState<Record<string, SaveState>>({});
 
-  // Custom entries added at runtime.
+  // Custom entries — loaded from the bridge's tools registry on mount, then
+  // mutated via /api/tools/register and /api/tools/{id}. Persisted at
+  // <WORKSPACE_ROOT>/.dashboard/custom-tools.json so they survive reload.
   const [customEntries, setCustomEntries] = useState<CredentialEntry[]>([]);
   const [customName, setCustomName] = useState('');
   const [customEnv, setCustomEnv] = useState('');
   const [customScope, setCustomScope] = useState('');
+  const [customMcpName, setCustomMcpName] = useState('');
+  const [customMcpSpec, setCustomMcpSpec] = useState('');
+  const [customError, setCustomError] = useState<string | null>(null);
+  const [customSaving, setCustomSaving] = useState(false);
+
+  // Load persisted custom tools on mount.
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/tools/list')
+      .then(r => r.json())
+      .then(j => {
+        if (cancelled || !j?.ok || !Array.isArray(j.entries)) return;
+        const loaded: CredentialEntry[] = j.entries.map((e: {
+          id: string;
+          name: string;
+          scope?: string;
+          docsUrl?: string;
+          fields: Array<{ id: string; label: string; envVar: string; type: 'password' | 'text'; placeholder?: string }>;
+        }) => ({
+          id: e.id,
+          provider: 'custom',
+          name: e.name,
+          scope: e.scope || 'Custom credential',
+          docsUrl: e.docsUrl,
+          fields: (e.fields || []).map(f => ({
+            id: f.id,
+            label: f.label,
+            envVar: f.envVar,
+            type: f.type === 'text' ? 'text' : 'password',
+            placeholder: f.placeholder,
+          })),
+        }));
+        setCustomEntries(loaded);
+      })
+      .catch(() => { /* bridge unreachable — start with empty list */ });
+    return () => { cancelled = true; };
+  }, []);
 
   const allEntries = useMemo(() => [...DEFAULT_CREDENTIALS, ...customEntries], [customEntries]);
 
@@ -415,18 +592,14 @@ export function Credentials({ onClose }: { onClose: () => void }) {
     return tool ? tool.configured === 'ready' : false;
   }
 
-  // Expand provider if it has any unset field.
+  // Default-collapsed for everyone. The onboarding flow can still target a
+  // specific provider via initialProviderId — that one opens, everything else
+  // stays closed. Without an initial provider, the modal opens cleanly with
+  // a list of provider headers and the user expands what they want.
   const [expanded, setExpanded] = useState<Record<string, boolean>>(() => {
     const out: Record<string, boolean> = {};
     for (const p of PROVIDERS) {
-      const entries = DEFAULT_CREDENTIALS.filter(e => e.provider === p.id);
-      const anyUnset = entries.some(e =>
-        e.fields.some(f => {
-          const tool = tools.find(t => t.envVar === f.envVar);
-          return !tool || tool.configured !== 'ready';
-        })
-      );
-      out[p.id] = anyUnset || entries.length === 0;
+      out[p.id] = !!initialProviderId && p.id === initialProviderId;
     }
     return out;
   });
@@ -457,16 +630,18 @@ export function Credentials({ onClose }: { onClose: () => void }) {
         pushed?: boolean;
         commitOutput?: string;
         pushOutput?: string;
+        target?: string;
+        mode?: 'dotfiles' | 'repo-local';
         error?: string;
       };
       if (data.ok) {
-        const shortSha = data.commit ? data.commit.slice(0, 7) : '';
+        const savedNames = (data.saved || []).join(', ');
+        const message = data.mode === 'repo-local'
+          ? `Saved ${savedNames} · written to repo .env (gitignored, not committed)`
+          : `Saved ${savedNames} · committed ${data.commit ? data.commit.slice(0, 7) : ''} · pushed to dotfiles`;
         setSaves(prev => ({
           ...prev,
-          [entry.id]: {
-            status: 'saved',
-            message: `Saved ${(data.saved || []).join(', ')} · committed ${shortSha} · pushed to dotfiles`,
-          },
+          [entry.id]: { status: 'saved', message },
         }));
         setSessionSet(prev => {
           const next = { ...prev };
@@ -539,21 +714,104 @@ export function Credentials({ onClose }: { onClose: () => void }) {
     }
   }
 
-  function handleAddCustom() {
+  async function handleAddCustom() {
+    setCustomError(null);
     if (!customName.trim() || !customEnv.trim()) return;
     const envVar = customEnv.trim().toUpperCase().replace(/\s+/g, '_');
-    const id = `custom-${Date.now()}`;
-    setCustomEntries(prev => [...prev, {
-      id,
-      provider: 'custom',
+
+    // Optional MCP server registration: if the user filled in the MCP name +
+    // JSON spec, the same submit creates the .mcp.json entry alongside the
+    // credential slot. One action wires both halves of the tool.
+    let mcp: { name: string; spec: unknown } | undefined;
+    if (customMcpName.trim() || customMcpSpec.trim()) {
+      if (!customMcpName.trim() || !customMcpSpec.trim()) {
+        setCustomError('MCP name and spec must both be provided, or both left blank');
+        return;
+      }
+      let parsedSpec: unknown;
+      try { parsedSpec = JSON.parse(customMcpSpec); }
+      catch (e) {
+        setCustomError(`MCP spec is not valid JSON: ${e instanceof Error ? e.message : String(e)}`);
+        return;
+      }
+      mcp = { name: customMcpName.trim(), spec: parsedSpec };
+    }
+
+    const payload = {
       name: customName.trim(),
-      scope: customScope.trim() || 'Custom credential',
-      fields: [{ id, label: 'Value', envVar, type: 'password' }],
-    }]);
-    setExpanded(prev => ({ ...prev, custom: true }));
-    setCustomName('');
-    setCustomEnv('');
-    setCustomScope('');
+      scope: customScope.trim() || `Custom credential — ${envVar}`,
+      fields: [{
+        id: envVar.toLowerCase(),
+        label: 'Value',
+        envVar,
+        type: 'password' as const,
+      }],
+      mcp,
+    };
+
+    setCustomSaving(true);
+    try {
+      const r = await fetch('/api/tools/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const j = await r.json() as {
+        ok: boolean;
+        entry?: {
+          id: string;
+          name: string;
+          scope: string;
+          docsUrl?: string;
+          fields: Array<{ id: string; label: string; envVar: string; type: 'password' | 'text'; placeholder?: string }>;
+        };
+        error?: string;
+      };
+      if (!j.ok || !j.entry) {
+        setCustomError(j.error || 'failed to register tool');
+        return;
+      }
+      const entry: CredentialEntry = {
+        id: j.entry.id,
+        provider: 'custom',
+        name: j.entry.name,
+        scope: j.entry.scope,
+        docsUrl: j.entry.docsUrl,
+        fields: j.entry.fields.map(f => ({
+          id: f.id,
+          label: f.label,
+          envVar: f.envVar,
+          type: f.type === 'text' ? 'text' : 'password',
+          placeholder: f.placeholder,
+        })),
+      };
+      setCustomEntries(prev => [...prev, entry]);
+      setExpanded(prev => ({ ...prev, custom: true }));
+      setCustomName('');
+      setCustomEnv('');
+      setCustomScope('');
+      setCustomMcpName('');
+      setCustomMcpSpec('');
+    } catch (err) {
+      setCustomError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setCustomSaving(false);
+    }
+  }
+
+  async function handleRemoveCustom(entryId: string) {
+    if (!window.confirm('Remove this custom tool? Saved env values stay in .env — only the slot definition is removed.')) return;
+    try {
+      const r = await fetch(`/api/tools/${encodeURIComponent(entryId)}`, { method: 'DELETE' });
+      const j = await r.json() as { ok: boolean; error?: string };
+      if (!j.ok) {
+        setCustomError(j.error || 'failed to remove tool');
+        return;
+      }
+      setCustomEntries(prev => prev.filter(e => e.id !== entryId));
+    } catch (err) {
+      setCustomError(err instanceof Error ? err.message : String(err));
+    }
   }
 
   // Group entries by provider in PROVIDERS order.
@@ -647,6 +905,13 @@ export function Credentials({ onClose }: { onClose: () => void }) {
                             : save.status === 'error' ? '✗ retry save'
                             : 'save'}
                         </button>
+                        {entry.provider === 'custom' && (
+                          <button
+                            onClick={() => handleRemoveCustom(entry.id)}
+                            title="Remove this custom tool slot from the registry"
+                            style={{ background: 'transparent', border: '1px solid var(--color-border)', color: 'var(--color-text-muted)', borderRadius: 3, padding: '1px 7px', fontSize: 11, cursor: 'pointer', fontFamily: 'var(--font-family-mono)' }}
+                          >×</button>
+                        )}
                       </div>
                     </div>
                     {test.status === 'fail' && test.message && (
@@ -664,7 +929,24 @@ export function Credentials({ onClose }: { onClose: () => void }) {
                         {save.message}
                       </div>
                     )}
-                    {entry.id === 'anthropic' && <ClaudeSubscriptionPanel />}
+                    {entry.id === 'anthropic' && (
+                      <SubscriptionPanel
+                        endpoint="claude-auth"
+                        title="Claude subscription (Pro / Max)"
+                        subscriptionAuthMethod="claude.ai"
+                        apiFallbackEnvVar="ANTHROPIC_API_KEY"
+                        idleHint={<>Sign in with your Anthropic account instead of pasting an API key. Same flow as <code>claude auth login</code>.</>}
+                      />
+                    )}
+                    {entry.id === 'openai' && (
+                      <SubscriptionPanel
+                        endpoint="codex-auth"
+                        title="ChatGPT subscription (Plus / Pro / Team)"
+                        subscriptionAuthMethod="chatgpt"
+                        apiFallbackEnvVar="OPENAI_API_KEY"
+                        idleHint={<>Sign in with your ChatGPT account to use your subscription quota instead of pasting an API key. Same flow as <code>codex login</code>.</>}
+                      />
+                    )}
                     <div className="credentials__scope">
                       <span className="credentials__scope-label">Grants:</span> {entry.scope}
                     </div>
@@ -732,7 +1014,7 @@ export function Credentials({ onClose }: { onClose: () => void }) {
           })}
         </div>
 
-        {/* Add a custom credential */}
+        {/* Add a custom tool — credential slot, optionally with an MCP server. */}
         <div className="credentials__add">
           <input
             className="credentials__input credentials__input--half"
@@ -752,17 +1034,34 @@ export function Credentials({ onClose }: { onClose: () => void }) {
             value={customScope}
             onChange={e => setCustomScope(e.target.value)}
           />
+          <input
+            className="credentials__input credentials__input--half"
+            placeholder="MCP server name (optional)"
+            value={customMcpName}
+            onChange={e => setCustomMcpName(e.target.value)}
+          />
+          <input
+            className="credentials__input credentials__input--half"
+            placeholder='MCP spec JSON (optional, e.g. {"command":"npx","args":["-y","@x/mcp"],"env":{"X_KEY":"${X_API_KEY}"}})'
+            value={customMcpSpec}
+            onChange={e => setCustomMcpSpec(e.target.value)}
+          />
           <button
             className="credentials__save-btn"
             onClick={handleAddCustom}
-            disabled={!customName.trim() || !customEnv.trim()}
+            disabled={!customName.trim() || !customEnv.trim() || customSaving}
           >
-            + add
+            {customSaving ? 'adding…' : '+ add'}
           </button>
+          {customError && (
+            <div className="credentials__test-error" style={{ width: '100%' }}>
+              {customError}
+            </div>
+          )}
         </div>
 
         <div className="credentials__footer">
-          Save writes to your dotfiles .env, commits, pushes to origin, and grep-verifies before reporting success. Nothing is sent through chat.
+          Save writes to a Codespace-shared dotfiles .env (commit + push) when one exists, otherwise to <code>.env</code> at the repo root (auto-gitignored, never committed). Either way values become available to the bridge immediately. Adding an MCP name + spec also wires the tool into <code>.mcp.json</code> in one step. Nothing is sent through chat.
         </div>
       </div>
     </div>

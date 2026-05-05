@@ -7,6 +7,7 @@ import { PortfolioScoreboard } from './components/PortfolioScoreboard';
 import { CrossProjectFlash } from './components/CrossProjectFlash';
 import { ThemeEngine, useThemeInit } from './components/ThemeEngine';
 import { Credentials } from './components/Credentials';
+import { FirstRunOnboarding } from './components/FirstRunOnboarding';
 import { McpConfig } from './components/McpConfig';
 import { LearningToast } from './components/LearningToast';
 import { DashboardProvider, useBridgeHandler, useRegisterWsSend, useConnectionStateSync } from './store';
@@ -41,22 +42,23 @@ function ReloadBanner() {
 }
 
 function DashboardInner() {
-  const { status, lastMessage, send } = useWebSocket();
+  const { status, lastMessage, send, onMessage } = useWebSocket();
   const handleBridgeMessage = useBridgeHandler();
   const registerWsSend = useRegisterWsSend();
   const { onConnectionLost, onConnectionRestored } = useConnectionStateSync();
   const [themeOpen, setThemeOpen] = useState(false);
   const [credentialsOpen, setCredentialsOpen] = useState(false);
+  const [credentialsInitialProvider, setCredentialsInitialProvider] = useState<string | undefined>(undefined);
   const [mcpOpen, setMcpOpen] = useState(false);
 
   useThemeInit();
 
-  // Route real WebSocket messages to the store
+  // Route every WebSocket message synchronously into the store.
+  // Cannot rely on the `lastMessage` state value here — same-tick bursts
+  // collapse into a single render (only the last message survives).
   useEffect(() => {
-    if (lastMessage) {
-      handleBridgeMessage(lastMessage as ServerMessage);
-    }
-  }, [lastMessage, handleBridgeMessage]);
+    onMessage(handleBridgeMessage);
+  }, [onMessage, handleBridgeMessage]);
 
   // Register WebSocket send function with store when connected
   useEffect(() => {
@@ -96,8 +98,9 @@ function DashboardInner() {
       <PortfolioScoreboard />
       <CrossProjectFlash />
       {themeOpen && <ThemeEngine onClose={() => setThemeOpen(false)} />}
-      {credentialsOpen && <Credentials onClose={() => setCredentialsOpen(false)} />}
+      {credentialsOpen && <Credentials onClose={() => { setCredentialsOpen(false); setCredentialsInitialProvider(undefined); }} initialProviderId={credentialsInitialProvider} />}
       {mcpOpen && <McpConfig onClose={() => setMcpOpen(false)} />}
+      <FirstRunOnboarding onOpenCredentials={(tabId) => { setCredentialsInitialProvider(tabId); setCredentialsOpen(true); }} />
       <LearningToast />
       <ReloadBanner />
     </div>

@@ -6,12 +6,12 @@
 #   scripts/gdrive-save <local-path> --project <name>     # explicit project
 #   scripts/gdrive-save <local-path> --as <drive-subpath> # explicit destination
 #
-# Path inference rules (in order, default DRIVE_ROOT=Pablo_IA):
-#   outputs/documents/<project>/<file>       → <DRIVE_ROOT>/<project>/<file>
-#   outputs/research/<project>/<file>        → <DRIVE_ROOT>/<project>/research/<file>
-#   outputs/screenshots/<project>/<file>     → <DRIVE_ROOT>/_media/<project>/screenshots/<file>
-#   outputs/<project>/<file>                 → <DRIVE_ROOT>/<project>/<file>
-#   dump/uploads/<anything>                  → <DRIVE_ROOT>/_uploads/<YYYY-MM-DD>/<file>
+# Path inference rules (in order):
+#   outputs/documents/<project>/<file>       → Janus_AI/<project>/<file>
+#   outputs/research/<project>/<file>        → Janus_AI/<project>/research/<file>
+#   outputs/screenshots/<project>/<file>     → Janus_AI/_media/<project>/screenshots/<file>
+#   outputs/<project>/<file>                 → Janus_AI/<project>/<file>
+#   dump/uploads/<anything>                  → Janus_AI/_uploads/<YYYY-MM-DD>/<file>
 #
 # Side effects:
 #   - Uploads the file to Drive via scripts/gdrive
@@ -23,7 +23,6 @@ set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 GDRIVE="$REPO/scripts/gdrive"
-DRIVE_ROOT="${PORTFOLIO_DRIVE_ROOT:-${JANUS_DRIVE_ROOT:-Pablo_IA}}"
 
 usage() {
   sed -n '2,/^$/p' "$0" | sed 's/^# \{0,1\}//'
@@ -55,28 +54,28 @@ if [ -z "$DEST" ]; then
   case "$REL" in
     outputs/documents/*/*)
       [ -z "$PROJECT" ] && PROJECT="$(echo "$REL" | cut -d/ -f3)"
-      DEST="$DRIVE_ROOT/$PROJECT"
+      DEST="Janus_AI/$PROJECT"
       ;;
     outputs/research/*/*)
       [ -z "$PROJECT" ] && PROJECT="$(echo "$REL" | cut -d/ -f3)"
-      DEST="$DRIVE_ROOT/$PROJECT/research"
+      DEST="Janus_AI/$PROJECT/research"
       ;;
     outputs/screenshots/*/*)
       [ -z "$PROJECT" ] && PROJECT="$(echo "$REL" | cut -d/ -f3)"
-      DEST="$DRIVE_ROOT/_media/$PROJECT/screenshots"
+      DEST="Janus_AI/_media/$PROJECT/screenshots"
       ;;
     outputs/*/*)
       [ -z "$PROJECT" ] && PROJECT="$(echo "$REL" | cut -d/ -f2)"
-      DEST="$DRIVE_ROOT/$PROJECT"
+      DEST="Janus_AI/$PROJECT"
       ;;
     dump/uploads/*)
       DATE="$(date -u +%Y-%m-%d)"
       PROJECT="${PROJECT:-_uploads}"
-      DEST="$DRIVE_ROOT/_uploads/$DATE"
+      DEST="Janus_AI/_uploads/$DATE"
       ;;
     *)
       if [ -n "$PROJECT" ]; then
-        DEST="$DRIVE_ROOT/$PROJECT"
+        DEST="Janus_AI/$PROJECT"
       else
         echo "error: could not infer project from path: $REL" >&2
         echo "pass --project <name> or --as <drive-subpath>" >&2
@@ -106,7 +105,7 @@ if [ -n "$PROJECT" ] && [ "$PROJECT" != "_uploads" ]; then
     {
       echo "# Drive index — $PROJECT"
       echo ""
-      echo "Mirror of \`$DRIVE_ROOT/$PROJECT/\` in Google Drive."
+      echo "Mirror of \`Janus_AI/$PROJECT/\` in Google Drive."
       echo ""
       echo "| Date | File | Drive path | View |"
       echo "|---|---|---|---|"

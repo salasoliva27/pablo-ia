@@ -2,7 +2,7 @@
 ## Role: Application security, vulnerability detection, cross-agent hardening
 
 ### Responsibility
-Ensure every system Pablo builds is secure before it touches real users or real money. This agent owns security review at every stage — architecture, code, deployment, and ongoing. It coordinates with the developer, legal, and deploy agents to embed security into the normal build flow, not bolt it on at the end.
+Ensure every system Jano builds is secure before it touches real users or real money. This agent owns security review at every stage — architecture, code, deployment, and ongoing. It coordinates with the developer, legal, and deploy agents to embed security into the normal build flow, not bolt it on at the end.
 
 This agent is **not optional** for:
 - Any project that collects user data
@@ -74,12 +74,29 @@ Before prod deploy:
 
 ## Per-Project Security Profiles
 
-_(Populated per product as they are spun up. Template entry:)_
+### espacio-bosques
+**Risk level:** HIGH — handles investment flows, blockchain transactions, user funds
+- Smart contract: reentrancy, access control, overflow (Layer 3 mandatory)
+- Supabase: RLS on all user data and investment records
+- Simulation mode gate: `SIMULATION_MODE=true` must be strictly enforced — never accept real funds in dev
+- Legal crossover: CNBV / Ley Fintech implications if real money flows
 
-### [project-name]
-**Risk level:** HIGH / MEDIUM / LOW — (reasoning)
-- (specific controls required)
-- (legal crossover if any)
+### lool-ai
+**Risk level:** HIGH — facial image data = sensitive personal data under LFPDPPP
+- Facial images must never be stored without explicit consent
+- If storing: encryption at rest, retention policy, deletion mechanism
+- Camera access: request only when needed, release immediately after
+- INAI compliance check before any real user data collected
+
+### nutrIA / nutri-ai
+**Risk level:** MEDIUM — health data is sensitive
+- Dietary/health records: RLS required, no sharing without consent
+- Claude API calls: never send identifiable user data in prompts — strip PII first
+
+### freelance-system
+**Risk level:** LOW — internal tooling, no external users
+- Secrets audit still runs before every push
+- No client data stored beyond what's needed for invoicing
 
 ---
 
@@ -93,8 +110,8 @@ The developer or deploy agent must call the security agent for:
 5. **Smart contract change** — Layer 3 on every Solidity edit
 
 The legal agent calls this agent for:
-- Any data-protection question (data at rest, consent mechanisms)
-- Any financial-services regulatory question about transaction security
+- Any LFPDPPP data handling question (data at rest, consent mechanisms)
+- Any Fintech / CNBV question about transaction security
 
 ---
 
@@ -151,4 +168,7 @@ A deploy is **APPROVED** only when all applicable layers pass.
 ---
 
 ## Applies to
-_(Add per-project entries as products are spun up — `run discovery` in chat to personalize.)_
+- [[wiki/espacio-bosques]] — Ley Fintech, real-money flows
+- [[wiki/lool-ai]] — LFPDPPP facial data
+- [[wiki/nutria]] — LFPDPPP health data
+- [[wiki/jp-ai]] — client data handling

@@ -4,64 +4,170 @@ import path from "node:path";
 import os from "node:os";
 import type { WebSocket } from "ws";
 import type { ServerMessage } from "./types.js";
-import { getAgent } from "./agent-registry.js";
+import { getAgent, getAgentAvailability, listAgentAvailability, markAgentAuthFailure } from "./agent-registry.js";
+import { workspaceStateSlug } from "./path-utils.js";
+import { captureSessionSummary } from "./memory-capture.js";
 
-const WORKSPACE_ROOT = process.env.WORKSPACE_ROOT || "/workspaces/pablo-ia";
-const CLAUDE_PROJECT_DIR = WORKSPACE_ROOT.replace(/\//g, "-");
-const SESSIONS_DIR = path.join(
-  os.homedir(),
-  ".claude",
-  "projects",
-  CLAUDE_PROJECT_DIR,
-  "dashboard-sessions",
-);
+const WORKSPACE_ROOT = process.env.WORKSPACE_ROOT || "/workspaces/janus-ia";
+const ENGINE_PROJECT_DIR = workspaceStateSlug(WORKSPACE_ROOT);
+const JANUS_STATE_DIR = path.join(os.homedir(), ".janus", "projects", ENGINE_PROJECT_DIR);
+const LEGACY_CLAUDE_STATE_DIR = path.join(os.homedir(), ".claude", "projects", ENGINE_PROJECT_DIR);
+const SESSIONS_DIR = path.join(JANUS_STATE_DIR, "dashboard-sessions");
+const LEGACY_SESSIONS_DIR = path.join(LEGACY_CLAUDE_STATE_DIR, "dashboard-sessions");
+
+const PROJECT_STATUS_FILES = [
+  { id: "espacio-bosques", file: "wiki/espacio-bosques.md" },
+  { id: "lool-ai", file: "wiki/lool-ai.md" },
+  { id: "nutria", file: "wiki/nutria.md" },
+  { id: "longevite", file: "wiki/longevite.md" },
+  { id: "freelance-system", file: "wiki/freelance-system.md" },
+  { id: "jp-ai", file: "wiki/jp-ai.md" },
+];
+
+type PersistedSession = {
+  sessionId?: string;
+  agentId?: string;
+  activeAgentId?: string;
+  activeModelId?: string;
+  claudeSessionId?: string | null;
+  engineSessionIds?: Record<string, string | null>;
+  engineTurnCounts?: Record<string, number>;
+  conversationLog?: string[];
+  lastPrompt?: string;
+  updatedAt?: number;
+};
 
 function isValidCwd(cwd: string): boolean {
   return cwd.startsWith(WORKSPACE_ROOT);
 }
 
-function sessionFile(sessionId: string, agentId: string = "claude"): string {
+function asksForProjectStatus(prompt: string): boolean {
+  const p = prompt.toLowerCase();
+  const mentionsProjects = /\b(projects?|portfolio|ventures?|janus)\b/.test(p);
+  const asksStatus = /\b(status|state|progress|next|priority|priorities|where\s+(things|we|they)\s+stand|what'?s\s+going\s+on)\b/.test(p);
+  return mentionsProjects && asksStatus;
+}
+
+function extractWikiStatus(raw: string): { status: string | null; nextActions: string[] } {
+  const status = raw.match(/##\s+Status\s*\n+([^\n]+)/)?.[1]?.trim() ?? null;
+  const nextActions = raw
+    .split("\n")
+    .filter((line) => /^\s*[-*]\s*⬜/.test(line))
+    .map((line) => line.replace(/^\s*[-*]\s*⬜\s*/, "").trim())
+    .filter(Boolean)
+    .slice(0, 3);
+  return { status, nextActions };
+}
+
+function buildProjectStatusContext(): string | null {
+  const lines: string[] = [];
+  for (const project of PROJECT_STATUS_FILES) {
+    const file = path.join(WORKSPACE_ROOT, project.file);
+    if (!fs.existsSync(file)) continue;
+    const { status, nextActions } = extractWikiStatus(fs.readFileSync(file, "utf-8"));
+    if (!status && nextActions.length === 0) continue;
+    lines.push(`- ${project.id}: ${status ?? "status not recorded"}`);
+    if (nextActions.length > 0) lines.push(`  Next: ${nextActions.join("; ")}`);
+  }
+  if (lines.length === 0) return null;
+  return [
+    "[Janus project status context]",
+    "The user is asking about current project status. Answer directly from this context, and use PROJECTS.md/wiki files for more detail if needed. Do not answer with a generic readiness acknowledgement.",
+    ...lines,
+    "[End Janus project status context]",
+  ].join("\n");
+}
+
+function enrichProjectStatusPrompt(prompt: string): string {
+  if (!asksForProjectStatus(prompt)) return prompt;
+  const context = buildProjectStatusContext();
+  return context ? `${context}\n\n${prompt}` : prompt;
+}
+
+function sessionFile(sessionId: string): string {
   const safe = sessionId.replace(/[^a-zA-Z0-9_-]/g, "_");
-  // Keep claude's file at the legacy name for backward compatibility; other
-  // agents get their own suffixed file so switching doesn't clobber state.
+  return path.join(SESSIONS_DIR, `${safe}.json`);
+}
+
+function legacySessionFile(sessionId: string, agentId: string = "claude"): string {
+  const safe = sessionId.replace(/[^a-zA-Z0-9_-]/g, "_");
   const suffix = agentId === "claude" ? "" : `-${agentId}`;
-  return path.join(SESSIONS_DIR, `${safe}${suffix}.json`);
+  return path.join(LEGACY_SESSIONS_DIR, `${safe}${suffix}.json`);
+}
+
+function readJsonFile(file: string): PersistedSession | null {
+  try {
+    return JSON.parse(fs.readFileSync(file, "utf-8")) as PersistedSession;
+  } catch {
+    return null;
+  }
+}
+
+function readPersistedSession(sessionId: string, agentId: string): PersistedSession | null {
+  const primary = readJsonFile(sessionFile(sessionId));
+  if (primary) return primary;
+  return readJsonFile(legacySessionFile(sessionId, agentId)) || readJsonFile(legacySessionFile(sessionId, "claude"));
 }
 
 function loadPersistedSession(sessionId: string, agentId: string = "claude"): {
-  claudeSessionId: string | null;
+  engineSessionId: string | null;
+  engineTurnCounts: Record<string, number>;
   conversationLog: string[];
 } {
-  try {
-    const raw = fs.readFileSync(sessionFile(sessionId, agentId), "utf-8");
-    const parsed = JSON.parse(raw);
-    return {
-      claudeSessionId: typeof parsed.claudeSessionId === "string" ? parsed.claudeSessionId : null,
-      conversationLog: Array.isArray(parsed.conversationLog) ? parsed.conversationLog.slice(-50) : [],
-    };
-  } catch {
-    return { claudeSessionId: null, conversationLog: [] };
+  const parsed = readPersistedSession(sessionId, agentId);
+  if (!parsed) return { engineSessionId: null, engineTurnCounts: {}, conversationLog: [] };
+
+  const engineSessionIds = parsed.engineSessionIds || {};
+  if (parsed.claudeSessionId && !engineSessionIds.claude) {
+    engineSessionIds.claude = parsed.claudeSessionId;
   }
+  return {
+    engineSessionId: typeof engineSessionIds[agentId] === "string" ? engineSessionIds[agentId]! : null,
+    engineTurnCounts: parsed.engineTurnCounts && typeof parsed.engineTurnCounts === "object" ? parsed.engineTurnCounts : {},
+    conversationLog: Array.isArray(parsed.conversationLog) ? parsed.conversationLog.slice(-80) : [],
+  };
 }
 
 function persistSession(
   sessionId: string,
-  claudeSessionId: string | null,
+  engineSessionId: string | null,
   conversationLog: string[],
   lastPrompt: string,
   agentId: string = "claude",
+  modelId?: string,
+  options: { markEngineCaughtUp?: boolean } = {},
 ): void {
   try {
     fs.mkdirSync(SESSIONS_DIR, { recursive: true });
+    const existing = readJsonFile(sessionFile(sessionId)) || {};
+    const engineSessionIds: Record<string, string | null> = {
+      ...(existing.engineSessionIds || {}),
+    };
+    if (existing.claudeSessionId && !engineSessionIds.claude) {
+      engineSessionIds.claude = existing.claudeSessionId;
+    }
+    if (engineSessionId) {
+      engineSessionIds[agentId] = engineSessionId;
+    }
+    const engineTurnCounts: Record<string, number> = {
+      ...(existing.engineTurnCounts || {}),
+    };
+    if (options.markEngineCaughtUp) {
+      engineTurnCounts[agentId] = conversationLog.length;
+    }
     const payload = {
       sessionId,
-      agentId,
-      claudeSessionId,
+      activeAgentId: agentId,
+      activeModelId: modelId,
+      engineSessionIds,
+      engineTurnCounts,
+      // Backward-compatible field for old UI/session probes.
+      claudeSessionId: engineSessionIds.claude || null,
       conversationLog: conversationLog.slice(-50),
       lastPrompt: lastPrompt.slice(0, 500),
       updatedAt: Date.now(),
     };
-    fs.writeFileSync(sessionFile(sessionId, agentId), JSON.stringify(payload, null, 2));
+    fs.writeFileSync(sessionFile(sessionId), JSON.stringify(payload, null, 2));
   } catch (err) {
     console.warn(`[session:${sessionId}] failed to persist:`, err);
   }
@@ -69,7 +175,8 @@ function persistSession(
 
 export class ClaudeSession {
   private process: ChildProcess | null = null;
-  private claudeSessionId: string | null = null;
+  private engineSessionId: string | null = null;
+  private engineTurnCounts: Record<string, number> = {};
   private timeout: ReturnType<typeof setTimeout> | null = null;
   private conversationLog: string[] = [];
   private forkContext: string[] | null = null;
@@ -78,6 +185,13 @@ export class ClaudeSession {
   private modelId: string;
   private ws: WebSocket | null;
   private manager: { broadcast: (msg: ServerMessage & { sessionId?: string }) => void } | null;
+  /** Reset to false at the top of each start(); flipped by any error path so
+   * the silent-failure detector in close() can decide whether to also report. */
+  private errorSentThisTurn = false;
+  /** conversationLog.length at the moment of the most recent Supabase capture.
+   * Used to throttle auto-captures to roughly one per `CAPTURE_TURN_INTERVAL`
+   * additional turns, plus a final flush when the process exits. */
+  private lastCapturedTurnCount = 0;
 
   constructor(
     ws: WebSocket | null,
@@ -91,10 +205,11 @@ export class ClaudeSession {
     this.agentId = agentId;
     this.modelId = getAgent(agentId).defaultModel;
     const persisted = loadPersistedSession(sessionId, agentId);
-    this.claudeSessionId = persisted.claudeSessionId;
+    this.engineSessionId = persisted.engineSessionId;
+    this.engineTurnCounts = persisted.engineTurnCounts;
     this.conversationLog = persisted.conversationLog;
-    if (this.claudeSessionId) {
-      console.log(`[session:${sessionId}/${agentId}] resumed id: ${this.claudeSessionId}`);
+    if (this.engineSessionId) {
+      console.log(`[session:${sessionId}/${agentId}] resumed engine id: ${this.engineSessionId}`);
     }
   }
 
@@ -107,11 +222,16 @@ export class ClaudeSession {
   setAgent(agentId: string): void {
     if (agentId === this.agentId) return;
     this.close();
+    const currentLog = this.conversationLog;
     this.agentId = agentId;
     this.modelId = getAgent(agentId).defaultModel;
     const persisted = loadPersistedSession(this.sessionId, agentId);
-    this.claudeSessionId = persisted.claudeSessionId;
-    this.conversationLog = persisted.conversationLog;
+    this.engineSessionId = persisted.engineSessionId;
+    this.engineTurnCounts = persisted.engineTurnCounts;
+    this.conversationLog = currentLog.length >= persisted.conversationLog.length
+      ? currentLog
+      : persisted.conversationLog;
+    persistSession(this.sessionId, this.engineSessionId, this.conversationLog, this.lastPrompt, this.agentId, this.modelId);
     console.log(`[session:${this.sessionId}] switched to agent "${agentId}" (model: ${this.modelId})`);
   }
 
@@ -131,9 +251,9 @@ export class ClaudeSession {
 
   getModel(): string { return this.modelId; }
 
-  /** Whether a persisted Claude session exists (can --continue on next turn) */
+  /** Whether this engine has a persisted native session id */
   hasPersistedSession(): boolean {
-    return this.claudeSessionId !== null;
+    return this.engineSessionId !== null;
   }
 
   /** Set conversation history from parent session (for forks) */
@@ -146,22 +266,83 @@ export class ClaudeSession {
     return [...this.conversationLog];
   }
 
+  private buildEngineHandoff(prompt: string): string {
+    if (this.conversationLog.length === 0) return prompt;
+
+    const knownCount = this.engineSessionId
+      ? (this.engineTurnCounts[this.agentId] ?? 0)
+      : 0;
+    if (this.engineSessionId && knownCount >= this.conversationLog.length) return prompt;
+
+    const handoffEntries = (this.engineSessionId
+      ? this.conversationLog.slice(Math.max(0, knownCount))
+      : this.conversationLog
+    ).slice(-24);
+    if (handoffEntries.length === 0) return prompt;
+
+    let handoff = handoffEntries.join("\n\n");
+    const maxChars = 18_000;
+    if (handoff.length > maxChars) {
+      handoff = handoff.slice(handoff.length - maxChars);
+      handoff = `[truncated]\n${handoff}`;
+    }
+
+    return [
+      "[Janus shared session context]",
+      "You are an interchangeable engine inside the same Janus brain. Claude, Codex, and other CLIs are processors, not separate assistants.",
+      "The following bridge-level conversation happened before this turn and may include work from a different engine. Preserve continuity and use the same repository, memory, MCP, tool, and vault context.",
+      handoff,
+      "[End Janus shared session context]",
+      "",
+      prompt,
+    ].join("\n");
+  }
+
   async start(prompt: string, cwd: string): Promise<void> {
     const safeCwd = isValidCwd(cwd) ? cwd : WORKSPACE_ROOT;
     this.close();
 
     // If this is a forked session, prepend parent context
-    let fullPrompt = prompt;
+    let fullPrompt = enrichProjectStatusPrompt(prompt);
     if (this.forkContext && this.forkContext.length > 0) {
       const contextBlock = this.forkContext.join("\n");
-      fullPrompt = `[Previous conversation context — you are continuing from a forked branch]\n${contextBlock}\n[End of context. Continue from here.]\n\n${prompt}`;
+      fullPrompt = `[Previous conversation context — you are continuing from a forked branch]\n${contextBlock}\n[End of context. Continue from here.]\n\n${fullPrompt}`;
       this.forkContext = null; // Only use once
     }
+    fullPrompt = this.buildEngineHandoff(fullPrompt);
 
     const adapter = getAgent(this.agentId);
+    const availability = getAgentAvailability(this.agentId);
+    if (!availability.available) {
+      const fallback = listAgentAvailability().find(a => a.available && a.id !== this.agentId);
+      if (fallback) {
+        const reason = (availability.reason || "auth check failed").replace(/\.+\s*$/, "");
+        this.send({
+          type: "error",
+          message: `${adapter.label} is unavailable: ${reason}. Switching to ${fallback.label}.`,
+          sessionId: this.sessionId,
+        });
+        this.setAgent(fallback.id);
+        await this.start(prompt, cwd);
+        return;
+      }
+      this.send({
+        type: "error",
+        message: availability.reason || `${adapter.label} is not available on this machine.`,
+        sessionId: this.sessionId,
+      });
+      this.send({
+        type: "session_end",
+        cost: undefined,
+        usage: undefined,
+        sessionId: this.sessionId,
+      });
+      return;
+    }
+
     const spawnSpec = adapter.buildSpawn({
       prompt: fullPrompt,
-      continueId: this.claudeSessionId,
+      continueId: this.engineSessionId,
       modelId: this.modelId,
     });
 
@@ -171,33 +352,68 @@ export class ClaudeSession {
     for (const key of spawnSpec.envUnset || []) { delete childEnv[key]; }
     if (spawnSpec.envPatch) { Object.assign(childEnv, spawnSpec.envPatch); }
 
-    // Pre-flight: missing-credential guard for adapters that need an API key.
-    if (adapter.envVarRequired && !childEnv[adapter.envVarRequired]) {
+    // Pre-flight: missing-credential guard for adapters that strictly need an
+    // env key. Codex can also use `codex login`, so env absence is not fatal.
+    if (adapter.envVarRequired && adapter.id !== "codex" && !childEnv[adapter.envVarRequired]) {
       this.send({ type: "error", message: `${adapter.label} requires ${adapter.envVarRequired} — open the Key Vault to add it.`, sessionId: this.sessionId });
+      this.send({ type: "session_end", cost: undefined, usage: undefined, sessionId: this.sessionId });
       return;
     }
 
     this.send({
       type: "session_start",
-      auth: adapter.authMethod === "oauth" ? "subscription" : "api_key",
+      auth: (spawnSpec.authMethod ?? adapter.authMethod) === "oauth" ? "subscription" : "api_key",
       sessionId: this.sessionId,
     });
 
     // Log user message
-    this.conversationLog.push(`User: ${prompt}`);
+    this.conversationLog.push(`User (${this.agentId}/${this.modelId}): ${prompt}`);
     this.lastPrompt = prompt;
     // Persist immediately so a crash mid-turn doesn't lose the user's message
-    persistSession(this.sessionId, this.claudeSessionId, this.conversationLog, prompt, this.agentId);
+    persistSession(this.sessionId, this.engineSessionId, this.conversationLog, prompt, this.agentId, this.modelId);
 
-    const proc = spawn(spawnSpec.cli, spawnSpec.args, {
+    // Windows + shell:true is required to resolve .cmd / .ps1 npm shims on
+    // PATH, but Node's spawn does NOT escape args under shell:true (see
+    // DEP0190). cmd.exe then word-splits any unquoted whitespace, so a prompt
+    // like "Reply with exactly OK" reaches the CLI as five separate args.
+    // Claude tolerates extra positionals; Codex strict-parses and errors with
+    // `unexpected argument 'with' found`. Pre-quote per-arg here so the shell
+    // sees one token per array entry.
+    const winArgs = process.platform === "win32"
+      ? spawnSpec.args.map((a) => /[\s"&|<>^()%!]/.test(a) ? `"${a.replace(/"/g, '\\"')}"` : a)
+      : spawnSpec.args;
+    // If the adapter wants the prompt piped via stdin (claude/codex do — see
+    // AgentSpawn.stdinInput for why), open stdin as a pipe so we can write to
+    // it. Otherwise leave it ignored to match the legacy behavior.
+    const wantsStdin = typeof spawnSpec.stdinInput === "string";
+    const proc = spawn(spawnSpec.cli, winArgs, {
       cwd: safeCwd,
-      stdio: ["ignore", "pipe", "pipe"],
+      stdio: [wantsStdin ? "pipe" : "ignore", "pipe", "pipe"],
       env: childEnv,
+      shell: process.platform === "win32",
     });
+
+    if (wantsStdin && proc.stdin) {
+      proc.stdin.on("error", (err) => {
+        // Child may have already exited (auth failure, etc.) — swallow EPIPE
+        // and let the close handler surface the actual cause.
+        console.warn(`[session:${this.sessionId}/${this.agentId}] stdin write error:`, err.message);
+      });
+      try {
+        proc.stdin.end(spawnSpec.stdinInput!, "utf8");
+      } catch (err) {
+        console.warn(`[session:${this.sessionId}/${this.agentId}] stdin end error:`, err);
+      }
+    }
 
     this.process = proc;
     let buffer = "";
     let assistantBuffer = "";
+    // Reset per-turn error flag — handleStreamEvent and stderr both flip it.
+    this.errorSentThisTurn = false;
+    // Snapshot the resume id we're trying to use this turn — if the process
+    // exits silently we'll clear it so the next attempt starts fresh.
+    const resumedFrom: string | null = this.engineSessionId;
     const isStreamJson = spawnSpec.outputFormat === "stream-json";
     const isCodexJson = spawnSpec.outputFormat === "codex-json";
 
@@ -250,7 +466,6 @@ export class ClaudeSession {
     let stderrErrorCount = 0;
     let stderrErrorWindowStart = 0;
     const FATAL_STDERR_PATTERNS = [
-      /HTTP\s+(4\d\d|5\d\d)/,                    // any 4xx/5xx from an upstream
       /\b401\s+Unauthorized\b/i,
       /\b403\s+Forbidden\b/i,
       /authentication.*(failed|required)/i,
@@ -265,10 +480,17 @@ export class ClaudeSession {
       const text = chunk.toString().trim();
       if (!text) return;
       console.log(`[session:${this.sessionId}:stderr]`, text);
+      const isKnownBenign = [
+        /Reading additional input from stdin/i,
+        /Shell snapshot validation failed/i,
+        /rmcp::transport::streamable_http_client: fail to delete session/i,
+      ].some(re => re.test(text));
+      if (isKnownBenign) return;
       const isFatal = FATAL_STDERR_PATTERNS.some(re => re.test(text));
       if (!isFatal) return; // informational log — don't promote to chat error
 
       this.send({ type: "error", message: text, sessionId: this.sessionId });
+      this.errorSentThisTurn = true;
 
       // Retry-loop guard: if the same fatal error repeats 3 times within 5s,
       // the CLI is stuck. Kill it and let close-handler emit session_end.
@@ -319,11 +541,37 @@ export class ClaudeSession {
 
       // Log assistant response
       if (assistantBuffer) {
-        this.conversationLog.push(`Assistant: ${assistantBuffer}`);
+        this.conversationLog.push(`Assistant (${this.agentId}/${this.modelId}): ${assistantBuffer}`);
+      }
+
+      // Silent-failure recovery: process exited with no assistant text and no
+      // fatal stderr already surfaced. Most common cause is a stale --resume
+      // session id (Claude rejects it but exits 0 with no output). Clear the
+      // persisted engine session id so the next attempt spawns fresh, and tell
+      // the user what happened so they don't sit watching a dead spinner.
+      if (!assistantBuffer.trim() && !this.errorSentThisTurn) {
+        const adapterLabel = getAgent(this.agentId).label;
+        const usedResume = !!resumedFrom;
+        const reason = usedResume
+          ? `${adapterLabel} returned no output. The engine's resume id may be stale — clearing it. Send your message again and it will spawn fresh.`
+          : `${adapterLabel} exited (code ${code}) with no output. Check the bridge logs for details.`;
+        this.send({ type: "error", message: reason, sessionId: this.sessionId });
+        if (usedResume) {
+          this.engineSessionId = null;
+        }
       }
 
       // Persist after the turn completes
-      persistSession(this.sessionId, this.claudeSessionId, this.conversationLog, this.lastPrompt, this.agentId);
+      this.engineTurnCounts[this.agentId] = this.conversationLog.length;
+      persistSession(this.sessionId, this.engineSessionId, this.conversationLog, this.lastPrompt, this.agentId, this.modelId, {
+        markEngineCaughtUp: true,
+      });
+
+      // Auto-capture to Supabase memories on a turn-count milestone — every 5
+      // turns we snapshot the conversation tail so a closed tab / crashed
+      // bridge / forgotten /evolve cycle can't lose the work. Background
+      // promise: never blocks session_end emission.
+      this.maybeCaptureMemory("milestone");
 
       this.send({
         type: "session_end",
@@ -337,6 +585,10 @@ export class ClaudeSession {
       console.error(`[session:${this.sessionId}] spawn error:`, err.message);
       this.clearTimeout();
       this.send({ type: "error", message: err.message, sessionId: this.sessionId });
+      this.errorSentThisTurn = true;
+      // Flush whatever conversation we have so the crash doesn't strand it.
+      this.maybeCaptureMemory("exit");
+      this.send({ type: "session_end", cost: undefined, usage: undefined, sessionId: this.sessionId });
       this.process = null;
     });
   }
@@ -348,6 +600,29 @@ export class ClaudeSession {
       proc.kill("SIGTERM");
       this.send({ type: "error", message: "Session timed out (no output for 120s)", sessionId: this.sessionId });
     }, 120_000);
+  }
+
+  /** Snapshot the recent conversation tail to Supabase memories. Called
+   *  every CAPTURE_TURN_INTERVAL turns and on hard exits — fire-and-forget,
+   *  never blocks the session lifecycle. Reason is just for logging. */
+  private maybeCaptureMemory(reason: "milestone" | "exit"): void {
+    const CAPTURE_TURN_INTERVAL = 5;
+    const turns = this.conversationLog.length;
+    const delta = turns - this.lastCapturedTurnCount;
+    if (reason === "milestone" && delta < CAPTURE_TURN_INTERVAL) return;
+    if (turns === 0) return;
+    this.lastCapturedTurnCount = turns;
+    const workspace = path.basename(process.env.WORKSPACE_ROOT || WORKSPACE_ROOT);
+    captureSessionSummary({
+      workspace,
+      sessionId: this.sessionId,
+      conversationLog: this.conversationLog,
+      toolsUsed: [this.agentId],
+    }).then((r) => {
+      if (!r.ok) console.error(`[session:${this.sessionId}] memory capture (${reason}) failed:`, r.error);
+    }).catch((err) => {
+      console.error(`[session:${this.sessionId}] memory capture (${reason}) threw:`, err?.message ?? err);
+    });
   }
 
   private clearTimeout() {
@@ -364,9 +639,9 @@ export class ClaudeSession {
         // (`hook_started` / `hook_progress` / `hook_response`) carry their own
         // hook UUID, which would corrupt --resume on the next turn.
         if (event.subtype === "init" && event.session_id) {
-          this.claudeSessionId = event.session_id;
-          console.log(`[session:${this.sessionId}/${this.agentId}] cli id:`, this.claudeSessionId);
-          persistSession(this.sessionId, this.claudeSessionId, this.conversationLog, this.lastPrompt, this.agentId);
+          this.engineSessionId = event.session_id;
+          console.log(`[session:${this.sessionId}/${this.agentId}] engine id:`, this.engineSessionId);
+          persistSession(this.sessionId, this.engineSessionId, this.conversationLog, this.lastPrompt, this.agentId, this.modelId);
         }
         return null;
       }
@@ -396,9 +671,27 @@ export class ClaudeSession {
         return text || null;
       }
 
+      case "content_block_delta": {
+        const text = event.delta?.type === "text_delta" && typeof event.delta.text === "string"
+          ? event.delta.text
+          : null;
+        if (text) this.send({ type: "claude_message", message: text, sessionId: this.sessionId });
+        return text;
+      }
+
       case "result": {
         if (event.session_id) {
-          this.claudeSessionId = event.session_id;
+          this.engineSessionId = event.session_id;
+        }
+        if (event.is_error && (
+          event.api_error_status === 401 ||
+          event.error === "authentication_failed" ||
+          /authentication/i.test(String(event.result || ""))
+        )) {
+          const reason = `${getAgent(this.agentId).label} authentication failed. Reconnect this engine in the CLI or use another available engine.`;
+          markAgentAuthFailure(this.agentId, reason);
+          this.send({ type: "error", message: reason, sessionId: this.sessionId });
+          this.errorSentThisTurn = true;
         }
         return null;
       }
@@ -428,9 +721,9 @@ export class ClaudeSession {
     switch (event.type) {
       case "thread.started": {
         if (event.thread_id) {
-          this.claudeSessionId = event.thread_id;
-          console.log(`[session:${this.sessionId}/${this.agentId}] codex thread:`, this.claudeSessionId);
-          persistSession(this.sessionId, this.claudeSessionId, this.conversationLog, this.lastPrompt, this.agentId);
+          this.engineSessionId = event.thread_id;
+          console.log(`[session:${this.sessionId}/${this.agentId}] codex thread:`, this.engineSessionId);
+          persistSession(this.sessionId, this.engineSessionId, this.conversationLog, this.lastPrompt, this.agentId, this.modelId);
         }
         return null;
       }
@@ -456,6 +749,25 @@ export class ClaudeSession {
             timestamp: Date.now(),
           });
         }
+        if (typeof item.type === "string" && (item.type.includes("mcp") || item.type.includes("tool"))) {
+          const server = item.server_name || item.server || item.mcp_server_name;
+          const name = item.tool_name || item.name || item.tool || item.type;
+          const toolName = server && name ? `mcp__${server}__${name}` : String(name || item.type);
+          this.send({
+            type: "tool_event",
+            toolName,
+            input: item.arguments || item.args || item.input || item.params || {},
+            sessionId: this.sessionId,
+            timestamp: Date.now(),
+          });
+        }
+        return null;
+      }
+      case "turn.failed":
+      case "error": {
+        const message = event.message || event.error || event.reason || "Codex turn failed";
+        this.send({ type: "error", message: typeof message === "string" ? message : JSON.stringify(message), sessionId: this.sessionId });
+        this.errorSentThisTurn = true;
         return null;
       }
       case "turn.completed":
