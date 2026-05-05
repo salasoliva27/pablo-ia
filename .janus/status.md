@@ -4,9 +4,9 @@ stage: dev
 phase: ""
 phaseProgress: 0
 summary: "Personal AI brain for Pablo — initialized from janus-ia template"
-lastSyncedAt: "2026-04-30T19:01:15.564Z"
-lastSyncedCommit: "7f02833"
-lastSyncedCommitMessage: "fix(blank-slate): scrub Jano-specific identifiers from template"
+lastSyncedAt: "2026-05-05T20:00:05.312Z"
+lastSyncedCommit: "382d978"
+lastSyncedCommitMessage: "feat(brand): add Pablo AI.cmd (per-instance launcher, JANUS_BRAND=Pablo AI)"
 ---
 
 ## Next Steps
