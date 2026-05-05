@@ -246,7 +246,7 @@ const HTML = `<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pablo IA — Brain Viewer</title>
+<title>Janus IA — Brain Viewer</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -384,7 +384,7 @@ const HTML = `<!DOCTYPE html>
 <body>
 
 <div id="hud">
-  <h1>⬡ Pablo IA Brain</h1>
+  <h1>⬡ Janus IA Brain</h1>
   <div class="stats" id="stats">Loading...</div>
   <div class="stats"><span class="live-dot"></span>Live sync</div>
 </div>
@@ -727,62 +727,87 @@ const COLOR = {
 };
 
 const data = {
-  name: "PABLO IA", type:"brain",
-  desc:"Master orchestrator — routes every request, coordinates projects, holds legal/financial/tech context",
+  name: "JANUS IA", type:"brain",
+  desc:"Master orchestrator of Jano's venture portfolio — routes every request, coordinates all projects, holds legal/financial/tech context",
   children: [
     {
       name:"AGENTS", type:"agent", desc:"Specialized behavioral agents — each reads its own file before acting",
       children:[
         {name:"Developer", type:"agent", desc:"Architecture, code, builds — checks GitHub + Context7 + Playwright"},
         {name:"UX / Verify", type:"agent", desc:"5-layer visual verification protocol — mandatory before every feature is marked done"},
-        {name:"Legal", type:"agent", desc:"Compliance and contract review — surfaces blockers early"},
+        {name:"Legal", type:"agent", desc:"LFPDPPP, Ley Fintech, SAT/CFDI, contract review — surfaces blockers early"},
         {name:"Financial", type:"agent", desc:"P&L, runway, portfolio burn — reads Google Sheets via MCP"},
-        {name:"Research", type:"agent", desc:"Market sizing, competitor analysis, Brave Search"},
+        {name:"Research", type:"agent", desc:"Market sizing, competitor analysis, Brave Search + Firecrawl"},
         {name:"Security", type:"agent", desc:"OWASP review, pre-deploy gates, auth audits, hardening"},
         {name:"Intake", type:"agent", desc:"New idea → 5-phase validation: understand, validate, conflict-check, structure, spin up"},
         {name:"Oversight", type:"agent", desc:"Product coherence, end-to-end gap detection, pre-demo launch readiness"},
-        {name:"Marketing", type:"agent", desc:"Brand, content, campaigns, email, video, competitor benchmarking"},
+        {name:"Marketing", type:"agent", desc:"Brand, content, campaigns, email, video (Remotion), competitor benchmarking"},
         {name:"Trickle-down", type:"agent", desc:"Cross-project proposals — evaluates ADOPT/ADAPT/REJECT per project context"},
         {name:"Deploy", type:"agent", desc:"dev→UAT→prod pipeline, tagging, drift detection"},
         {name:"Calendar", type:"agent", desc:"Google Calendar sync, schedule conflict detection, capacity awareness"},
+        {name:"Nutrition", type:"agent", desc:"Clinical nutrition intelligence — powers nutrIA's conversation layer"},
       ]
     },
     {
-      name:"PROJECTS", type:"project", desc:"No projects declared yet — run intake to add the first one",
-      children:[]
+      name:"PROJECTS", type:"project", desc:"7 active products across different stages and interaction models",
+      children:[
+        {name:"espacio-bosques", type:"project", desc:"Community funding DAO for Bosques de las Lomas. MXN via Bitso, AI blueprint, milestone escrow, governance voting. POC complete — demo-ready."},
+        {name:"lool-ai", type:"project", desc:"B2B virtual try-on widget for Mexican optical SMEs. MediaPipe face mesh, real-time glasses overlay, MXN pricing (~1,200/mo). Core widget done."},
+        {name:"nutrIA", type:"project", desc:"Clinical nutrition AI — React PWA + embeddable widget. Streams via Claude API. Embeds on Longevité site. Supabase + Netlify deploy pending."},
+        {name:"longevite", type:"project", desc:"Static website for Susana's functional medicine IV clinic in Lomas Virreyes. GSAP animations, bilingual, real clinic photos. Ready to deploy."},
+        {name:"mercado-bot", type:"project", desc:"Prediction market trading bot — dashboard with Kelly Criterion, P&L charts, signals. SIMULATION_MODE hardcoded (US entity required for live trading)."},
+        {name:"jp-ai (Ozum)", type:"project", desc:"AI operating system for Ozum corporate events agency. 10 specialized agents, CRM Phase 1 pending, collective memory via Supabase."},
+        {name:"freelance-system", type:"project", desc:"Automation pipeline for Upwork/Fiverr leads. Operational. SAT/CFDI invoicing, portfolio matching, positioning strategy."},
+      ]
     },
     {
-      name:"INFRASTRUCTURE", type:"infra", desc:"Shared services available — wire keys via the Credentials panel",
+      name:"CONCEPTS", type:"concept", desc:"Cross-project patterns that compound — the abstraction layer of the brain",
       children:[
-        {name:"Anthropic API", type:"infra", desc:"Claude API — model and key configurable via dashboard."},
-        {name:"Supabase", type:"infra", desc:"Optional auth + DB. Connect once, then prefix tables per project."},
-        {name:"GitHub", type:"infra", desc:"All project repos. The Credentials panel can store a cross-repo PAT."},
-        {name:"Dotfiles (optional)", type:"infra", desc:"If you maintain one, the dashboard syncs keys there. Otherwise it writes to the repo's local .env."},
+        {name:"Simulation-First Dev", type:"concept", desc:"Build full sim layer before any real infra. Used in espacio-bosques + mercado-bot. Cuts demo time 80%."},
+        {name:"Test Harness First", type:"concept", desc:"/api/test/* endpoints + test-api.sh before any UI. Found 5 silent bugs in espacio-bosques that visual testing missed."},
+        {name:"CDMX Neighborhood Targeting", type:"concept", desc:"Colonia-level targeting beats 'Mexico City' for local businesses. Polanco (lool-ai), Lomas (longevite, espacio-bosques)."},
+        {name:"Spanish-First MX", type:"concept", desc:"All Mexican products: Spanish-first UI, MXN pricing, RFC/CFDI-aware. Non-negotiable before real user testing."},
+        {name:"Ley Fintech via IFPE", type:"concept", desc:"Partner with Bitso (licensed IFPE) instead of self-licensing (18+ months). espacio-bosques pattern to copy for any MXN product."},
+        {name:"Supabase Shared Instance", type:"concept", desc:"One Supabase project, table-prefix namespacing per product. Reduces cost + ops overhead across portfolio."},
+      ]
+    },
+    {
+      name:"INFRASTRUCTURE", type:"infra", desc:"Shared services used across all projects",
+      children:[
+        {name:"Supabase", type:"infra", desc:"Single instance (rycybujjedtofghigyxm). eb_, nutria_, janus_, ozum_ table prefixes. Auth + DB for all products."},
+        {name:"Anthropic API", type:"infra", desc:"claude-opus-4-7 standard across all projects and dashboards."},
+        {name:"Bitso Sandbox", type:"infra", desc:"MXN→ETH quote + payment rails for espacio-bosques. Licensed IFPE — the Ley Fintech solution."},
+        {name:"GitHub", type:"infra", desc:"All repos under salasoliva27. venture-os is the brain repo. Product repos are separate."},
+        {name:"Dotfiles", type:"infra", desc:"salasoliva27/dotfiles — single source for all API keys. Auto-loaded into every Codespace. Never store secrets in product repos."},
+        {name:"Cloudflare R2", type:"infra", desc:"janus-media bucket for AI-generated images, videos, campaign media for lool-ai and longevite."},
       ]
     },
     {
       name:"TOOLS / MCPs", type:"tool", desc:"MCP servers and tools available in every session",
       children:[
         {name:"Playwright MCP", type:"tool", desc:"Mandatory UI verification — 5-step protocol: curl → seed → E2E → network requests → screenshot."},
-        {name:"Obsidian Vault MCP", type:"tool", desc:"Read/write the knowledge vault. Powers vault plasticity — patches notes mid-session as insights emerge."},
-        {name:"Knowledge Graph MCP", type:"tool", desc:"Graph traversal on vault [[links]]. Finds cross-project connections."},
+        {name:"Obsidian Vault MCP", type:"tool", desc:"Read/write the knowledge vault. 14 tools. Powers vault plasticity — patches notes mid-session as insights emerge."},
+        {name:"Knowledge Graph MCP", type:"tool", desc:"Graph traversal on vault [[links]]. kg_search, kg_paths, kg_common — finds cross-project connections."},
         {name:"GitHub MCP", type:"tool", desc:"Drift detection, PR creation, repo search, file ops across all repos."},
         {name:"Brave Search MCP", type:"tool", desc:"Market research, competitor analysis, regulatory lookups."},
-        {name:"Context7 MCP", type:"tool", desc:"Live library docs. Always use before writing library code."},
-        {name:"Sequential Thinking MCP", type:"tool", desc:"Mandatory THINK FIRST step for any non-trivial task."},
+        {name:"Context7 MCP", type:"tool", desc:"Live library docs — React, Supabase, Prisma, Anthropic SDK. Always use before writing library code."},
+        {name:"Sequential Thinking MCP", type:"tool", desc:"Mandatory THINK FIRST step for any non-trivial task. Prevents context rot and wrong-order execution."},
+        {name:"Magic MCP", type:"tool", desc:"Production-ready UI component generation matching existing design system."},
+        {name:"Gmail MCP", type:"tool", desc:"Read email for project context extraction, field notes from lool-ai store visits."},
+        {name:"Google Calendar MCP", type:"tool", desc:"Two-way sync, conflict detection, capacity awareness for post-3pm CDMX schedule."},
       ]
     },
     {
       name:"MODULES", type:"module", desc:"Template building blocks — projects declare which they need at intake",
       children:[
-        {name:"validation", type:"module", desc:"Market sizing, competitor analysis, go/reframe/kill decision."},
-        {name:"build", type:"module", desc:"Architecture, code, test harness, deploy pipeline."},
-        {name:"gtm", type:"module", desc:"User/client acquisition strategy."},
-        {name:"campaigns", type:"module", desc:"Growth-stage marketing, content, outreach."},
-        {name:"performance", type:"module", desc:"Every project tracks its own metrics."},
-        {name:"learnings", type:"module", desc:"Every project feeds the learning database."},
+        {name:"validation", type:"module", desc:"Market sizing, competitor analysis, go/reframe/kill decision. Skip only for existing businesses."},
+        {name:"build", type:"module", desc:"Architecture, code, test harness, deploy pipeline. All active projects have this."},
+        {name:"gtm", type:"module", desc:"User/client acquisition strategy. lool-ai + freelance-system active."},
+        {name:"campaigns", type:"module", desc:"Growth-stage marketing, content, outreach. Not yet active for any project."},
+        {name:"performance", type:"module", desc:"Every project tracks its own metrics. Google Sheets via MCP."},
+        {name:"learnings", type:"module", desc:"Every project feeds the learning database — patterns, technical reality, GTM outcomes."},
         {name:"financial", type:"module", desc:"P&L, runway, spend tracking for every project."},
-        {name:"legal", type:"module", desc:"Compliance and contracts where regulation applies."},
+        {name:"legal", type:"module", desc:"LFPDPPP, Ley Fintech, SAT/CFDI, contracts. Active for lool-ai + espacio-bosques."},
       ]
     },
   ]
@@ -862,7 +887,7 @@ node.append('text')
 </html>`;
 
 app.listen(PORT, () => {
-  console.log(`\n⬡  Pablo IA Brain Viewer`);
+  console.log(`\n⬡  Janus IA Brain Viewer`);
   console.log(`   http://localhost:${PORT}`);
   console.log(`   Vault: ${VAULT}\n`);
 });

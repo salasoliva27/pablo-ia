@@ -1,6 +1,6 @@
-# TOOLS REGISTRY
-## Pablo IA — Dynamic Discovery
-## Last updated: 2026-04-22
+make sure that tool is added to page # TOOLS REGISTRY
+## Janus IA — Dynamic Discovery
+## Last updated: 2026-03-25
 
 ---
 
@@ -12,9 +12,9 @@ The tool and skill ecosystems grow by thousands per month. No static list stays 
 
 ## THE DIFFERENCE: MCP TOOLS vs SKILLS
 
-**MCP Tools** give Claude access to external systems at runtime — GitHub, Gmail, databases, APIs. Claude uses them to *act on the world*.
+**MCP Tools** give the active engine access to external systems at runtime — GitHub, Gmail, databases, APIs. The engine uses them to *act on the world*.
 
-**Skills (SKILL.md)** teach Claude *how to do something* before a task starts — domain expertise, workflows, design systems, security patterns. Like a recipe Claude reads before cooking.
+**Skills (SKILL.md)** teach the active engine *how to do something* before a task starts — domain expertise, workflows, design systems, security patterns. Like a recipe the engine reads before cooking.
 
 They compose: Sentry's code review skill defines the PR analysis workflow; the Sentry MCP fetches the live error data. MCP is the kitchen. The skill is the recipe.
 
@@ -30,11 +30,13 @@ Read `tools/registry.md`:
 - **BAD** → explain why, search for alternatives
 - **UNTESTED** → proceed to Step 2
 
-### Step 2 — Use Claude Code's built-in MCP Tool Search
+### Step 2 — Use an MCP registry search
 ```bash
 claude mcp search "[capability]"
 ```
-This searches the MCP registry with lazy loading — up to 95% context savings.
+Claude Code's built-in search is one adapter path. If Codex or another engine
+has the active context, use any equivalent registry search and still add the
+result to `.mcp.json`.
 
 ### Step 3 — Search public repositories
 ```
@@ -52,7 +54,7 @@ Key directories:
 Stars > 500 preferred · official company repo accepted at any star count · last commit < 6 months · README with install command · not in BAD list
 Reference data: mcpmarket.com/leaderboards (star counts) · mcpmanager.ai/blog/most-popular-mcp-servers (search volume)
 
-### Step 5 — Propose to Pablo
+### Step 5 — Propose to Jano
 1-3 options max, top pick with reasoning, exact install command, env var needed. Never add to `.mcp.json` without confirmation.
 
 ### Step 6 — Write feedback
@@ -81,7 +83,7 @@ find_helpful_skills("[describe the task]")
 
 ### Step 3 — Search public repositories
 ```
-"[capability] SKILL.md Claude Code GitHub 2026"
+"[capability] SKILL.md coding agent GitHub 2026"
 ```
 Key directories:
 - github.com/travisvn/awesome-claude-skills
@@ -148,7 +150,11 @@ npx remotion render        # renders to out/ locally
 ```
 
 **Where it fits in the portfolio:**
-_(Personalize during discovery — list which projects will use video generation.)_
+- `longevite-therapeutics` — therapy explainer reels, clinic promos, Instagram content
+- `espacio-bosques` — personalized project update videos for community investors
+- `lool-ai` — product demo videos for optical store pitches
+- `freelance-system` — "AI Video Generation" as a new service type (~$500–2,000/project)
+- New standalone project — vertical video SaaS (see PROJECTS.md when ready)
 
 **Cost:** Free (local) · $0.01/render-minute (Lambda — deferred, AWS subscription not active)
 
@@ -196,17 +202,17 @@ _(Personalize during discovery — list which projects will use video generation
 ```
 Code, markdown, CSV, configs → GitHub (project repo)
 Research docs, proposals → GitHub (/validation or /gtm)
-Client deliverables, PDFs → Google Drive "/Pablo_AI/[project]/"  (via scripts/gdrive)
-AI-generated images/video (review) → Google Drive "/Pablo_AI/_media/[project]/"
-Public-facing media (CDN URLs) → Cloudflare R2 /pablo-media/[project]/
+Client deliverables, PDFs → Google Drive "/Janus_AI/[project]/"  (via scripts/gdrive)
+AI-generated images/video (review) → Google Drive "/Janus_AI/_media/[project]/"
+Public-facing media (CDN URLs) → Cloudflare R2 /janus-media/[project]/
 ```
 
 ---
 
 ## GOOGLE CALENDAR RULES
 
-_(Personalize during discovery — declare Pablo's available hours and buffer rules.)_
-
+- Available after 3pm weekdays, weekends flexible
+- 30 min buffer between project context switches
 - Read calendar before scheduling anything
 - Flag when estimated timeline doesn't fit available hours
 
@@ -217,4 +223,4 @@ _(Personalize during discovery — declare Pablo's available hours and buffer ru
 1. Search Gmail for threads related to the project
 2. Extract: last message date, status, commitments, next action
 3. Update the project's GTM tracker
-4. Flag any threads needing Pablo's response
+4. Flag any threads needing Jano's response

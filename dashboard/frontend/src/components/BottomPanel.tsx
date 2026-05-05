@@ -2,12 +2,16 @@ import { useState, useRef, useEffect } from 'react';
 import { useDashboard } from '../store';
 import { CalendarPanel } from './CalendarPanel';
 import { SQLConsole } from './SQLConsole';
+import { TicketsPanel } from './TicketsPanel';
+import { TalendPanel } from './TalendPanel';
 
-type Tab = 'timeline' | 'calendar' | 'learnings' | 'terminal' | 'workspace' | 'console';
+type Tab = 'timeline' | 'calendar' | 'tickets' | 'talend' | 'learnings' | 'terminal' | 'workspace' | 'console';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'timeline', label: 'Timeline' },
   { id: 'calendar', label: 'Calendar' },
+  { id: 'tickets', label: 'Tickets' },
+  { id: 'talend', label: 'Talend' },
   { id: 'learnings', label: 'Learnings' },
   { id: 'terminal', label: 'Terminal' },
   { id: 'workspace', label: 'Workspace' },
@@ -362,6 +366,8 @@ export function BottomPanel() {
   const content: Record<Tab, React.ReactNode> = {
     timeline: <SessionTimeline />,
     calendar: <CalendarPanel />,
+    tickets: <TicketsPanel />,
+    talend: <TalendPanel />,
     learnings: <LearningFeed />,
     terminal: <TerminalPreview />,
     workspace: <WorkspacePreview />,

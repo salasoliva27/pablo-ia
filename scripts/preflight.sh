@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════
-# PABLO IA — SESSION PRE-FLIGHT CHECK
+# JANUS IA — SESSION PRE-FLIGHT CHECK
 # Runs automatically on every session start via Claude Code hook.
 # Output is injected into the AI's context BEFORE it responds.
 # ═══════════════════════════════════════════════════════════════
@@ -8,18 +8,18 @@
 set -euo pipefail
 
 # Workspace-aware: default to this script's repo, but honor WORKSPACE_ROOT so
-# the same preflight can run in any fork.
+# the same preflight can run in any janus-fork.
 SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 WORKSPACE="${WORKSPACE_ROOT:-$SCRIPT_DIR}"
 WORKSPACE_NAME="$(basename "$WORKSPACE")"
-CLAUDE_PROJECT_DIR="$(echo "$WORKSPACE" | sed 's|/|-|g')"
+CLAUDE_PROJECT_DIR="$(echo "$WORKSPACE" | sed 's|[/:]|-|g')"
 MEMORY_DIR="$HOME/.claude/projects/$CLAUDE_PROJECT_DIR/memory"
 SUPABASE_URL="${SUPABASE_URL:-}"
 SUPABASE_KEY="${SUPABASE_SERVICE_ROLE_KEY:-}"
 
 echo ""
 echo "╔══════════════════════════════════════════════════════════╗"
-echo "║           PABLO IA — SESSION PRE-FLIGHT CHECK           ║"
+echo "║           JANUS IA — SESSION PRE-FLIGHT CHECK           ║"
 echo "╚══════════════════════════════════════════════════════════╝"
 echo ""
 
@@ -108,7 +108,7 @@ except Exception as e:
     MISSING)
       echo "  Session anchor: ✗ NO most-recent-context MEMORY EXISTS"
       echo "    → The previous session did NOT write a handoff. Context is lost."
-      echo "    → Do NOT treat this as normal. Acknowledge the gap to Pablo."
+      echo "    → Do NOT treat this as normal. Acknowledge the gap to Jano."
       ;;
     FRESH:*)
       HOURS="${ANCHOR_AGE#FRESH:}"
@@ -134,17 +134,15 @@ LEARNING_COUNT=$(find "$WORKSPACE/learnings" -name "*.md" 2>/dev/null | wc -l)
 AGENT_COUNT=$(find "$WORKSPACE/agents" -name "*.md" 2>/dev/null | wc -l)
 echo "  Concepts: ${CONCEPT_COUNT} | Learnings: ${LEARNING_COUNT} | Agents: ${AGENT_COUNT}"
 
-# ─── Skill integrity check ─────────────────────────────────────
-# skills/registry.md claims INSTALLED — verify ~/.claude/skills/ isn't empty.
-# Codespace ephemerality repeatedly wipes installs and the registry doesn't know.
-mkdir -p "$HOME/.claude/skills" 2>/dev/null || true
-SKILL_DIR_COUNT=$( { find "$HOME/.claude/skills" -maxdepth 1 -mindepth 1 -type d 2>/dev/null || true; } | wc -l)
-REGISTRY_CLAIMS=$(grep -c "^### .* INSTALLED\|INSTALLED 2026" "$WORKSPACE/skills/registry.md" 2>/dev/null || echo 0)
-if [ "${REGISTRY_CLAIMS:-0}" -gt 0 ] && [ "${SKILL_DIR_COUNT:-0}" -eq 0 ]; then
-  echo "  ⚠ Skills: registry claims ${REGISTRY_CLAIMS} installed, but ~/.claude/skills/ is EMPTY"
-  echo "    → Codespace ephemerality likely wiped them. Re-install via the registry entries, or update the registry."
+# ─── Skills self-reconcile ─────────────────────────────────────
+# Source-of-truth: reconcile-skills.sh inspects disk and rewrites the
+# auto block in skills/registry.md. The registry can no longer lie.
+# Audit 2026-04-28: previous reminder-only check let the registry
+# claim 5+ skills "installed" while ~/.claude/skills/ was empty.
+if [ -x "$WORKSPACE/scripts/reconcile-skills.sh" ]; then
+  bash "$WORKSPACE/scripts/reconcile-skills.sh" 2>/dev/null || echo "  Skills: ✗ reconciler failed"
 else
-  echo "  Installed skills: ${SKILL_DIR_COUNT} dirs in ~/.claude/skills/"
+  echo "  Skills: (reconciler missing — registry may not reflect disk truth)"
 fi
 
 # Check PROJECTS.md exists and has content
@@ -187,29 +185,36 @@ echo ""
 # ─── 4. ACTIVE PROJECT SNAPSHOT ───────────────────────────────
 echo "▸ ACTIVE PROJECTS (from cross-project-map)"
 if [ -f "$WORKSPACE/learnings/cross-project-map.md" ]; then
-  # Extract capacity section
-  python3 -c "
-import re
-with open('$WORKSPACE/learnings/cross-project-map.md') as f:
-    content = f.read()
-cap = re.search(r'## Capacity.*?(?=\n## |\Z)', content, re.DOTALL)
-if cap:
-    lines = cap.group().strip().split('\n')
-    for line in lines[1:]:
-        line = line.strip()
-        if line.startswith('-') or line.startswith('Rule:') or line.startswith('Total:'):
-            print(f'  {line}')
-" 2>/dev/null
+  # Extract ## Capacity section — pure awk so this works without python3
+  awk '
+    /^## Capacity/ { inCap=1; next }
+    inCap && /^## / { inCap=0 }
+    inCap {
+      sub(/^[[:space:]]+/, "")
+      if (/^-/ || /^Rule:/ || /^Total:/) print "  " $0
+    }
+  ' "$WORKSPACE/learnings/cross-project-map.md" 2>/dev/null || true
 fi
 
 echo ""
 
 # ─── 5. PROTOCOL REMINDER ─────────────────────────────────────
+# ─── Subagent dispatch visibility (audit 2026-04-28 recommendation) ──
+# Surface 7d Agent invocation count so dispatch drift is visible at session
+# start. Non-blocking — the dispatch-reminder hook does the routing prompt.
+DISPATCH_COUNT=0
+PROJECTS_DIR="$HOME/.claude/projects/$CLAUDE_PROJECT_DIR"
+if [ -d "$PROJECTS_DIR" ]; then
+  DISPATCH_COUNT=$(find "$PROJECTS_DIR" -name '*.jsonl' -newermt '7 days ago' 2>/dev/null \
+    | xargs -r grep -h '"type":"tool_use"' 2>/dev/null \
+    | grep -c '"name":"Agent"' || echo 0)
+fi
+
 echo "▸ SESSION PROTOCOL CHECKLIST"
 echo "  ✓ Permission mode: Full Auto (default)"
 echo "  ✓ Most-recent-context — auto-injected below"
 echo "  ✓ Recent corrections — auto-injected below"
-echo "  □ Cross-synthesis: legal, market, tech, capacity"
+echo "  ▸ Subagent dispatches (last 7d): ${DISPATCH_COUNT}"
 echo "  □ Monitor own context usage — snapshot at ~70%, hard-stop at ~80%"
 echo "  □ Respond to user"
 echo ""
@@ -225,7 +230,7 @@ echo "  □ When tool outputs get large or tasks are multi-step, treat this as C
 echo "  □ Proactively snapshot a most-recent-context memory BEFORE the system auto-compacts"
 echo "  □ A snapshot MUST contain: in-flight task state, files touched, next 1-3 actions, blockers"
 echo "  □ Never stop silently mid-task. If context is tight, announce it and hand off cleanly."
-echo "  □ If previous session ended abnormally (no handoff), acknowledge the gap to Pablo FIRST."
+echo "  □ If previous session ended abnormally (no handoff), acknowledge the gap to Jano FIRST."
 echo ""
 echo "════════════════════════════════════════════════════════════"
 echo " DO NOT SKIP THESE PROTOCOLS. They exist because you"
@@ -281,7 +286,7 @@ try:
         if fallback:
             print('⚠ Previous session did NOT write a `most-recent-context`-tagged handoff.')
             print('⚠ Showing the most recent session-type memory as a fallback.')
-            print('⚠ This may be incomplete — verify with Pablo before assuming state.')
+            print('⚠ This may be incomplete — verify with Jano before assuming state.')
             print('')
         print(rec['content'].strip())
         print('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
@@ -318,4 +323,43 @@ try:
 except Exception:
     pass
 " 2>/dev/null
+fi
+
+# ─── 7. FILE-BASED MEMORY FALLBACK (Windows / no-MCP) ─────────
+# When Supabase + janus-memory MCP aren't available, the only memory store
+# is the file-based auto-memory dir. Surface the index + recent corrections
+# so future sessions still see what prior sessions learned.
+if [ -d "$MEMORY_DIR" ] && [ -z "$SUPABASE_URL" ]; then
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "▸ FILE-BASED MEMORY  (Supabase unavailable — this is the live store)"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "  Path: $MEMORY_DIR"
+  echo ""
+
+  # Show MEMORY.md index so the agent knows what's been captured
+  if [ -f "$MEMORY_DIR/MEMORY.md" ]; then
+    echo "  MEMORY.md index:"
+    sed 's/^/    /' "$MEMORY_DIR/MEMORY.md"
+    echo ""
+  fi
+
+  # Surface any correction_* / feedback_* memories — the rules learned
+  CORRECTION_FILES=$(find "$MEMORY_DIR" -maxdepth 1 -type f \( -name "correction_*.md" -o -name "feedback_*.md" \) 2>/dev/null | sort)
+  if [ -n "$CORRECTION_FILES" ]; then
+    echo "  RECENT CORRECTIONS / FEEDBACK (do not repeat):"
+    for f in $CORRECTION_FILES; do
+      NAME=$(grep -m1 '^name:' "$f" 2>/dev/null | sed 's/^name: *//')
+      [ -z "$NAME" ] && NAME=$(basename "$f" .md)
+      echo "    → $NAME"
+    done
+    echo ""
+  fi
+
+  echo "  ACTION: To capture a new memory, use the Write tool:"
+  echo "    1. Write a new file under \$MEMORY_DIR/ with frontmatter (name, description, type)"
+  echo "    2. Append a one-line pointer to MEMORY.md"
+  echo "  mcp__janus-memory__* tools are NOT available on this machine — use file I/O."
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo ""
 fi

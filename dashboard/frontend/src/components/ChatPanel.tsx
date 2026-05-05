@@ -158,9 +158,155 @@ interface ChatPanelProps {
   lineageColor?: string;
 }
 
+interface ModelInfoLite { id: string; label: string; note?: string }
+interface AgentInfoLite {
+  id: string;
+  label: string;
+  available: boolean;
+  defaultModel: string;
+  models: ModelInfoLite[];
+}
+
+let cachedAgents: AgentInfoLite[] | null = null;
+let cachedAgentsAt = 0;
+async function fetchAgentsCached(): Promise<AgentInfoLite[]> {
+  const now = Date.now();
+  if (cachedAgents && now - cachedAgentsAt < 30_000) return cachedAgents;
+  try {
+    const res = await fetch('/api/agents');
+    const json = await res.json();
+    if (Array.isArray(json.agents)) {
+      cachedAgents = json.agents.map((a: AgentInfoLite) => ({
+        id: a.id, label: a.label, available: a.available,
+        defaultModel: a.defaultModel, models: a.models || [],
+      }));
+      cachedAgentsAt = now;
+    }
+  } catch { /* bridge warming up */ }
+  return cachedAgents || [];
+}
+
+function useAgents(): AgentInfoLite[] {
+  const [agents, setAgents] = useState<AgentInfoLite[]>(cachedAgents || []);
+  useEffect(() => {
+    let cancelled = false;
+    fetchAgentsCached().then(a => { if (!cancelled) setAgents(a); });
+    return () => { cancelled = true; };
+  }, []);
+  return agents;
+}
+
+function useDropdown<T extends HTMLElement = HTMLDivElement>() {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<T>(null);
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, []);
+  return { open, setOpen, ref };
+}
+
+function ChatEnginePicker({ sessionId, currentAgentId }: { sessionId: string; currentAgentId: string | undefined }) {
+  const { setSessionAgent } = useDashboard();
+  const agents = useAgents();
+  const { open, setOpen, ref } = useDropdown<HTMLDivElement>();
+
+  const fallback = (typeof window !== 'undefined' && localStorage.getItem('venture-os-agent')) || 'claude';
+  const active = agents.find(a => a.id === (currentAgentId || fallback));
+  const label = active?.label || (currentAgentId || fallback);
+
+  function pick(id: string) {
+    const agent = agents.find(a => a.id === id);
+    if (!agent || !agent.available) return;
+    setOpen(false);
+    setSessionAgent(sessionId, id);
+  }
+
+  return (
+    <div ref={ref} className="chat-panel__engine-picker">
+      <button
+        className="chat-panel__engine-btn"
+        onClick={() => setOpen(!open)}
+        title={`Engine for this chat: ${label}`}
+      >
+        <span className="chat-panel__engine-dot" />
+        <span>{label}</span>
+        <span className="chat-panel__engine-caret">{open ? '▲' : '▼'}</span>
+      </button>
+      {open && (
+        <div className="chat-panel__engine-menu">
+          {agents.length === 0 && <div className="chat-panel__engine-empty">loading…</div>}
+          {agents.map(a => (
+            <button
+              key={a.id}
+              className={`chat-panel__engine-item ${a.id === active?.id ? 'chat-panel__engine-item--active' : ''} ${!a.available ? 'chat-panel__engine-item--disabled' : ''}`}
+              onClick={() => pick(a.id)}
+              aria-disabled={!a.available}
+            >
+              <span className="chat-panel__engine-item-dot" style={{ background: a.available ? 'var(--color-accent)' : 'oklch(0.65 0.2 25)' }} />
+              <span>{a.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ChatModelPicker({ sessionId, currentAgentId, currentModelId }: { sessionId: string; currentAgentId: string | undefined; currentModelId: string | undefined }) {
+  const { setSessionModel } = useDashboard();
+  const agents = useAgents();
+  const { open, setOpen, ref } = useDropdown<HTMLDivElement>();
+
+  const fallbackAgent = (typeof window !== 'undefined' && localStorage.getItem('venture-os-agent')) || 'claude';
+  const agent = agents.find(a => a.id === (currentAgentId || fallbackAgent));
+  if (!agent || agent.models.length === 0) return null;
+
+  const fallbackModel = (typeof window !== 'undefined' && localStorage.getItem(`venture-os-model-${agent.id}`)) || agent.defaultModel;
+  const activeModelId = currentModelId || fallbackModel;
+  const activeModel = agent.models.find(m => m.id === activeModelId);
+  const label = activeModel?.label || activeModelId;
+
+  function pick(id: string) {
+    setOpen(false);
+    setSessionModel(sessionId, id);
+  }
+
+  return (
+    <div ref={ref} className="chat-panel__engine-picker">
+      <button
+        className="chat-panel__engine-btn"
+        onClick={() => setOpen(!open)}
+        title={`Model for this chat: ${label}`}
+      >
+        <span>{label}</span>
+        <span className="chat-panel__engine-caret">{open ? '▲' : '▼'}</span>
+      </button>
+      {open && (
+        <div className="chat-panel__engine-menu">
+          {agent.models.map(m => (
+            <button
+              key={m.id}
+              className={`chat-panel__engine-item ${m.id === activeModelId ? 'chat-panel__engine-item--active' : ''}`}
+              onClick={() => pick(m.id)}
+            >
+              <span className="chat-panel__engine-item-dot" style={{ background: 'var(--color-accent)' }} />
+              <span>{m.label}</span>
+              {m.note && <span style={{ marginLeft: 'auto', opacity: 0.55, fontSize: 9 }}>{m.note}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ChatPanel({ sessionId = 'session-0', lineageLabel, lineageColor }: ChatPanelProps) {
   const dashboard = useDashboard();
-  const { chatAuth, sendChatMessage, stopResponse, editMessage, forkChat, getSessionChat, memoryIndex } = dashboard;
+  const { sendChatMessage, stopResponse, editMessage, forkChat, getSessionChat, memoryIndex, newChat, restartSession } = dashboard;
 
   // Read from this session's own chat state
   const sessionChat = getSessionChat(sessionId);
@@ -168,7 +314,6 @@ export function ChatPanel({ sessionId = 'session-0', lineageLabel, lineageColor 
   const chatThinking = sessionChat.thinking;
   const chatStatus = sessionChat.status;
   const chatThinkingStart = sessionChat.thinkingStart;
-  const siblingUpdates = sessionChat.siblingUpdates;
 
   const [input, setInput] = useState('');
   const [hoveredMsgId, setHoveredMsgId] = useState<string | null>(null);
@@ -301,6 +446,90 @@ export function ChatPanel({ sessionId = 'session-0', lineageLabel, lineageColor 
   const memoryCount = memoryIndex?.entries.length || 0;
   const memoryTypes = memoryIndex ? Array.from(new Set(memoryIndex.entries.map(e => e.type))) : [];
 
+  // Memory health — dot color + tooltip in the chat header. Polls every 60s
+  // and on each new chat message so silent rot becomes visible (the April 28
+  // bug where nothing wrote for 5 days).
+  interface MemoryHealth {
+    sidecar: { state: string; restarts: number; lastError: string | null } | null;
+    supabase: {
+      configured: boolean;
+      reachable: boolean;
+      totalMemories: number | null;
+      lastWriteAt: string | null;
+      daysSinceLastWrite: number | null;
+      voyageConfigured: boolean;
+      error: string | null;
+    } | null;
+  }
+  const [health, setHealth] = useState<MemoryHealth | null>(null);
+  const [capturing, setCapturing] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const r = await fetch('/api/memory/health');
+        if (!r.ok) return;
+        const data = (await r.json()) as MemoryHealth;
+        if (!cancelled) setHealth(data);
+      } catch { /* bridge offline */ }
+    }
+    load();
+    const id = window.setInterval(load, 60_000);
+    return () => { cancelled = true; window.clearInterval(id); };
+  }, [messages.length]);
+
+  function healthSeverity(h: MemoryHealth | null): 'ok' | 'warn' | 'down' | 'unknown' {
+    if (!h) return 'unknown';
+    if (!h.supabase?.configured || !h.supabase?.reachable) return 'down';
+    const days = h.supabase.daysSinceLastWrite;
+    if (days === null) return 'warn';
+    if (days >= 2) return 'warn';
+    return 'ok';
+  }
+  const sev = healthSeverity(health);
+  const sevColor = sev === 'ok' ? 'oklch(0.72 0.18 145)' : sev === 'warn' ? 'oklch(0.78 0.14 95)' : sev === 'down' ? 'oklch(0.65 0.22 25)' : 'var(--color-text-muted)';
+  const sevLabel = (() => {
+    if (!health) return 'memory: …';
+    if (sev === 'down') return `memory: down${health.supabase?.error ? ` (${health.supabase.error})` : ''}`;
+    const d = health.supabase?.daysSinceLastWrite;
+    if (d === null || d === undefined) return 'memory: never written';
+    if (d === 0) return 'memory: today';
+    return `memory: ${d}d stale`;
+  })();
+  const sevTooltip = health
+    ? `Sidecar: ${health.sidecar?.state ?? 'unknown'} (restarts: ${health.sidecar?.restarts ?? 0})\n` +
+      `Supabase: ${health.supabase?.reachable ? 'reachable' : 'unreachable'}\n` +
+      `Total memories (this workspace): ${health.supabase?.totalMemories ?? '?'}\n` +
+      `Last write: ${health.supabase?.lastWriteAt ?? '(never)'}\n` +
+      `Voyage embeddings: ${health.supabase?.voyageConfigured ? 'on' : 'off'}\n` +
+      `Click to capture now`
+    : 'memory health: loading…';
+
+  async function captureNow() {
+    if (capturing) return;
+    setCapturing(true);
+    try {
+      const log = messages.slice(-30).map(m => `${m.role}: ${m.content}`);
+      const r = await fetch('/api/memory/capture-now', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId, conversationLog: log }),
+      });
+      const data = await r.json().catch(() => ({})) as { ok?: boolean; id?: string; error?: string };
+      if (data.ok) {
+        // Refresh health immediately to flip the badge to green.
+        const hr = await fetch('/api/memory/health');
+        if (hr.ok) setHealth(await hr.json());
+      } else {
+        alert(`Capture failed: ${data.error ?? `HTTP ${r.status}`}`);
+      }
+    } catch (e) {
+      alert(`Capture failed: ${String(e)}`);
+    } finally {
+      setCapturing(false);
+    }
+  }
+
   function startLearn() {
     const t = learnTime.trim();
     if (!t || isBusy) return;
@@ -332,12 +561,27 @@ export function ChatPanel({ sessionId = 'session-0', lineageLabel, lineageColor 
       {/* Header */}
       <div className="chat-panel__header">
         <span>
-          {lineageLabel
-            ? <><span className="chat-panel__lineage" style={{ color: lineageColor }}>{lineageLabel}</span></>
-            : <>Pablo IA{chatAuth ? <span className="chat-panel__auth-badge">{chatAuth}</span> : null}</>
-          }
+          {sessionChat.rootLabel && (
+            <span className="chat-panel__root-tag" style={{ background: lineageColor || 'var(--color-accent)' }}>
+              {sessionChat.rootLabel}
+            </span>
+          )}
+          {lineageLabel && (
+            <span className="chat-panel__lineage" style={{ color: lineageColor }}>{lineageLabel}</span>
+          )}
         </span>
         <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+          <ChatEnginePicker sessionId={sessionId} currentAgentId={sessionChat.agentId} />
+          <ChatModelPicker sessionId={sessionId} currentAgentId={sessionChat.agentId} currentModelId={sessionChat.modelId} />
+          <button
+            className="chat-panel__fork-btn"
+            onClick={() => newChat()}
+            title="Start a new chat from zero"
+            style={{ padding: '2px 6px' }}
+          >
+            <span style={{ fontSize: 13, lineHeight: 1 }}>+</span>
+            <span>New</span>
+          </button>
           <button
             className={`chat-panel__fork-btn ${isBusy ? 'chat-panel__fork-btn--disabled' : ''}`}
             onClick={() => !isBusy && forkChat(sessionId, `Fork ${Date.now().toString(36).slice(-4)}`)}
@@ -363,6 +607,22 @@ export function ChatPanel({ sessionId = 'session-0', lineageLabel, lineageColor 
             </svg>
             <span>Learn</span>
           </button>
+          <button
+            className={`chat-panel__fork-btn ${isBusy ? 'chat-panel__fork-btn--disabled' : ''}`}
+            onClick={() => {
+              if (isBusy) return;
+              setInput('');
+              setAttachments([]);
+              restartSession(sessionId);
+            }}
+            title="Restart this chat — clears conversation, keeps the window and global memory"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 12a9 9 0 1 0 3-6.7" />
+              <polyline points="3 4 3 10 9 10" />
+            </svg>
+            <span>Restart</span>
+          </button>
           {learnOpen && (
             <div className="chat-panel__learn-menu">
               <input
@@ -385,18 +645,6 @@ export function ChatPanel({ sessionId = 'session-0', lineageLabel, lineageColor 
         </div>
       </div>
 
-      {/* Sibling awareness bar */}
-      {siblingUpdates.length > 0 && (
-        <div className="chat-panel__sibling-bar">
-          {siblingUpdates.slice(0, 2).map((u, i) => (
-            <div key={i} className="chat-panel__sibling-update">
-              <span className="chat-panel__sibling-id">{u.sessionId.replace('session-', 'S')}</span>
-              <span className="chat-panel__sibling-summary">{u.summary.length > 80 ? u.summary.slice(0, 77) + '...' : u.summary}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
       {/* Memory banner — shows what auto-memory is active */}
       {memoryIndex && (
         <div className={`chat-panel__memory-bar ${memoryOpen ? 'chat-panel__memory-bar--open' : ''}`}>
@@ -409,7 +657,7 @@ export function ChatPanel({ sessionId = 'session-0', lineageLabel, lineageColor 
             <span className="chat-panel__memory-bar-icon">🧠</span>
             <span className="chat-panel__memory-bar-label">
               {memoryCount === 0
-                ? 'No memories yet — Claude will write as it learns'
+                ? 'No memories yet — the active engine will write as it learns'
                 : `${memoryCount} ${memoryCount === 1 ? 'memory' : 'memories'} active`}
             </span>
             {memoryTypes.length > 0 && (
@@ -417,6 +665,34 @@ export function ChatPanel({ sessionId = 'session-0', lineageLabel, lineageColor 
                 {memoryTypes.slice(0, 4).join(' · ')}
               </span>
             )}
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={(e) => { e.stopPropagation(); if (!capturing) captureNow(); }}
+              onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && !capturing) { e.preventDefault(); captureNow(); } }}
+              title={sevTooltip}
+              style={{
+                marginLeft: 'auto',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '2px 8px',
+                borderRadius: 999,
+                border: `1px solid color-mix(in oklch, ${sevColor} 50%, transparent)`,
+                background: `color-mix(in oklch, ${sevColor} 12%, transparent)`,
+                color: sevColor,
+                fontSize: 9,
+                fontFamily: 'var(--font-family-mono)',
+                fontWeight: 600,
+                letterSpacing: '0.04em',
+                cursor: capturing ? 'progress' : 'pointer',
+                whiteSpace: 'nowrap',
+                opacity: capturing ? 0.6 : 1,
+              }}
+            >
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: sevColor }} />
+              {capturing ? 'capturing…' : sevLabel}
+            </span>
           </button>
           {memoryOpen && memoryIndex.entries.length > 0 && (
             <div className="chat-panel__memory-bar-list">
@@ -485,7 +761,7 @@ export function ChatPanel({ sessionId = 'session-0', lineageLabel, lineageColor 
         )}
         {chatStatus === 'disconnected' && (
           <div className="chat-panel__thinking-dots chat-panel__thinking-dots--alert">
-            ⚠ bridge disconnected mid-turn. Will auto-reconnect; the previous response is lost.
+            ⚠ bridge disconnected mid-turn — auto-reconnecting and will resume the prompt.
           </div>
         )}
 
@@ -505,7 +781,7 @@ export function ChatPanel({ sessionId = 'session-0', lineageLabel, lineageColor 
               <> — <ElapsedTimer start={chatThinkingStart} /></>
             )}
             {chatStatus === 'disconnected' && (
-              <> · bridge dropped mid-turn, auto-reconnecting</>
+              <> · bridge dropped, will resume on reconnect</>
             )}
           </span>
           {(chatStatus === 'thinking' || chatStatus === 'streaming') && (

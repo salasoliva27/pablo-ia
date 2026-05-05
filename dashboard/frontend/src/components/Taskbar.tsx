@@ -1,4 +1,5 @@
 import { useWindowManager } from '../store/window-store';
+import { VersionBadge } from './VersionBadge';
 
 const TYPE_ICONS: Record<string, string> = {
   chat: '>',
@@ -73,7 +74,11 @@ export function Taskbar() {
           </button>
         ))}
       </div>
+      <div className="wm-taskbar__janus-wordmark" aria-label="JANUS">
+        <span className="janus-wordmark__text">JANUS</span>
+      </div>
       <div className="wm-taskbar__actions">
+        <VersionBadge />
         <button
           className="wm-taskbar__reset"
           onClick={() => dispatch({ type: 'RESET' })}

@@ -6,12 +6,16 @@ export interface WindowLineage {
   parentSessionId: string | null;
   breadcrumb: string[];
   color: string;
+  /** The root chat this window descends from. Forks of the same root share this. */
+  rootSessionId?: string;
+  /** Human-friendly label for the root (e.g. "Chat A"). Forks display "A·1", "A·2"… */
+  rootLabel?: string;
 }
 
 export interface WindowState {
   id: string;
   title: string;
-  type: 'chat' | 'center' | 'bottom' | 'right' | 'calendar' | 'sql-console';
+  type: 'chat' | 'center' | 'bottom' | 'right' | 'calendar' | 'sql-console' | 'tickets';
   x: number;
   y: number;
   width: number;
@@ -118,7 +122,7 @@ export function findSharedEdgeWindows(
   });
 }
 
-// Lineage depth -> oklch color
+// Lineage depth -> oklch color (legacy — used when no root id is known)
 export const LINEAGE_COLORS = [
   'oklch(0.78 0.16 180)', // 0: cyan
   'oklch(0.72 0.18 280)', // 1: purple
@@ -129,4 +133,30 @@ export const LINEAGE_COLORS = [
 
 export function lineageColor(depth: number): string {
   return LINEAGE_COLORS[Math.min(depth, LINEAGE_COLORS.length - 1)];
+}
+
+/**
+ * Per-root palette. Each top-level chat picks one color deterministically
+ * from its rootSessionId; forks reuse their root's color so a whole family
+ * is visually grouped together. Hue varies enough that two roots are
+ * distinguishable even at small sizes.
+ */
+export const ROOT_COLORS = [
+  'oklch(0.78 0.16 180)', // teal
+  'oklch(0.74 0.18 35)',  // ember
+  'oklch(0.74 0.18 145)', // jade
+  'oklch(0.72 0.18 280)', // violet
+  'oklch(0.78 0.14 95)',  // gold
+  'oklch(0.72 0.18 330)', // magenta
+];
+
+function strHash(str: string): number {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
+/** Pick a stable color for a root chat from ROOT_COLORS. */
+export function rootColor(rootSessionId: string): string {
+  return ROOT_COLORS[strHash(rootSessionId) % ROOT_COLORS.length];
 }

@@ -132,6 +132,7 @@
 /* ── Taskbar ── */
 
 .wm-taskbar {
+  position: relative;
   display: flex;
   align-items: center;
   height: 34px;
@@ -147,6 +148,21 @@
   gap: 4px;
   flex: 1;
   overflow-x: auto;
+}
+
+.wm-taskbar__janus-wordmark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 122px;
+  height: 24px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  user-select: none;
+  opacity: 0.92;
 }
 
 .wm-taskbar__item {
@@ -276,8 +292,36 @@
 
 .wm-taskbar__actions {
   display: flex;
+  align-items: center;
   gap: 4px;
   flex-shrink: 0;
+}
+
+.wm-taskbar__version {
+  font-family: var(--font-family-mono, monospace);
+  font-size: 10px;
+  color: var(--color-text-muted, oklch(0.65 0.02 240));
+  opacity: 0.55;
+  padding: 2px 6px;
+  white-space: nowrap;
+  cursor: default;
+  user-select: none;
+}
+
+.wm-taskbar__reload {
+  font-family: var(--font-family-mono, monospace);
+  font-size: 10px;
+  padding: 2px 8px;
+  border: 1px solid var(--color-accent, oklch(0.78 0.16 180));
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-accent, oklch(0.78 0.16 180));
+  cursor: pointer;
+}
+
+.wm-taskbar__reload:hover {
+  background: var(--color-accent, oklch(0.78 0.16 180));
+  color: var(--color-bg, oklch(0.18 0.02 240));
 }
 
 .wm-taskbar__reset {
@@ -293,4 +337,19 @@
 
 .wm-taskbar__reset:hover {
   color: var(--color-accent, oklch(0.78 0.16 180));
+}
+
+.wm-taskbar__new-chat {
+  font-family: var(--font-family-mono, monospace);
+  font-size: 10px;
+  padding: 2px 8px;
+  border: 1px solid var(--color-accent, oklch(0.78 0.16 180));
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-accent, oklch(0.78 0.16 180));
+  cursor: pointer;
+}
+
+.wm-taskbar__new-chat:hover {
+  background: color-mix(in oklch, var(--color-accent, oklch(0.78 0.16 180)) 14%, transparent);
 }

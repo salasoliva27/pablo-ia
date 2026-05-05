@@ -1,5 +1,6 @@
 import { createContext, useContext, useReducer, useEffect, type ReactNode } from 'react';
 import type { WindowState, WindowLayout, WindowAction } from '../types/window';
+import { rootColor } from '../types/window';
 
 const STORAGE_KEY = 'venture-os-window-layout-v5';
 const TOPBAR_HEIGHT = 40;
@@ -22,10 +23,19 @@ function defaultLayout(): WindowLayout {
   return {
     nextZIndex: 10,
     windows: [
-      { id: 'win-chat', title: 'Chat', type: 'chat',
+      { id: 'win-chat', title: 'Chat A', type: 'chat',
         x: 0, y: 0, width: c0, height: h,
         minWidth: 200, minHeight: 150,
-        zIndex: 4, minimized: false, maximized: false, visible: true, closable: true, persistent: true, sessionId: 'session-0' },
+        zIndex: 4, minimized: false, maximized: false, visible: true, closable: true, persistent: true, sessionId: 'session-0',
+        lineage: {
+          depth: 0,
+          label: 'Chat A',
+          parentSessionId: null,
+          breadcrumb: ['Chat A'],
+          color: rootColor('session-0'),
+          rootSessionId: 'session-0',
+          rootLabel: 'A',
+        } },
       { id: 'win-center', title: 'System', type: 'center',
         x: c0, y: 0, width: c1, height: r0,
         minWidth: 200, minHeight: 150,
