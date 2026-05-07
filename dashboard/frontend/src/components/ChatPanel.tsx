@@ -7,7 +7,7 @@ import type { ChatMessage, Document } from '../types/dashboard';
 const TEXT_MIME_PREFIXES = ['text/', 'application/json', 'application/xml', 'application/javascript', 'application/x-sh'];
 function isTextLikeMime(m: string) { return TEXT_MIME_PREFIXES.some(p => m.startsWith(p)); }
 
-async function buildUploadedDoc(file: File, serverPath: string): Promise<Document> {
+async function buildUploadedDoc(file: File, serverPath: string, url?: string): Promise<Document> {
   const ext = detectLanguage(file.name);
   const isImage = file.type.startsWith('image/') || ext === 'image';
   const isText = !isImage && (isTextLikeMime(file.type) || ['text', 'markdown', 'json', 'yaml', 'toml', 'csv', 'svg', 'xml',
@@ -38,6 +38,7 @@ async function buildUploadedDoc(file: File, serverPath: string): Promise<Documen
     filename: file.name,
     language,
     content,
+    url,
     timestamp: Date.now(),
     size: file.size,
   };
@@ -61,6 +62,59 @@ function ToolCallCard({ content }: { content: string }) {
       {expanded && inputLine && (
         <pre className="chat-panel__tool-card-body">{inputLine}</pre>
       )}
+    </div>
+  );
+}
+
+function downloadDocument(doc: Document) {
+  if (doc.content?.startsWith('data:')) {
+    const a = document.createElement('a');
+    a.href = doc.content;
+    a.download = doc.filename;
+    a.click();
+    return;
+  }
+  if (doc.url && !doc.content) {
+    const a = document.createElement('a');
+    a.href = doc.url;
+    a.download = doc.filename;
+    a.click();
+    return;
+  }
+  const blob = new Blob([doc.content], { type: doc.language === 'html' ? 'text/html' : 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = doc.filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function MessageAttachments({ attachments }: { attachments?: Document[] }) {
+  if (!attachments?.length) return null;
+  return (
+    <div className="chat-panel__message-attachments">
+      {attachments.map(doc => {
+        const isImage = doc.language === 'image' || doc.filename.match(/\.(png|jpe?g|gif|webp|bmp|svg)$/i);
+        const src = doc.content?.startsWith('data:') ? doc.content : doc.url || doc.path;
+        return (
+          <div key={doc.id} className={`chat-panel__message-attachment ${isImage ? 'chat-panel__message-attachment--image' : ''}`}>
+            {isImage && src ? (
+              <button className="chat-panel__image-preview" onClick={() => downloadDocument(doc)} title={`Download ${doc.filename}`}>
+                <img src={src} alt={doc.filename} />
+              </button>
+            ) : (
+              <div className="chat-panel__doc-card">
+                <span className="chat-panel__doc-icon">doc</span>
+                <span className="chat-panel__doc-name" title={doc.path}>{doc.filename}</span>
+              </div>
+            )}
+            <button className="chat-panel__attachment-download" onClick={() => downloadDocument(doc)} title={`Download ${doc.filename}`}>
+              download
+            </button>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -94,36 +148,47 @@ function MessageContent({ msg }: { msg: ChatMessage }) {
   }
 
   if (msg.role === 'user') {
-    return <span>{msg.content}</span>;
+    return (
+      <>
+        <span>{msg.content}</span>
+        <MessageAttachments attachments={msg.attachments} />
+      </>
+    );
   }
 
   return (
-    <ReactMarkdown
-      remarkPlugins={[remarkGfm]}
-      components={{
-        code({ className, children, ...props }) {
-          const match = /language-(\w+)/.exec(className || '');
-          const isInline = !match && !className;
-          if (isInline) {
-            return <code className="chat-inline-code" {...props}>{children}</code>;
-          }
-          return (
-            <div className="chat-code-block">
-              {match && <div className="chat-code-block__lang">{match[1]}</div>}
-              <pre><code className={className} {...props}>{children}</code></pre>
-            </div>
-          );
-        },
-        a({ href, children, ...props }) {
-          return <a href={href} target="_blank" rel="noopener noreferrer" {...props}>{children}</a>;
-        },
-        table({ children, ...props }) {
-          return <div className="chat-table-wrap"><table {...props}>{children}</table></div>;
-        },
-      }}
-    >
-      {msg.content}
-    </ReactMarkdown>
+    <>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          code({ className, children, ...props }) {
+            const match = /language-(\w+)/.exec(className || '');
+            const isInline = !match && !className;
+            if (isInline) {
+              return <code className="chat-inline-code" {...props}>{children}</code>;
+            }
+            return (
+              <div className="chat-code-block">
+                {match && <div className="chat-code-block__lang">{match[1]}</div>}
+                <pre><code className={className} {...props}>{children}</code></pre>
+              </div>
+            );
+          },
+          a({ href, children, ...props }) {
+            return <a href={href} target="_blank" rel="noopener noreferrer" {...props}>{children}</a>;
+          },
+          table({ children, ...props }) {
+            return <div className="chat-table-wrap"><table {...props}>{children}</table></div>;
+          },
+          img({ src, alt, ...props }) {
+            return <img className="chat-panel__markdown-image" src={src || ''} alt={alt || ''} {...props} />;
+          },
+        }}
+      >
+        {msg.content}
+      </ReactMarkdown>
+      <MessageAttachments attachments={msg.attachments} />
+    </>
   );
 }
 
@@ -154,8 +219,6 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; dot: string 
 
 interface ChatPanelProps {
   sessionId?: string;
-  lineageLabel?: string;
-  lineageColor?: string;
 }
 
 interface ModelInfoLite { id: string; label: string; note?: string }
@@ -304,9 +367,9 @@ function ChatModelPicker({ sessionId, currentAgentId, currentModelId }: { sessio
   );
 }
 
-export function ChatPanel({ sessionId = 'session-0', lineageLabel, lineageColor }: ChatPanelProps) {
+export function ChatPanel({ sessionId = 'session-0' }: ChatPanelProps) {
   const dashboard = useDashboard();
-  const { sendChatMessage, stopResponse, editMessage, forkChat, getSessionChat, memoryIndex, newChat, restartSession } = dashboard;
+  const { sendChatMessage, stopResponse, editMessage, forkChat, getSessionChat, memoryIndex, restartSession } = dashboard;
 
   // Read from this session's own chat state
   const sessionChat = getSessionChat(sessionId);
@@ -320,13 +383,43 @@ export function ChatPanel({ sessionId = 'session-0', lineageLabel, lineageColor 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  interface PendingAttachment { name: string; size: number; type: string; path?: string; uploading: boolean; error?: string; file: File }
+  interface PendingAttachment { name: string; size: number; type: string; path?: string; url?: string; doc?: Document; uploading: boolean; error?: string; file: File }
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const [dropActive, setDropActive] = useState(false);
+  const onboardingAttempted = useRef(false);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    // First-run user onboarding: on a fresh instance, auto-submit `/onboard`
+    // once an engine is selected. Gate is `outputs/onboarding/<instance>/`
+    // YAML carrying `completed: true` — the /onboard agent writes that on
+    // the last block. Primary session only; forks / secondary sessions stay
+    // out of the way.
+    if (sessionId !== 'session-0') return;
+    if (onboardingAttempted.current) return;
+    if (!sessionChat.agentId) return;
+    if (messages.length > 0) return;
+    if (input.trim().length > 0) return;
+    onboardingAttempted.current = true;
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch('/api/onboarding/user-status');
+        if (!r.ok) return;
+        const d = await r.json();
+        if (cancelled) return;
+        if (d?.completed) return;
+        if (messages.length > 0 || input.trim().length > 0) return;
+        sendChatMessage('/onboard', sessionId);
+      } catch {
+        // bridge unreachable or auth failed — let the user start manually
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [sessionId, sessionChat.agentId, messages.length, input, sendChatMessage]);
 
   useEffect(() => {
     const ta = inputRef.current;
@@ -335,7 +428,7 @@ export function ChatPanel({ sessionId = 'session-0', lineageLabel, lineageColor 
     ta.style.height = `${Math.min(ta.scrollHeight, 200)}px`;
   }, [input]);
 
-  async function uploadFile(file: File): Promise<{ path?: string; error?: string }> {
+  async function uploadFile(file: File): Promise<{ path?: string; url?: string; error?: string }> {
     try {
       const data = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
@@ -349,7 +442,7 @@ export function ChatPanel({ sessionId = 'session-0', lineageLabel, lineageColor 
       });
       const json = await resp.json();
       if (!resp.ok || !json.ok) return { error: json.error || `HTTP ${resp.status}` };
-      return { path: json.path };
+      return { path: json.path, url: json.url };
     } catch (err) { return { error: String(err) }; }
   }
 
@@ -367,13 +460,14 @@ export function ChatPanel({ sessionId = 'session-0', lineageLabel, lineageColor 
     setAttachments(a => [...a, ...pending]);
     for (const p of pending) {
       uploadFile(p.file).then(async r => {
-        setAttachments(a => a.map(x => x.file === p.file ? { ...x, uploading: false, path: r.path, error: r.error } : x));
+        let doc: Document | undefined;
         if (r.path && !r.error) {
           try {
-            const doc = await buildUploadedDoc(p.file, r.path);
+            doc = await buildUploadedDoc(p.file, r.path, r.url);
             dashboard.addUploadedDocument(doc);
           } catch (e) { console.warn('[uploaded-docs] failed to build preview:', e); }
         }
+        setAttachments(a => a.map(x => x.file === p.file ? { ...x, uploading: false, path: r.path, url: r.url, doc, error: r.error } : x));
       });
     }
   }
@@ -395,7 +489,7 @@ export function ChatPanel({ sessionId = 'session-0', lineageLabel, lineageColor 
       const list = ready.map(a => `  - ${a.path} (${a.name}, ${a.type || 'file'})`).join('\n');
       prompt = `[User attached ${ready.length} file${ready.length === 1 ? '' : 's'} — use the Read tool to open them]\n${list}\n\n${prompt || '(Please review the attached files.)'}`;
     }
-    sendChatMessage(prompt, sessionId);
+    sendChatMessage(prompt, sessionId, ready.map(a => a.doc).filter(Boolean) as Document[]);
     setInput('');
     setAttachments([]);
   }
@@ -543,6 +637,31 @@ export function ChatPanel({ sessionId = 'session-0', lineageLabel, lineageColor 
     );
   }
 
+  function exportConversation() {
+    const label = sessionChat.rootLabel ? `chat-${sessionChat.rootLabel}` : sessionId;
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const markdown = [
+      `# ${label} conversation`,
+      '',
+      `Exported: ${new Date().toISOString()}`,
+      `Session: ${sessionId}`,
+      '',
+      ...messages.map(m => {
+        const files = m.attachments?.length
+          ? `\n\nAttachments:\n${m.attachments.map(a => `- ${a.filename} (${a.path})`).join('\n')}`
+          : '';
+        return `## ${m.role} · ${new Date(m.timestamp).toISOString()}\n\n${m.content}${files}`;
+      }),
+    ].join('\n');
+    const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${label}-${stamp}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div
       className={`chat-panel ${dropActive ? 'chat-panel--drop-active' : ''}`}
@@ -560,27 +679,16 @@ export function ChatPanel({ sessionId = 'session-0', lineageLabel, lineageColor 
       )}
       {/* Header */}
       <div className="chat-panel__header">
-        <span>
-          {sessionChat.rootLabel && (
-            <span className="chat-panel__root-tag" style={{ background: lineageColor || 'var(--color-accent)' }}>
-              {sessionChat.rootLabel}
-            </span>
-          )}
-          {lineageLabel && (
-            <span className="chat-panel__lineage" style={{ color: lineageColor }}>{lineageLabel}</span>
-          )}
-        </span>
+        <span className="chat-panel__header-spacer" />
         <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
           <ChatEnginePicker sessionId={sessionId} currentAgentId={sessionChat.agentId} />
           <ChatModelPicker sessionId={sessionId} currentAgentId={sessionChat.agentId} currentModelId={sessionChat.modelId} />
           <button
             className="chat-panel__fork-btn"
-            onClick={() => newChat()}
-            title="Start a new chat from zero"
-            style={{ padding: '2px 6px' }}
+            onClick={exportConversation}
+            title="Export this conversation as Markdown"
           >
-            <span style={{ fontSize: 13, lineHeight: 1 }}>+</span>
-            <span>New</span>
+            <span>Export</span>
           </button>
           <button
             className={`chat-panel__fork-btn ${isBusy ? 'chat-panel__fork-btn--disabled' : ''}`}
@@ -846,7 +954,7 @@ export function ChatPanel({ sessionId = 'session-0', lineageLabel, lineageColor 
               type="submit"
               className={`chat-panel__send-btn ${(input.trim() || attachments.some(a => a.path)) ? 'chat-panel__send-btn--active' : ''}`}
               disabled={(!input.trim() && !attachments.some(a => a.path)) || attachments.some(a => a.uploading)}
-              title={attachments.some(a => a.uploading) ? 'Waiting for uploads…' : 'Send message'}
+              title={attachments.some(a => a.uploading) ? `Send to Chat ${sessionChat.rootLabel ?? '?'}` : `Send to Chat ${sessionChat.rootLabel ?? '?'}`}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M5 12h14" />
