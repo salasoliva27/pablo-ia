@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useWindowManager } from '../store/window-store';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { useDashboard } from '../store';
@@ -16,6 +16,7 @@ import { RightPanel } from './RightPanel';
 import { ToolPulseBar } from './ToolPulseBar';
 import { BottomPanel } from './BottomPanel';
 import { SQLConsole } from './SQLConsole';
+import { ChatHistoryPanel } from './ChatHistoryPanel';
 import { rootColor } from '../types/window';
 import type { WindowState } from '../types/window';
 
@@ -41,14 +42,9 @@ function BottomContent() {
 function renderWindowContent(win: WindowState) {
   switch (win.type) {
     case 'chat': {
-      const label = win.lineage
-        ? `L${win.lineage.depth} · ${win.lineage.breadcrumb.join(' > ')}`
-        : undefined;
       return (
         <ChatPanel
           sessionId={win.sessionId || 'session-0'}
-          lineageLabel={label}
-          lineageColor={win.lineage?.color}
         />
       );
     }
@@ -64,6 +60,8 @@ function renderWindowContent(win: WindowState) {
       return <TicketsPanel />;
     case 'sql-console':
       return <SQLConsole tool={win.consoleTool || 'supabase'} />;
+    case 'chat-history':
+      return <ChatHistoryPanel />;
     default:
       return <div style={{ padding: 16, color: 'var(--color-text-muted)' }}>Window: {win.type}</div>;
   }
@@ -72,6 +70,43 @@ function renderWindowContent(win: WindowState) {
 export function WindowShell() {
   const { layout, dispatch } = useWindowManager();
   useKeyboardShortcuts();
+
+  // First-run gate: until /onboard writes `status: complete` to the YAML,
+  // hide every panel except chat. Without this gate, fresh downstream
+  // instances surface janus-ia's GitHub repos, Jira tickets, and TMC jobs
+  // (the bridge reads the user's shared env tokens, which are brand-agnostic).
+  // null = still fetching; true = show full layout; false = chat-only.
+  const [onboardingCompleted, setOnboardingCompleted] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function check() {
+      try {
+        const r = await fetch('/api/onboarding/user-status');
+        if (!r.ok) { if (!cancelled) setOnboardingCompleted(true); return; }
+        const d = await r.json();
+        if (!cancelled) setOnboardingCompleted(Boolean(d?.completed));
+      } catch {
+        if (!cancelled) setOnboardingCompleted(true); // fail-open — never permanently hide the dashboard
+      }
+    }
+    check();
+    return () => { cancelled = true; };
+  }, []);
+
+  // While incomplete, poll so the layout flips the moment Phase 5 writes the YAML.
+  useEffect(() => {
+    if (onboardingCompleted !== false) return;
+    const t = setInterval(async () => {
+      try {
+        const r = await fetch('/api/onboarding/user-status');
+        if (!r.ok) return;
+        const d = await r.json();
+        if (d?.completed) setOnboardingCompleted(true);
+      } catch { /* keep polling */ }
+    }, 2000);
+    return () => clearInterval(t);
+  }, [onboardingCompleted]);
 
   // Listen for fork-chat / new-chat events from the store
   useEffect(() => {
@@ -201,12 +236,64 @@ export function WindowShell() {
     }
     window.addEventListener('venture-os:open-sql-console', handleOpenSqlConsole);
 
+    function handleOpenChatHistory() {
+      const winId = 'win-chat-history';
+      const existing = layout.windows.find(w => w.id === winId);
+      if (existing) {
+        dispatch({ type: 'RESTORE', id: winId });
+        dispatch({ type: 'FOCUS', id: winId });
+        return;
+      }
+
+      const vw = window.innerWidth;
+      const vh = window.innerHeight - 40 - 34;
+      const w = Math.round(vw * 0.48);
+      const h = Math.round(vh * 0.68);
+
+      const newWin: WindowState = {
+        id: winId,
+        title: 'Chat History',
+        type: 'chat-history',
+        x: Math.max(16, Math.round(vw - w - 28)),
+        y: Math.max(16, Math.round(vh - h - 28)),
+        width: w,
+        height: h,
+        minWidth: 480,
+        minHeight: 320,
+        zIndex: 0,
+        minimized: false,
+        maximized: false,
+        visible: true,
+        closable: true,
+      };
+      dispatch({ type: 'ADD', window: newWin });
+    }
+    window.addEventListener('venture-os:open-chat-history', handleOpenChatHistory);
+
     return () => {
       window.removeEventListener('venture-os:fork-chat', handleFork);
       window.removeEventListener('venture-os:new-chat', handleNewChat);
       window.removeEventListener('venture-os:open-sql-console', handleOpenSqlConsole);
+      window.removeEventListener('venture-os:open-chat-history', handleOpenChatHistory);
     };
   }, [dispatch, layout.windows]);
+
+  if (onboardingCompleted === false) {
+    // Onboarding-first layout: only the chat panel is visible. The chat
+    // panel itself auto-submits `/onboard` once an engine is selected, and
+    // the poll above flips this to `true` the moment Phase 5 finishes.
+    return (
+      <div className="wm-shell wm-shell--onboarding">
+        <div className="wm-viewport" style={{ position: 'relative' }}>
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', justifyContent: 'center' }}>
+            <div style={{ width: 'min(720px, 100%)', height: '100%' }}>
+              <ChatPanel sessionId="session-0" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="wm-shell">
