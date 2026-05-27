@@ -45,7 +45,7 @@ export function Constellation() {
     { id: 'constellation', label: 'Projects' },
     { id: 'brain', label: 'Brain' },
     { id: 'procedures', label: 'Procedures' },
-    { id: 'files', label: 'Activity' },
+    { id: 'files', label: 'Live' },
   ];
 
   return (

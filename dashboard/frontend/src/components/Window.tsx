@@ -1,7 +1,7 @@
-import { useCallback, useRef, type ReactNode, type PointerEvent as ReactPointerEvent } from 'react';
+import { useCallback, useRef, type DragEvent as ReactDragEvent, type ReactNode, type PointerEvent as ReactPointerEvent } from 'react';
 import { useWindowManager } from '../store/window-store';
 import type { WindowState } from '../types/window';
-import { findSnapEdges, snapValue, findSharedEdgeWindows } from '../types/window';
+import { findSnapEdges, snapValue, findSharedEdgeWindows, JANUS_WINDOW_DRAG_MIME } from '../types/window';
 
 interface WindowProps {
   state: WindowState;
@@ -38,6 +38,11 @@ export function Window({ state, children }: WindowProps) {
     const snapH = { left: false, right: false };
     const snapV = { top: false, bottom: false };
 
+    // Snap only against windows on this viewport — different browser windows
+    // shouldn't tug at each other through cross-viewport coordinates.
+    const myViewport = state.viewportId ?? 'main';
+    const sameViewportWindows = layout.windows.filter(w => (w.viewportId ?? 'main') === myViewport);
+
     const onMove = (me: globalThis.PointerEvent) => {
       cancelAnimationFrame(rafRef.current);
       rafRef.current = requestAnimationFrame(() => {
@@ -47,8 +52,8 @@ export function Window({ state, children }: WindowProps) {
         const vpW = window.innerWidth;
         const vpH = window.innerHeight - TOPBAR_H - TASKBAR_H;
 
-        // Collect snap targets: viewport edges + other window edges
-        const edges = findSnapEdges(layout.windows, state.id);
+        // Collect snap targets: viewport edges + other window edges (same screen only)
+        const edges = findSnapEdges(sameViewportWindows, state.id);
         const hTargets = [0, vpW, ...edges.lefts, ...edges.rights];
         const vTargets = [0, vpH, ...edges.tops, ...edges.bottoms];
 
@@ -96,21 +101,30 @@ export function Window({ state, children }: WindowProps) {
     const startY = e.clientY;
     const orig = { x: state.x, y: state.y, w: state.width, h: state.height };
 
+    // Only consider windows on the same viewport when computing shared-edge
+    // neighbors. Without this filter, resizing a window in one browser-window
+    // would drag along a window in another browser-window if their global
+    // coordinates happened to share an edge value — that bug surfaced after
+    // adding viewports (Context in popout was still snapping to System in
+    // main because both had matching x/y math).
+    const myViewport = state.viewportId ?? 'main';
+    const sameViewport = layout.windows.filter(w => (w.viewportId ?? 'main') === myViewport);
+
     // Capture neighbors sharing each edge at drag start (frozen snapshot)
     const neighborsE = dir.includes('e')
-      ? findSharedEdgeWindows(layout.windows, state.id, 'left', state.x + state.width)
+      ? findSharedEdgeWindows(sameViewport, state.id, 'left', state.x + state.width)
           .map(w => ({ id: w.id, x: w.x, y: w.y, w: w.width, h: w.height }))
       : [];
     const neighborsW = dir.includes('w')
-      ? findSharedEdgeWindows(layout.windows, state.id, 'right', state.x)
+      ? findSharedEdgeWindows(sameViewport, state.id, 'right', state.x)
           .map(w => ({ id: w.id, x: w.x, y: w.y, w: w.width, h: w.height }))
       : [];
     const neighborsS = dir.includes('s')
-      ? findSharedEdgeWindows(layout.windows, state.id, 'top', state.y + state.height)
+      ? findSharedEdgeWindows(sameViewport, state.id, 'top', state.y + state.height)
           .map(w => ({ id: w.id, x: w.x, y: w.y, w: w.width, h: w.height }))
       : [];
     const neighborsN = dir.includes('n')
-      ? findSharedEdgeWindows(layout.windows, state.id, 'bottom', state.y)
+      ? findSharedEdgeWindows(sameViewport, state.id, 'bottom', state.y)
           .map(w => ({ id: w.id, x: w.x, y: w.y, w: w.width, h: w.height }))
       : [];
 
@@ -139,7 +153,8 @@ export function Window({ state, children }: WindowProps) {
         if (!hasNeighbors) {
           const vpW = window.innerWidth;
           const vpH = window.innerHeight - TOPBAR_H - TASKBAR_H;
-          const edges = findSnapEdges(layout.windows, state.id);
+          // Same-viewport snap only — see comment at top of onResizeStart.
+          const edges = findSnapEdges(sameViewport, state.id);
           const hTargets = [0, vpW, ...edges.lefts, ...edges.rights];
           const vTargets = [0, vpH, ...edges.tops, ...edges.bottoms];
 
@@ -211,9 +226,48 @@ export function Window({ state, children }: WindowProps) {
     document.addEventListener('pointerup', onUp);
   }, [dispatch, state, layout.windows]);
 
+  // Cross-window drag handle: starts a native HTML5 drag carrying just the
+  // window id. Same-origin browser windows that listen for the matching MIME
+  // (see WindowShell.tsx) claim the window when the user releases over them.
+  // We build an explicit drag image (a real chip showing the window title)
+  // so the user can see what they're dragging — the default drag image is a
+  // screenshot of the tiny 9px arrow button, which looked like nothing was
+  // happening.
+  const onSendDragStart = useCallback((e: ReactDragEvent) => {
+    e.stopPropagation();
+    if (!e.dataTransfer) return;
+    e.dataTransfer.setData(JANUS_WINDOW_DRAG_MIME, state.id);
+    e.dataTransfer.setData('text/plain', state.title);
+    e.dataTransfer.effectAllowed = 'move';
+    try {
+      const ghost = document.createElement('div');
+      ghost.textContent = `↗ ${state.title}`;
+      ghost.style.cssText = [
+        'position: absolute',
+        'top: -1000px',
+        'left: -1000px',
+        'padding: 8px 14px',
+        'background: #1a1c20',
+        'color: #e6e8eb',
+        'border: 1px solid #7aa2f7',
+        'border-radius: 6px',
+        'font-family: ui-monospace, SFMono-Regular, Menlo, monospace',
+        'font-size: 12px',
+        'font-weight: 600',
+        'pointer-events: none',
+        'box-shadow: 0 8px 20px rgba(0,0,0,0.45)',
+        'white-space: nowrap',
+      ].join(';');
+      document.body.appendChild(ghost);
+      e.dataTransfer.setDragImage(ghost, 16, 16);
+      // Tear the ghost back down once the browser has snapshotted it.
+      setTimeout(() => { try { document.body.removeChild(ghost); } catch { /* already gone */ } }, 0);
+    } catch { /* setDragImage unsupported — fall back to default */ }
+  }, [state.id, state.title]);
+
   if (state.minimized || !state.visible) return null;
 
-  const lineageLabel = state.lineage
+  const lineageLabel = state.lineage && state.lineage.depth > 0
     ? `L${state.lineage.depth} · ${state.lineage.breadcrumb.join(' > ')}`
     : null;
 
@@ -238,6 +292,34 @@ export function Window({ state, children }: WindowProps) {
         )}
         <span className="wm-window__title">{state.title}</span>
         <div className="wm-window__controls">
+          <button
+            type="button"
+            className="wm-window__btn wm-window__btn--send"
+            draggable
+            onDragStart={onSendDragStart}
+            onDragEnd={(e) => {
+              // If the drop landed somewhere (dropEffect !== 'none'), the
+              // receiving browser-window has dispatched TRANSFER and
+              // broadcasted. Re-broadcast our own current layout so peers
+              // are guaranteed to converge — without this, a flaky BC delivery
+              // would leave the source window thinking the panel is still in
+              // its viewport.
+              if (e.dataTransfer && e.dataTransfer.dropEffect === 'move') {
+                window.dispatchEvent(new CustomEvent('venture-os:window-transferred-out', {
+                  detail: { id: state.id },
+                }));
+              }
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+            title="Drag to another screen / browser window to send this panel there"
+            aria-label="Send to another screen"
+          >
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M7 17 17 7" />
+              <path d="M8 7h9v9" />
+            </svg>
+          </button>
           <button
             className="wm-window__btn wm-window__btn--min"
             onClick={(e) => { e.stopPropagation(); dispatch({ type: 'MINIMIZE', id: state.id }); }}

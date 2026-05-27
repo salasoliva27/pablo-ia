@@ -2,7 +2,7 @@ import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import { useDashboard } from '../store';
 import { ChatPanel } from './ChatPanel';
 import { Constellation } from './Constellation';
-import { ObsidianBrain } from './ObsidianBrain';
+import { BrainView } from './BrainView';
 import { FileHeatmapView } from './FileHeatmapView';
 import { RightPanel } from './RightPanel';
 import { ToolPulseBar } from './ToolPulseBar';
@@ -13,7 +13,7 @@ import './ShellLayout.css';
 export function ShellLayout() {
   const { centerView } = useDashboard();
 
-  const centerContent = centerView === 'brain' ? <ObsidianBrain />
+  const centerContent = centerView === 'brain' ? <BrainView />
     : centerView === 'files' ? <FileHeatmapView />
     : <Constellation />;
 

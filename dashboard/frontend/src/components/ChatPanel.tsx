@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, memo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useDashboard, detectLanguage } from '../store';
@@ -7,7 +7,7 @@ import type { ChatMessage, Document } from '../types/dashboard';
 const TEXT_MIME_PREFIXES = ['text/', 'application/json', 'application/xml', 'application/javascript', 'application/x-sh'];
 function isTextLikeMime(m: string) { return TEXT_MIME_PREFIXES.some(p => m.startsWith(p)); }
 
-async function buildUploadedDoc(file: File, serverPath: string): Promise<Document> {
+async function buildUploadedDoc(file: File, serverPath: string, url?: string): Promise<Document> {
   const ext = detectLanguage(file.name);
   const isImage = file.type.startsWith('image/') || ext === 'image';
   const isText = !isImage && (isTextLikeMime(file.type) || ['text', 'markdown', 'json', 'yaml', 'toml', 'csv', 'svg', 'xml',
@@ -38,12 +38,13 @@ async function buildUploadedDoc(file: File, serverPath: string): Promise<Documen
     filename: file.name,
     language,
     content,
+    url,
     timestamp: Date.now(),
     size: file.size,
   };
 }
 
-function ToolCallCard({ content }: { content: string }) {
+const ToolCallCard = memo(function ToolCallCard({ content }: { content: string }) {
   const [expanded, setExpanded] = useState(false);
   const lines = content.split('\n');
   const toolLine = lines[0]?.replace('Permission needed: ', '') || 'Tool Call';
@@ -63,7 +64,60 @@ function ToolCallCard({ content }: { content: string }) {
       )}
     </div>
   );
+});
+
+function downloadDocument(doc: Document) {
+  if (doc.content?.startsWith('data:')) {
+    const a = document.createElement('a');
+    a.href = doc.content;
+    a.download = doc.filename;
+    a.click();
+    return;
+  }
+  if (doc.url && !doc.content) {
+    const a = document.createElement('a');
+    a.href = doc.url;
+    a.download = doc.filename;
+    a.click();
+    return;
+  }
+  const blob = new Blob([doc.content], { type: doc.language === 'html' ? 'text/html' : 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = doc.filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }
+
+const MessageAttachments = memo(function MessageAttachments({ attachments }: { attachments?: Document[] }) {
+  if (!attachments?.length) return null;
+  return (
+    <div className="chat-panel__message-attachments">
+      {attachments.map(doc => {
+        const isImage = doc.language === 'image' || doc.filename.match(/\.(png|jpe?g|gif|webp|bmp|svg)$/i);
+        const src = doc.content?.startsWith('data:') ? doc.content : doc.url || doc.path;
+        return (
+          <div key={doc.id} className={`chat-panel__message-attachment ${isImage ? 'chat-panel__message-attachment--image' : ''}`}>
+            {isImage && src ? (
+              <button className="chat-panel__image-preview" onClick={() => downloadDocument(doc)} title={`Download ${doc.filename}`}>
+                <img src={src} alt={doc.filename} />
+              </button>
+            ) : (
+              <div className="chat-panel__doc-card">
+                <span className="chat-panel__doc-icon">doc</span>
+                <span className="chat-panel__doc-name" title={doc.path}>{doc.filename}</span>
+              </div>
+            )}
+            <button className="chat-panel__attachment-download" onClick={() => downloadDocument(doc)} title={`Download ${doc.filename}`}>
+              download
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+});
 
 const MEMORY_ICON: Record<string, string> = {
   recall: '↺',
@@ -73,7 +127,13 @@ const MEMORY_ICON: Record<string, string> = {
   resume: '↻',
 };
 
-function MessageContent({ msg }: { msg: ChatMessage }) {
+// memoized: with React Context, every ChatPanel re-renders on any state
+// change anywhere in the dashboard. Without this memo, opening 3 chats means
+// chat #1 streaming re-renders the entire message tree in chats #2 and #3
+// (each ReactMarkdown render is ~5-15ms). Memoing by msg reference is safe
+// because the store preserves the array reference per session — only the
+// session that actually changed sees a new array.
+const MessageContent = memo(function MessageContent({ msg }: { msg: ChatMessage }) {
   if (msg.role === 'memory') {
     const icon = MEMORY_ICON[msg.memoryAction || ''] || '·';
     return (
@@ -94,38 +154,49 @@ function MessageContent({ msg }: { msg: ChatMessage }) {
   }
 
   if (msg.role === 'user') {
-    return <span>{msg.content}</span>;
+    return (
+      <>
+        <span>{msg.content}</span>
+        <MessageAttachments attachments={msg.attachments} />
+      </>
+    );
   }
 
   return (
-    <ReactMarkdown
-      remarkPlugins={[remarkGfm]}
-      components={{
-        code({ className, children, ...props }) {
-          const match = /language-(\w+)/.exec(className || '');
-          const isInline = !match && !className;
-          if (isInline) {
-            return <code className="chat-inline-code" {...props}>{children}</code>;
-          }
-          return (
-            <div className="chat-code-block">
-              {match && <div className="chat-code-block__lang">{match[1]}</div>}
-              <pre><code className={className} {...props}>{children}</code></pre>
-            </div>
-          );
-        },
-        a({ href, children, ...props }) {
-          return <a href={href} target="_blank" rel="noopener noreferrer" {...props}>{children}</a>;
-        },
-        table({ children, ...props }) {
-          return <div className="chat-table-wrap"><table {...props}>{children}</table></div>;
-        },
-      }}
-    >
-      {msg.content}
-    </ReactMarkdown>
+    <>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          code({ className, children, ...props }) {
+            const match = /language-(\w+)/.exec(className || '');
+            const isInline = !match && !className;
+            if (isInline) {
+              return <code className="chat-inline-code" {...props}>{children}</code>;
+            }
+            return (
+              <div className="chat-code-block">
+                {match && <div className="chat-code-block__lang">{match[1]}</div>}
+                <pre><code className={className} {...props}>{children}</code></pre>
+              </div>
+            );
+          },
+          a({ href, children, ...props }) {
+            return <a href={href} target="_blank" rel="noopener noreferrer" {...props}>{children}</a>;
+          },
+          table({ children, ...props }) {
+            return <div className="chat-table-wrap"><table {...props}>{children}</table></div>;
+          },
+          img({ src, alt, ...props }) {
+            return <img className="chat-panel__markdown-image" src={src || ''} alt={alt || ''} {...props} />;
+          },
+        }}
+      >
+        {msg.content}
+      </ReactMarkdown>
+      <MessageAttachments attachments={msg.attachments} />
+    </>
   );
-}
+});
 
 function ElapsedTimer({ start }: { start: number }) {
   const [elapsed, setElapsed] = useState(0);
@@ -154,8 +225,6 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; dot: string 
 
 interface ChatPanelProps {
   sessionId?: string;
-  lineageLabel?: string;
-  lineageColor?: string;
 }
 
 interface ModelInfoLite { id: string; label: string; note?: string }
@@ -304,9 +373,9 @@ function ChatModelPicker({ sessionId, currentAgentId, currentModelId }: { sessio
   );
 }
 
-export function ChatPanel({ sessionId = 'session-0', lineageLabel, lineageColor }: ChatPanelProps) {
+export function ChatPanel({ sessionId = 'session-0' }: ChatPanelProps) {
   const dashboard = useDashboard();
-  const { sendChatMessage, stopResponse, editMessage, forkChat, getSessionChat, memoryIndex, newChat, restartSession } = dashboard;
+  const { sendChatMessage, stopResponse, editMessage, forkChat, getSessionChat, memoryIndex, restartSession } = dashboard;
 
   // Read from this session's own chat state
   const sessionChat = getSessionChat(sessionId);
@@ -320,13 +389,59 @@ export function ChatPanel({ sessionId = 'session-0', lineageLabel, lineageColor 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  interface PendingAttachment { name: string; size: number; type: string; path?: string; uploading: boolean; error?: string; file: File }
+  interface PendingAttachment { name: string; size: number; type: string; path?: string; url?: string; doc?: Document; uploading: boolean; error?: string; file: File }
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const [dropActive, setDropActive] = useState(false);
+  const onboardingAttempted = useRef(false);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    // First-run user onboarding: on a fresh instance the agent greets the
+    // user with the opening interview question by auto-submitting `/onboard`
+    // as a hidden trigger (no visible "/onboard" user bubble). Gate is
+    // `outputs/onboarding/<instance>/` YAML carrying `completed: true` —
+    // the /onboard agent writes that on the last block. Primary session
+    // only; forks / secondary sessions stay out of the way.
+    if (sessionId !== 'session-0') return;
+    if (onboardingAttempted.current) return;
+    // Don't fire while something is already in flight — sendChatMessage would
+    // route the trigger through its mid-response "interrupt" path, wrapping
+    // /onboard in follow-up boilerplate instead of starting it cleanly.
+    if (sessionChat.status === 'thinking' || sessionChat.status === 'streaming') return;
+    // Only block on real user/assistant turns. The frontend always seeds
+    // session-0 with a "Initializing…" / "Session restarted" system message,
+    // and the resume-banner injector adds role:'memory' entries — without
+    // this filter the auto-/onboard gate is permanently true and the flow
+    // never fires on fresh downstream brands.
+    const hasUserOrAssistant = messages.some(m => m.role === 'user' || m.role === 'assistant');
+    if (hasUserOrAssistant) return;
+    if (input.trim().length > 0) return;
+    // Reserve the slot synchronously so concurrent re-renders don't race the
+    // async fetch and double-dispatch. Released on dispatch failure (WS not
+    // connected yet) so the effect can retry once the bridge is up — its
+    // "Ready." sysMsg arrival bumps `messages.length`, re-firing this effect.
+    onboardingAttempted.current = true;
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch('/api/onboarding/user-status');
+        if (!r.ok) { onboardingAttempted.current = false; return; }
+        const d = await r.json();
+        if (cancelled) return;
+        if (d?.completed) return;
+        const stillEmpty = !messages.some(m => m.role === 'user' || m.role === 'assistant');
+        if (!stillEmpty || input.trim().length > 0) return;
+        const dispatched = sendChatMessage('/onboard', sessionId, [], { hidden: true });
+        if (!dispatched) onboardingAttempted.current = false;
+      } catch {
+        onboardingAttempted.current = false;
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [sessionId, sessionChat.status, messages.length, input, sendChatMessage]);
 
   useEffect(() => {
     const ta = inputRef.current;
@@ -335,7 +450,7 @@ export function ChatPanel({ sessionId = 'session-0', lineageLabel, lineageColor 
     ta.style.height = `${Math.min(ta.scrollHeight, 200)}px`;
   }, [input]);
 
-  async function uploadFile(file: File): Promise<{ path?: string; error?: string }> {
+  async function uploadFile(file: File): Promise<{ path?: string; url?: string; error?: string }> {
     try {
       const data = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
@@ -349,7 +464,7 @@ export function ChatPanel({ sessionId = 'session-0', lineageLabel, lineageColor 
       });
       const json = await resp.json();
       if (!resp.ok || !json.ok) return { error: json.error || `HTTP ${resp.status}` };
-      return { path: json.path };
+      return { path: json.path, url: json.url };
     } catch (err) { return { error: String(err) }; }
   }
 
@@ -367,13 +482,14 @@ export function ChatPanel({ sessionId = 'session-0', lineageLabel, lineageColor 
     setAttachments(a => [...a, ...pending]);
     for (const p of pending) {
       uploadFile(p.file).then(async r => {
-        setAttachments(a => a.map(x => x.file === p.file ? { ...x, uploading: false, path: r.path, error: r.error } : x));
+        let doc: Document | undefined;
         if (r.path && !r.error) {
           try {
-            const doc = await buildUploadedDoc(p.file, r.path);
+            doc = await buildUploadedDoc(p.file, r.path, r.url);
             dashboard.addUploadedDocument(doc);
           } catch (e) { console.warn('[uploaded-docs] failed to build preview:', e); }
         }
+        setAttachments(a => a.map(x => x.file === p.file ? { ...x, uploading: false, path: r.path, url: r.url, doc, error: r.error } : x));
       });
     }
   }
@@ -395,7 +511,7 @@ export function ChatPanel({ sessionId = 'session-0', lineageLabel, lineageColor 
       const list = ready.map(a => `  - ${a.path} (${a.name}, ${a.type || 'file'})`).join('\n');
       prompt = `[User attached ${ready.length} file${ready.length === 1 ? '' : 's'} — use the Read tool to open them]\n${list}\n\n${prompt || '(Please review the attached files.)'}`;
     }
-    sendChatMessage(prompt, sessionId);
+    sendChatMessage(prompt, sessionId, ready.map(a => a.doc).filter(Boolean) as Document[]);
     setInput('');
     setAttachments([]);
   }
@@ -543,6 +659,31 @@ export function ChatPanel({ sessionId = 'session-0', lineageLabel, lineageColor 
     );
   }
 
+  function exportConversation() {
+    const label = sessionChat.rootLabel ? `chat-${sessionChat.rootLabel}` : sessionId;
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const markdown = [
+      `# ${label} conversation`,
+      '',
+      `Exported: ${new Date().toISOString()}`,
+      `Session: ${sessionId}`,
+      '',
+      ...messages.map(m => {
+        const files = m.attachments?.length
+          ? `\n\nAttachments:\n${m.attachments.map(a => `- ${a.filename} (${a.path})`).join('\n')}`
+          : '';
+        return `## ${m.role} · ${new Date(m.timestamp).toISOString()}\n\n${m.content}${files}`;
+      }),
+    ].join('\n');
+    const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${label}-${stamp}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div
       className={`chat-panel ${dropActive ? 'chat-panel--drop-active' : ''}`}
@@ -560,55 +701,49 @@ export function ChatPanel({ sessionId = 'session-0', lineageLabel, lineageColor 
       )}
       {/* Header */}
       <div className="chat-panel__header">
-        <span>
-          {sessionChat.rootLabel && (
-            <span className="chat-panel__root-tag" style={{ background: lineageColor || 'var(--color-accent)' }}>
-              {sessionChat.rootLabel}
-            </span>
-          )}
-          {lineageLabel && (
-            <span className="chat-panel__lineage" style={{ color: lineageColor }}>{lineageLabel}</span>
-          )}
-        </span>
+        <span className="chat-panel__header-spacer" />
         <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
           <ChatEnginePicker sessionId={sessionId} currentAgentId={sessionChat.agentId} />
           <ChatModelPicker sessionId={sessionId} currentAgentId={sessionChat.agentId} currentModelId={sessionChat.modelId} />
           <button
-            className="chat-panel__fork-btn"
-            onClick={() => newChat()}
-            title="Start a new chat from zero"
-            style={{ padding: '2px 6px' }}
+            className="chat-panel__fork-btn chat-panel__fork-btn--icon"
+            onClick={exportConversation}
+            title="Export this conversation as Markdown"
+            aria-label="Export conversation"
           >
-            <span style={{ fontSize: 13, lineHeight: 1 }}>+</span>
-            <span>New</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
           </button>
           <button
-            className={`chat-panel__fork-btn ${isBusy ? 'chat-panel__fork-btn--disabled' : ''}`}
+            className={`chat-panel__fork-btn chat-panel__fork-btn--icon ${isBusy ? 'chat-panel__fork-btn--disabled' : ''}`}
             onClick={() => !isBusy && forkChat(sessionId, `Fork ${Date.now().toString(36).slice(-4)}`)}
             title="Fork conversation into new window"
+            aria-label="Fork conversation"
           >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <circle cx="18" cy="18" r="3" />
               <circle cx="6" cy="6" r="3" />
               <circle cx="18" cy="6" r="3" />
               <path d="M6 9v6c0 1.657 1.343 3 3 3h3" />
               <line x1="18" y1="9" x2="18" y2="15" />
             </svg>
-            <span>Fork</span>
           </button>
           <button
-            className={`chat-panel__learn-btn ${isBusy ? 'chat-panel__learn-btn--disabled' : ''}`}
+            className={`chat-panel__learn-btn chat-panel__learn-btn--icon ${isBusy ? 'chat-panel__learn-btn--disabled' : ''}`}
             onClick={() => !isBusy && setLearnOpen(v => !v)}
             title="Start learning mode"
+            aria-label="Learning mode"
           >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
-              <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z" />
+              <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z" />
             </svg>
-            <span>Learn</span>
           </button>
           <button
-            className={`chat-panel__fork-btn ${isBusy ? 'chat-panel__fork-btn--disabled' : ''}`}
+            className={`chat-panel__fork-btn chat-panel__fork-btn--icon ${isBusy ? 'chat-panel__fork-btn--disabled' : ''}`}
             onClick={() => {
               if (isBusy) return;
               setInput('');
@@ -616,12 +751,12 @@ export function ChatPanel({ sessionId = 'session-0', lineageLabel, lineageColor 
               restartSession(sessionId);
             }}
             title="Restart this chat — clears conversation, keeps the window and global memory"
+            aria-label="Restart chat"
           >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M3 12a9 9 0 1 0 3-6.7" />
               <polyline points="3 4 3 10 9 10" />
             </svg>
-            <span>Restart</span>
           </button>
           {learnOpen && (
             <div className="chat-panel__learn-menu">
@@ -846,7 +981,7 @@ export function ChatPanel({ sessionId = 'session-0', lineageLabel, lineageColor 
               type="submit"
               className={`chat-panel__send-btn ${(input.trim() || attachments.some(a => a.path)) ? 'chat-panel__send-btn--active' : ''}`}
               disabled={(!input.trim() && !attachments.some(a => a.path)) || attachments.some(a => a.uploading)}
-              title={attachments.some(a => a.uploading) ? 'Waiting for uploads…' : 'Send message'}
+              title={attachments.some(a => a.uploading) ? `Send to Chat ${sessionChat.rootLabel ?? '?'}` : `Send to Chat ${sessionChat.rootLabel ?? '?'}`}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M5 12h14" />

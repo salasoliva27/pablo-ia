@@ -125,13 +125,17 @@ function shapeTicket(raw: RawIssue, baseUrl: string): JiraTicket {
   };
 }
 
-export const DEFAULT_JQL = "assignee = currentUser() AND statusCategory != Done ORDER BY priority DESC, updated DESC";
+// Fetch all open tickets PLUS recently-touched Done tickets (last 90 days),
+// so the Tickets panel filter can show Done as a status option. Without the
+// 90-day bound we'd pull the full history of closed tickets, which can be
+// hundreds and pushes recent open work off the page.
+export const DEFAULT_JQL = "assignee = currentUser() AND (statusCategory != Done OR updated >= -90d) ORDER BY priority DESC, updated DESC";
 
 let lastTickets: JiraTicket[] = [];
 let lastError: string | null = null;
 let lastFetchedAt: string | null = null;
 
-async function fetchTicketsRaw(cfg: JiraConfig, jql: string, maxResults = 100): Promise<JiraTicket[]> {
+async function fetchTicketsRaw(cfg: JiraConfig, jql: string, maxResults = 200): Promise<JiraTicket[]> {
   // Atlassian deprecated /rest/api/3/search in favor of /rest/api/3/search/jql
   // for Cloud during 2025; use the new endpoint and fall back if 410/404.
   const fields = "summary,status,priority,assignee,reporter,project,issuetype,updated,created,duedate,labels";

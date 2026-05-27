@@ -9,9 +9,8 @@ outputs/screenshots/
 !dashboard/frontend/public/themes/*.png
 !dashboard/frontend/dist/themes/*.png
 dashboard/frontend/dist/.janus-build-rev
-# Obsidian personal state (do not commit — machine-specific)
-.obsidian/workspace.json
-.obsidian/workspace-mobile.json
+# Snowflake SDK transient log — should never be at root, defensive ignore
+snowflake.log
 # Chat file uploads — user-submitted, not versioned
 dump/uploads/
 # Local Claude Code state — machine-specific, not versioned
@@ -26,6 +25,8 @@ dump/uploads/
 # (The interview structure is in concepts/onboarding-interview.md and is
 #  in sync. The answers are per-instance and stay local.)
 outputs/onboarding/
+# Personal finance ledger — private, never versioned.
+personal-finance/
 # Generated binaries — these go to Drive (Janus_AI/), never git.
 # See AGENTS.md storage/tool routing.
 outputs/**/*.pdf

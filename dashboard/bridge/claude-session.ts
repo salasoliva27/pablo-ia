@@ -9,6 +9,11 @@ import { workspaceStateSlug } from "./path-utils.js";
 import { captureSessionSummary } from "./memory-capture.js";
 
 const WORKSPACE_ROOT = process.env.WORKSPACE_ROOT || "/workspaces/janus-ia";
+const WORKSPACE_NAME = path.basename(WORKSPACE_ROOT);
+// Mirrors server.ts: non-janus brands point HOME at the workspace root so the
+// CLI engine reads per-brand ~/.claude.json (MCP servers, settings) and
+// credentials instead of the upstream owner's user-level config.
+const BRAND_HOME = WORKSPACE_NAME === "janus-ia" ? os.homedir() : WORKSPACE_ROOT;
 const ENGINE_PROJECT_DIR = workspaceStateSlug(WORKSPACE_ROOT);
 const JANUS_STATE_DIR = path.join(os.homedir(), ".janus", "projects", ENGINE_PROJECT_DIR);
 const LEGACY_CLAUDE_STATE_DIR = path.join(os.homedir(), ".claude", "projects", ENGINE_PROJECT_DIR);
@@ -188,6 +193,9 @@ export class ClaudeSession {
   /** Reset to false at the top of each start(); flipped by any error path so
    * the silent-failure detector in close() can decide whether to also report. */
   private errorSentThisTurn = false;
+  /** Claude stream-json sends token deltas and then a final assistant payload.
+   * Track deltas so the final payload is not emitted as a duplicate. */
+  private sawStreamDeltaTextThisTurn = false;
   /** conversationLog.length at the moment of the most recent Supabase capture.
    * Used to throttle auto-captures to roughly one per `CAPTURE_TURN_INTERVAL`
    * additional turns, plus a final flush when the process exits. */
@@ -351,6 +359,10 @@ export class ClaudeSession {
     const childEnv: NodeJS.ProcessEnv = { ...process.env };
     for (const key of spawnSpec.envUnset || []) { delete childEnv[key]; }
     if (spawnSpec.envPatch) { Object.assign(childEnv, spawnSpec.envPatch); }
+    if (WORKSPACE_NAME !== "janus-ia") {
+      childEnv.HOME = BRAND_HOME;
+      childEnv.USERPROFILE = BRAND_HOME;
+    }
 
     // Pre-flight: missing-credential guard for adapters that strictly need an
     // env key. Codex can also use `codex login`, so env absence is not fatal.
@@ -411,6 +423,7 @@ export class ClaudeSession {
     let assistantBuffer = "";
     // Reset per-turn error flag — handleStreamEvent and stderr both flip it.
     this.errorSentThisTurn = false;
+    this.sawStreamDeltaTextThisTurn = false;
     // Snapshot the resume id we're trying to use this turn — if the process
     // exits silently we'll clear it so the next attempt starts fresh.
     const resumedFrom: string | null = this.engineSessionId;
@@ -648,12 +661,15 @@ export class ClaudeSession {
 
       case "assistant": {
         const content = event.message?.content;
+        const shouldEmitText = !this.sawStreamDeltaTextThisTurn;
         let text = "";
         if (Array.isArray(content)) {
           for (const block of content) {
             if (block.type === "text" && block.text) {
-              this.send({ type: "claude_message", message: block.text, sessionId: this.sessionId });
               text += block.text;
+              if (shouldEmitText) {
+                this.send({ type: "claude_message", message: block.text, sessionId: this.sessionId });
+              }
             } else if (block.type === "tool_use") {
               this.send({
                 type: "tool_event",
@@ -665,17 +681,22 @@ export class ClaudeSession {
             }
           }
         } else if (typeof content === "string") {
-          this.send({ type: "claude_message", message: content, sessionId: this.sessionId });
           text = content;
+          if (shouldEmitText) {
+            this.send({ type: "claude_message", message: content, sessionId: this.sessionId });
+          }
         }
-        return text || null;
+        return shouldEmitText && text ? text : null;
       }
 
       case "content_block_delta": {
         const text = event.delta?.type === "text_delta" && typeof event.delta.text === "string"
           ? event.delta.text
           : null;
-        if (text) this.send({ type: "claude_message", message: text, sessionId: this.sessionId });
+        if (text) {
+          this.sawStreamDeltaTextThisTurn = true;
+          this.send({ type: "claude_message", message: text, sessionId: this.sessionId });
+        }
         return text;
       }
 
