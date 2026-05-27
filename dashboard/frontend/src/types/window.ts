@@ -15,7 +15,7 @@ export interface WindowLineage {
 export interface WindowState {
   id: string;
   title: string;
-  type: 'chat' | 'center' | 'bottom' | 'right' | 'calendar' | 'sql-console' | 'tickets';
+  type: 'chat' | 'center' | 'bottom' | 'right' | 'calendar' | 'sql-console' | 'tickets' | 'chat-history';
   x: number;
   y: number;
   width: number;
@@ -37,6 +37,17 @@ export interface WindowState {
   lineage?: WindowLineage;
   // For sql-console windows: which backend tool the queries hit
   consoleTool?: 'supabase' | 'snowflake';
+  // Cross-screen ownership: which browser-window instance currently renders
+  // this UI window. Undefined means "no owner yet" — the first live instance
+  // claims persistent windows; non-persistent windows are owned by the
+  // instance that spawned them.
+  ownerInstanceId?: string;
+  // Viewport assignment for multi-screen workflow: each browser window/tab
+  // is a "screen" with its own viewportId. A window only renders in the
+  // browser tab whose viewport matches. Defaults to 'main'. New chats opened
+  // in a secondary tab get that tab's viewport. When a secondary tab closes,
+  // its windows get re-stamped to 'main' and minimized so they don't clutter.
+  viewportId?: string;
 }
 
 export interface WindowLayout {
@@ -55,7 +66,23 @@ export type WindowAction =
   | { type: 'FOCUS'; id: string }
   | { type: 'CLOSE'; id: string }
   | { type: 'ADD'; window: WindowState }
-  | { type: 'RESET' };
+  | { type: 'RESET' }
+  | { type: 'REPLACE'; layout: WindowLayout }
+  | { type: 'CLAIM'; ids: string[]; ownerInstanceId: string }
+  | { type: 'TRANSFER'; id: string; toInstanceId: string; toViewportId?: string; x?: number; y?: number }
+  | { type: 'REMOVE_MANY'; ids: string[] }
+  // Re-stamp windows to a different viewport. Used when a secondary tab
+  // closes — its windows get moved to 'main' AND minimized so the user
+  // doesn't lose them and they don't clutter the main view.
+  | { type: 'REASSIGN_VIEWPORT'; ids: string[]; toViewportId: string; minimize?: boolean }
+  // New-session reset: clear chat-tied windows + reset to default persistent
+  // 4-window layout. Memory/vault/learnings live outside the layout reducer
+  // and are cleared separately by the dashboard store.
+  | { type: 'RESET_SESSION_WINDOWS' };
+
+// HTML5 DataTransfer MIME used to ship a windowId between same-origin
+// browser windows when the user drags the cross-screen handle.
+export const JANUS_WINDOW_DRAG_MIME = 'application/x-janus-window-id';
 
 // Magnetic snap constants
 export const SNAP_THRESHOLD = 12;

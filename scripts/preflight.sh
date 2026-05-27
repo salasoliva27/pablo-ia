@@ -361,3 +361,14 @@ if [ -d "$MEMORY_DIR" ] && [ -z "$SUPABASE_URL" ]; then
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo ""
 fi
+
+# ─── 6. REECE CATALOG INCREMENTAL SYNC (background) ───────────
+# Fire-and-forget: pull any Jira ticket updates since the last sync into
+# salasoliva1994/reece_ai. Backgrounded with nohup so preflight doesn't
+# wait. Logs to .janus/catalog-sync.log. Only runs if the dotfile env was
+# loaded by `dash` (i.e. JIRA_API_KEY + GITHUB_TOKEN_REECE are present).
+if [ -n "${JIRA_API_KEY:-}" ] && [ -n "${GITHUB_TOKEN_REECE:-}" ] && [ -f "$WORKSPACE/scripts/reece-catalog-sync.mjs" ] && [ -d "$WORKSPACE/dump/reece_ai/.git" ]; then
+  mkdir -p "$WORKSPACE/.janus"
+  nohup node "$WORKSPACE/scripts/reece-catalog-sync.mjs" --incremental >> "$WORKSPACE/.janus/catalog-sync.log" 2>&1 &
+  echo "▸ Reece catalog incremental sync kicked off in background (PID $!)"
+fi

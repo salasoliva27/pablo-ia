@@ -41,6 +41,7 @@ const PROVIDERS: { id: string; label: string; color: string }[] = [
   { id: 'talend',     label: 'Talend',       color: 'oklch(0.70 0.18 30)'  },
   { id: 'search',     label: 'Search',       color: 'oklch(0.70 0.18 85)'  },
   { id: 'whatsapp',   label: 'WhatsApp',     color: 'oklch(0.74 0.16 150)' },
+  { id: 'microsoft',  label: 'Microsoft 365', color: 'oklch(0.72 0.16 230)' },
   { id: 'custom',     label: 'Custom',       color: 'oklch(0.65 0.10 220)' },
 ];
 
@@ -86,8 +87,8 @@ const DEFAULT_CREDENTIALS: CredentialEntry[] = [
   {
     id: 'snowflake',
     provider: 'snowflake',
-    name: 'Snowflake Warehouse',
-    scope: 'Query the warehouse (SELECT/INSERT depending on role permissions)',
+    name: 'Snowflake — Production (default)',
+    scope: 'Query the production warehouse (SELECT/INSERT depending on role permissions). Used as the default Snowflake target everywhere unless a script explicitly opts into sandbox.',
     docsUrl: 'https://docs.snowflake.com/en/user-guide/admin-account-identifier',
     howTo: 'Account = the identifier in your Snowflake URL (orgname-account). User/password from your Snowflake admin. Warehouse / database / role from your account admin or "SHOW WAREHOUSES" in the worksheet.',
     fields: [
@@ -103,6 +104,23 @@ const DEFAULT_CREDENTIALS: CredentialEntry[] = [
         hint: 'run `SHOW DATABASES` to list; common default is ODS' },
       { id: 'snowflake-role',        label: 'Role',                envVar: 'SNOWFLAKE_ROLE',              type: 'text',
         hint: 'run `SHOW ROLES` or ask your admin which role your user is granted' },
+    ],
+  },
+  {
+    id: 'snowflake-sandbox',
+    provider: 'snowflake',
+    name: 'Snowflake — Sandbox (secondary)',
+    scope: 'Secondary account for exploration / training data. Opt-in only — production stays the default.',
+    docsUrl: 'https://docs.snowflake.com/en/user-guide/admin-account-identifier',
+    howTo: 'Same shape as production credentials, just a different account locator. Scripts target it by reading SNOWFLAKE_SANDBOX_* (e.g. node scripts/snowflake-query.mjs --profile sandbox ...).',
+    fields: [
+      { id: 'snowflake-sandbox-account',   label: 'Account',         envVar: 'SNOWFLAKE_SANDBOX_ACCOUNT',   type: 'text',
+        hint: 'sandbox account locator (e.g. FW64584-DEV_SANDBOX)' },
+      { id: 'snowflake-sandbox-user',      label: 'User',            envVar: 'SNOWFLAKE_SANDBOX_USER',      type: 'text' },
+      { id: 'snowflake-sandbox-password',  label: 'Password',        envVar: 'SNOWFLAKE_SANDBOX_PASSWORD',  type: 'password' },
+      { id: 'snowflake-sandbox-warehouse', label: 'Warehouse',       envVar: 'SNOWFLAKE_SANDBOX_WAREHOUSE', type: 'text' },
+      { id: 'snowflake-sandbox-database',  label: 'Database',        envVar: 'SNOWFLAKE_SANDBOX_DATABASE',  type: 'text' },
+      { id: 'snowflake-sandbox-role',      label: 'Role',            envVar: 'SNOWFLAKE_SANDBOX_ROLE',      type: 'text' },
     ],
   },
   {
@@ -244,6 +262,19 @@ const DEFAULT_CREDENTIALS: CredentialEntry[] = [
         docsUrl: 'https://developers.facebook.com/apps',
         hint: 'your app → WhatsApp → API Setup',
       },
+    ],
+  },
+  {
+    id: 'microsoft-365',
+    provider: 'microsoft',
+    name: 'Microsoft 365 (mail / calendar / Teams)',
+    scope: 'Read + write — Outlook mail, work calendar, Teams chat + channels, OneDrive files (delegated, your account)',
+    docsUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/devicecode',
+    howTo: 'Click connect → a code appears → open the Microsoft URL in your browser → sign in with your work account (MFA included) → approve scopes. Tokens stored in dotfiles; password never touches Janus.',
+    fields: [
+      // Surfaced read-only so the status dot reflects whether a refresh token
+      // is already persisted. The actual write happens via /api/m365/connect.
+      { id: 'ms-refresh-token', label: 'Refresh token (stored after sign-in)', envVar: 'MS_GRAPH_REFRESH_TOKEN', type: 'password', placeholder: 'set automatically after sign-in' },
     ],
   },
   {
@@ -488,6 +519,198 @@ function SubscriptionPanel({ endpoint, title, subscriptionAuthMethod, idleHint, 
   );
 }
 
+interface M365Status {
+  connected: boolean;
+  account: string | null;
+  scope: string;
+  expiresAt: number | null;
+  pendingFlow: {
+    userCode: string;
+    verificationUri: string;
+    expiresAt: number;
+    result: { state: 'pending' } | { state: 'ok'; account: string | null; expiresAt: number } | { state: 'error'; error: string; description: string };
+  } | null;
+  clientId: string;
+  tenant: string;
+}
+
+function M365Panel() {
+  const [status, setStatus] = useState<M365Status | null>(null);
+  const [phase, setPhase] = useState<'idle' | 'starting' | 'awaiting' | 'error'>('idle');
+  const [userCode, setUserCode] = useState<string | null>(null);
+  const [verificationUri, setVerificationUri] = useState<string | null>(null);
+  const [errMsg, setErrMsg] = useState<string | null>(null);
+  const [scopeMode, setScopeMode] = useState<'full' | 'read'>('full');
+
+  const refresh = async () => {
+    try {
+      const r = await fetch('/api/m365/status');
+      const d = (await r.json()) as M365Status;
+      setStatus(d);
+      return d;
+    } catch {
+      return null;
+    }
+  };
+
+  useEffect(() => { refresh(); }, []);
+
+  // Poll the bridge while we're waiting for the user to complete sign-in.
+  // The bridge in turn polls Microsoft's token endpoint each call.
+  useEffect(() => {
+    if (phase !== 'awaiting') return;
+    const t = window.setInterval(async () => {
+      try {
+        const r = await fetch('/api/m365/poll', { method: 'POST' });
+        const d = await r.json() as { ok: boolean; result?: M365Status['pendingFlow'] extends infer P ? (P extends { result: infer R } ? R : never) : never };
+        const result = (d as { result?: { state: string; error?: string; description?: string } }).result;
+        if (result?.state === 'ok') {
+          setPhase('idle');
+          setUserCode(null);
+          setVerificationUri(null);
+          await refresh();
+          window.dispatchEvent(new CustomEvent('venture-os:credentials-changed', { detail: { endpoint: 'm365' } }));
+        } else if (result?.state === 'error') {
+          setPhase('error');
+          setErrMsg(`${result.error}${result.description ? ' — ' + result.description : ''}`);
+          setUserCode(null);
+        }
+        // state === 'pending' → keep polling
+      } catch (e) {
+        setPhase('error');
+        setErrMsg(String(e));
+      }
+    }, 3000);
+    return () => window.clearInterval(t);
+  }, [phase]);
+
+  const connect = async () => {
+    setPhase('starting');
+    setErrMsg(null);
+    try {
+      const r = await fetch('/api/m365/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scope: scopeMode }),
+      });
+      const d = await r.json() as { ok: boolean; userCode?: string; verificationUri?: string; error?: string };
+      if (!r.ok || !d.ok || !d.userCode) {
+        setPhase('error');
+        setErrMsg(d.error || 'failed to start device flow');
+        return;
+      }
+      setUserCode(d.userCode);
+      setVerificationUri(d.verificationUri || 'https://microsoft.com/devicelogin');
+      setPhase('awaiting');
+      // Open the verification page in a new tab; user pastes the code there.
+      if (d.verificationUri) window.open(d.verificationUri, '_blank', 'noopener');
+    } catch (e) {
+      setPhase('error');
+      setErrMsg(String(e));
+    }
+  };
+
+  const disconnect = async () => {
+    try { await fetch('/api/m365/disconnect', { method: 'POST' }); } catch { /* ignore */ }
+    await refresh();
+    setPhase('idle');
+    setUserCode(null);
+    window.dispatchEvent(new CustomEvent('venture-os:credentials-changed', { detail: { endpoint: 'm365' } }));
+  };
+
+  const copyCode = () => {
+    if (!userCode) return;
+    navigator.clipboard?.writeText(userCode).catch(() => { /* ignore */ });
+  };
+
+  const connected = !!status?.connected;
+  const account = status?.account;
+
+  return (
+    <div className="credentials__sub-panel">
+      <div className="credentials__sub-panel-head">
+        <span className="credentials__sub-panel-title">
+          Microsoft 365 sign-in (device code)
+          {connected && account && (
+            <span style={{ marginLeft: 8, color: 'var(--color-text-muted)', fontWeight: 400 }}>
+              · {account}
+            </span>
+          )}
+        </span>
+        {connected ? (
+          <button className="credentials__test-btn credentials__test-btn--pass" onClick={disconnect}>
+            disconnect
+          </button>
+        ) : phase === 'awaiting' ? (
+          <button className="credentials__save-btn" disabled>
+            waiting for sign-in…
+          </button>
+        ) : (
+          <>
+            <select
+              value={scopeMode}
+              onChange={e => setScopeMode(e.target.value as 'full' | 'read')}
+              disabled={phase === 'starting'}
+              style={{ background: 'var(--color-bg-primary)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border)', fontFamily: 'var(--font-family-mono)', fontSize: 11, padding: '2px 4px', borderRadius: 3 }}
+              title="Full = read + write (send mail, post Teams). Read-only = lower chance of admin block."
+            >
+              <option value="full">full (read + write)</option>
+              <option value="read">read-only</option>
+            </select>
+            <button className="credentials__save-btn" onClick={connect} disabled={phase === 'starting'}>
+              {phase === 'starting' ? 'starting…' : 'connect'}
+            </button>
+          </>
+        )}
+      </div>
+
+      {!connected && phase === 'awaiting' && userCode && (
+        <div className="credentials__sub-panel-line">
+          <div style={{ marginBottom: 6 }}>
+            1. Open{' '}
+            <a href={verificationUri || 'https://microsoft.com/devicelogin'} target="_blank" rel="noreferrer noopener" className="credentials__howto-link">
+              {verificationUri || 'microsoft.com/devicelogin'} ↗
+            </a>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <span>2. Enter code:</span>
+            <code style={{ fontSize: 16, fontWeight: 700, letterSpacing: '0.1em', padding: '2px 8px', background: 'var(--color-bg-elevated)', border: '1px solid var(--color-border)', borderRadius: 4 }}>
+              {userCode}
+            </code>
+            <button onClick={copyCode} className="credentials__test-btn" style={{ fontSize: 10 }}>copy</button>
+          </div>
+          <div style={{ color: 'var(--color-text-muted)' }}>
+            3. Sign in with your work account, complete MFA, approve scopes. This panel updates automatically.
+          </div>
+        </div>
+      )}
+
+      {phase === 'error' && errMsg && (
+        <div className="credentials__test-error">
+          {errMsg}
+          {errMsg.includes('AADSTS') && (
+            <div style={{ marginTop: 6 }}>
+              Looks like a tenant policy block. Try the <strong>read-only</strong> scope or ask your IT admin to consent.
+            </div>
+          )}
+        </div>
+      )}
+
+      {connected && status?.expiresAt && (
+        <div className="credentials__sub-panel-line credentials__sub-panel-hint">
+          Access token expires {new Date(status.expiresAt).toLocaleTimeString()} · refresh token persisted to dotfiles · scopes: {status.scope ? status.scope.split(' ').slice(0, 4).join(' ') + (status.scope.split(' ').length > 4 ? ' …' : '') : '(unknown)'}
+        </div>
+      )}
+
+      {!connected && phase === 'idle' && !errMsg && (
+        <div className="credentials__sub-panel-line credentials__sub-panel-hint">
+          Tenant: <code>{status?.tenant ?? '…'}</code> · Client: <code>{(status?.clientId ?? '').slice(0, 8)}…</code> (Microsoft Graph Explorer public app — no IT approval needed if your tenant allows it).
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function CredentialsButton({ onClick }: { onClick: () => void }) {
   return (
     <button className="credentials__trigger" onClick={onClick} title="Credentials">
@@ -505,6 +728,29 @@ type SaveState = { status: 'idle' | 'saving' | 'saved' | 'error'; message?: stri
 
 export function Credentials({ onClose, initialProviderId }: { onClose: () => void; initialProviderId?: string }) {
   const { tools, sendChatMessage } = useDashboard();
+
+  // Mirrors BottomPanel's brand gate: downstream brands (pablo-ia, jp-ai,
+  // ai-os) hide providers whose data sources they don't own — Atlassian/Jira
+  // tickets and Talend TMC are upstream-owner-only.
+  const [workspaceName, setWorkspaceName] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/workspace')
+      .then(r => r.ok ? r.json() : null)
+      .then((d: { name?: string } | null) => { if (!cancelled && d?.name) setWorkspaceName(d.name); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+  const isUpstream = workspaceName === 'janus-ia' || workspaceName === null;
+  const HIDDEN_FOR_DOWNSTREAM = useMemo(() => new Set(['atlassian', 'talend']), []);
+  const visibleProviders = useMemo(
+    () => isUpstream ? PROVIDERS : PROVIDERS.filter(p => !HIDDEN_FOR_DOWNSTREAM.has(p.id)),
+    [isUpstream, HIDDEN_FOR_DOWNSTREAM]
+  );
+  const visibleDefaults = useMemo(
+    () => isUpstream ? DEFAULT_CREDENTIALS : DEFAULT_CREDENTIALS.filter(e => !HIDDEN_FOR_DOWNSTREAM.has(e.provider)),
+    [isUpstream, HIDDEN_FOR_DOWNSTREAM]
+  );
 
   // Per-field input state, keyed by field id.
   const [values, setValues] = useState<FieldValues>({});
@@ -563,7 +809,7 @@ export function Credentials({ onClose, initialProviderId }: { onClose: () => voi
     return () => { cancelled = true; };
   }, []);
 
-  const allEntries = useMemo(() => [...DEFAULT_CREDENTIALS, ...customEntries], [customEntries]);
+  const allEntries = useMemo(() => [...visibleDefaults, ...customEntries], [visibleDefaults, customEntries]);
 
   // Source-of-truth for "is this field set?" — the bridge reports which env
   // vars are present in its process.env (dotfiles + Codespace secrets, merged).
@@ -822,11 +1068,11 @@ export function Credentials({ onClose, initialProviderId }: { onClose: () => voi
       arr.push(entry);
       byProvider.set(entry.provider, arr);
     }
-    return PROVIDERS.map(p => ({
+    return visibleProviders.map(p => ({
       provider: p,
       entries: byProvider.get(p.id) || [],
     })).filter(g => g.entries.length > 0 || g.provider.id === 'custom');
-  }, [allEntries]);
+  }, [allEntries, visibleProviders]);
 
   return (
     <div className="credentials__overlay" onClick={onClose}>
@@ -947,6 +1193,7 @@ export function Credentials({ onClose, initialProviderId }: { onClose: () => voi
                         idleHint={<>Sign in with your ChatGPT account to use your subscription quota instead of pasting an API key. Same flow as <code>codex login</code>.</>}
                       />
                     )}
+                    {entry.id === 'microsoft-365' && <M365Panel />}
                     <div className="credentials__scope">
                       <span className="credentials__scope-label">Grants:</span> {entry.scope}
                     </div>
