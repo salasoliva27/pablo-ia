@@ -118,12 +118,21 @@ ensure_clone() {
                     | sed 's@^origin/@@' || echo main)"
   git -C "$dir" checkout --quiet "$default_branch"
   git -C "$dir" reset --hard --quiet "origin/${default_branch}"
+  # Nuke untracked files too — leftover from any prior broken sync run.
+  # `reset --hard` only touches tracked files; without `clean -fd`,
+  # leftover untracked dirs (e.g. an accidentally-recursive path created
+  # by a buggy earlier sync) survive between runs and end up as
+  # phantom additions in the diff.
+  git -C "$dir" clean -fd --quiet
   echo "$dir"
 }
 
 copy_one_path() {
   # Copy upstream path into downstream, preserving structure.
-  # Skips paths in NEVER_SYNC_PATHS just in case (defense-in-depth).
+  # Skips paths in NEVER_SYNC_PATHS — supports both exact dir/file match
+  # AND sub-paths under a synced directory (e.g. scripts/ is synced but
+  # scripts/cloud/ is never_sync). Sub-path excludes are honored during
+  # recursive copy by walking files individually.
   local src_root="$1"
   local dst_root="$2"
   local rel="$3"
@@ -141,16 +150,45 @@ copy_one_path() {
   fi
   mkdir -p "$(dirname "$dst")"
   if [[ -d "$src" ]]; then
-    # ADDITIVE sync. Copy CONTENTS of src into dst — same-named files get
-    # overwritten, new files get added, downstream-only files PRESERVED.
-    # Critical for downstreams that have legitimately diverged inside
-    # synced paths (e.g. jp-ai's Ozum-specific agents under agents/core/).
-    # The trailing /. on src is the sh-portable way to copy directory
-    # contents (not the directory itself) into dst.
+    # ADDITIVE sync with sub-path excludes. Stage upstream to a temp dir
+    # (excluding node_modules and other always-skip dirs via rsync), prune
+    # any never_sync sub-paths from the stage, then merge stage into dst
+    # with cp -af. Same-named files get overwritten, new files added,
+    # downstream-only files PRESERVED — and we never touch downstream
+    # paths we didn't copy from upstream. rsync keeps fork count low so
+    # this works on Windows Git Bash too.
+    local rel_norm="${rel%/}"
+    local stage
+    stage="$(mktemp -d)"
+    # Hard-skip: node_modules (huge, platform-specific, derived from
+    # package-lock.json — downstreams run their own npm install).
+    # .git defensive (shouldn't be inside a synced path, but cheap to skip).
+    # Use tar-pipe with --exclude so we don't need rsync (not in Git Bash
+    # on Windows by default) and so we avoid copying node_modules at all.
+    (cd "$src" && tar -cf - --exclude='node_modules' --exclude='.git' .) \
+      | (cd "$stage" && tar -xf -)
+    local pruned=0
+    for never in "${NEVER_SYNC_PATHS[@]}"; do
+      local never_norm="${never%/}"
+      if [[ "$never_norm" == "$rel_norm/"* ]]; then
+        local subpath="${never_norm#${rel_norm}/}"
+        if [[ -e "${stage}/${subpath}" ]]; then
+          rm -rf "${stage:?}/${subpath}"
+          pruned=$((pruned+1))
+        fi
+      fi
+    done
     mkdir -p "$dst"
-    cp -af "${src}/." "${dst}/"
+    # Tar-pipe stage → dst (instead of `cp -af`): cygwin cp on Windows
+    # has a known bug where it attempts a rm-then-create overwrite path
+    # for some inodes and emits "cannot remove" when the dst file isn't
+    # present yet. Tar-pipe doesn't hit that codepath.
+    (cd "$stage" && tar -cf - .) | (cd "$dst" && tar -xf -)
+    rm -rf "$stage"
+    if (( pruned > 0 )); then
+      warn "  pruned $pruned never_sync sub-path(s) from $rel"
+    fi
   else
-    mkdir -p "$(dirname "$dst")"
     cp -af "$src" "$dst"
   fi
 }
@@ -164,7 +202,7 @@ sync_one_downstream() {
 
   # Stage the sync on a fresh branch (always; even dry-run, so we can diff).
   if git -C "$dir" show-ref --verify --quiet "refs/heads/${BRANCH}"; then
-    git -C "$dir" branch -D "$BRANCH" >/dev/null
+    git -C "$dir" branch -D "$BRANCH" >/dev/null 2>&1 || true
   fi
   local default_branch
   default_branch="$(git -C "$dir" symbolic-ref --short HEAD)"
@@ -184,7 +222,7 @@ sync_one_downstream() {
   if [[ -z "$stat" ]]; then
     log "  no changes — downstream already in sync"
     git -C "$dir" checkout --quiet "$default_branch"
-    git -C "$dir" branch -D "$BRANCH" >/dev/null
+    git -C "$dir" branch -D "$BRANCH" >/dev/null 2>&1 || true
     return
   fi
   log "  diff:${stat}"
@@ -211,7 +249,7 @@ sync_one_downstream() {
     fi
     git -C "$dir" reset --hard --quiet "$default_branch"
     git -C "$dir" checkout --quiet "$default_branch"
-    git -C "$dir" branch -D "$BRANCH" >/dev/null
+    git -C "$dir" branch -D "$BRANCH" >/dev/null 2>&1 || true
     return
   fi
 
