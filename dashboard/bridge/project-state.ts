@@ -24,7 +24,11 @@ const SUPABASE_URL = process.env.SUPABASE_URL ?? "";
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
 const GITHUB_USER_ENV = process.env.GITHUB_USER ?? "";
 
-const REFRESH_MS = parseInt(process.env.JANUS_PROJECT_REFRESH_MS || "60000", 10);
+// Default was 60_000ms (1 min). Bumped to 300_000ms (5 min) — the refresh
+// fires `fetchMemoryCount` against Supabase for every discovered project
+// (~10 repos), which adds up to a meaningful Supabase load when combined
+// with the rest of the polling on the bridge. Override via env if needed.
+const REFRESH_MS = parseInt(process.env.JANUS_PROJECT_REFRESH_MS || "300000", 10);
 const AUTO_STATUS_BOOTSTRAP = process.env.JANUS_AUTO_STATUS_BOOTSTRAP !== "0";
 const AUTO_STATUS_SYNC = process.env.JANUS_AUTO_STATUS_SYNC !== "0";
 
@@ -235,8 +239,20 @@ async function fetchLastCommit(token: string, repo: string, defaultBranch: strin
   }
 }
 
+// In-process cache for memory counts. Without it, every project-state
+// refresh fans out 1 HEAD per discovered repo (~10) against Supabase. The
+// counts barely change between refresh cycles, so caching them for 10 min
+// drops Supabase traffic to ~one query per repo per 10 min instead of per
+// minute.
+const memoryCountCache = new Map<string, { value: number; at: number }>();
+const MEMORY_COUNT_TTL_MS = 10 * 60 * 1000;
+
 async function fetchMemoryCount(memoryProject: string): Promise<number> {
   if (!SUPABASE_URL || !SUPABASE_KEY) return 0;
+  const cached = memoryCountCache.get(memoryProject);
+  if (cached && Date.now() - cached.at < MEMORY_COUNT_TTL_MS) {
+    return cached.value;
+  }
   try {
     const r = await fetch(
       `${SUPABASE_URL}/rest/v1/memories?select=id&project=eq.${encodeURIComponent(memoryProject)}`,
@@ -253,7 +269,9 @@ async function fetchMemoryCount(memoryProject: string): Promise<number> {
     const range = r.headers.get("content-range");
     if (!range) return 0;
     const total = parseInt(range.split("/").pop() ?? "0", 10);
-    return Number.isFinite(total) ? total : 0;
+    const value = Number.isFinite(total) ? total : 0;
+    memoryCountCache.set(memoryProject, { value, at: Date.now() });
+    return value;
   } catch {
     return 0;
   }

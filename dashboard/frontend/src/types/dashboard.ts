@@ -238,6 +238,8 @@ export interface Document {
   timestamp: number;
   /** Bytes — only meaningful for uploaded binary docs */
   size?: number;
+  /** Browser-readable URL for files served by the dashboard bridge. */
+  url?: string;
   /** Drive view URL once the async Drive mirror completes */
   driveUrl?: string;
 }
@@ -285,9 +287,10 @@ export interface DashboardState {
   chatStatus: 'idle' | 'thinking' | 'streaming' | 'done' | 'disconnected';
   chatThinkingStart: number | null;
   activeDocumentId: string | null;
-  rightPanelTab: 'memory' | 'documents' | 'uploaded' | 'editor';
+  rightPanelTab: 'memory' | 'documents' | 'uploaded' | 'editor' | 'learnings';
   agentCounts: Record<string, number>;
   projectCounts: Record<string, number>;
+  conversationHistory: ConversationRecord[];
   /** Auto-memory index loaded from /api/memory/index */
   memoryIndex: MemoryIndex | null;
 }
@@ -297,6 +300,8 @@ export interface ChatMessage {
   role: 'user' | 'assistant' | 'system' | 'memory';
   content: string;
   timestamp: number;
+  /** Files/images attached to this visible chat message. */
+  attachments?: Document[];
   /** For memory messages: which memory file / operation this refers to */
   memoryRef?: string;
   /** For memory messages: direction of the operation */
@@ -317,6 +322,19 @@ export interface MemoryIndex {
   indexContent: string;
   dir: string;
   fetchedAt: number;
+}
+
+export interface ConversationRecord {
+  id: string;
+  sessionId: string;
+  title: string;
+  rootLabel?: string;
+  createdAt: number;
+  updatedAt: number;
+  endedAt?: number;
+  reason: 'active' | 'new_chat' | 'restart' | 'fork' | 'ui_restart' | 'snapshot';
+  messages: ChatMessage[];
+  preview: string;
 }
 
 /** Per-session chat state — each fork gets its own message list + status */
@@ -347,14 +365,14 @@ export interface DashboardActions {
   setBrainSource: (source: BrainSource) => void;
   toggleCommandPalette: () => void;
   toggleScoreboard: () => void;
-  sendChatMessage: (msg: string, sessionId?: string) => void;
+  sendChatMessage: (msg: string, sessionId?: string, attachments?: Document[], opts?: { hidden?: boolean }) => boolean;
   stopResponse: (sessionId?: string) => void;
   editMessage: (messageId: string, sessionId?: string) => string | null;
   getSessionChat: (sessionId: string) => SessionChatState;
   dismissNotification: (id: string) => void;
   addTerminalLine: (line: string) => void;
   setActiveDocument: (id: string | null) => void;
-  setRightPanelTab: (tab: 'memory' | 'documents' | 'uploaded' | 'editor') => void;
+  setRightPanelTab: (tab: 'memory' | 'documents' | 'uploaded' | 'editor' | 'learnings') => void;
   addUploadedDocument: (doc: Document) => void;
   forkChat: (parentSessionId: string, label: string) => string;
   /** Switch the engine bound to a specific chat session (mid-conversation). */
@@ -368,6 +386,25 @@ export interface DashboardActions {
    *  same sessionId is reused — the next user message starts a fresh engine
    *  session under that id. */
   restartSession: (sessionId: string) => void;
+  /** Drop one conversation from local history + Supabase archive. If the
+   *  conversation's session is still live, drop it from chatSessions too
+   *  so any open window for it goes empty. */
+  deleteConversation: (conversationId: string) => void;
+  /** Wipe every conversation from local history + Supabase archive and
+   *  clear all live chat sessions. The next user action starts fresh. */
+  clearAllConversations: () => void;
+  /** Click-to-open from the History panel. If the conversation's session is
+   *  still live (in chatSessions), fires a focus event for the window
+   *  manager to surface it. If only archived, rehydrates the messages into
+   *  chatSessions and fires the same event so a window can be opened. */
+  focusOrRestoreChat: (conversationId: string) => void;
+  /** Full workspace reset: clear all chat sessions, conversation history,
+   *  tool call counters, uploaded documents, active document. Memory / vault
+   *  / learnings are PRESERVED — the new chat picks them up via the memory
+   *  MCP and the file-based auto-memory. Also resets the window layout to
+   *  the default 4-panel layout. Triggered from the "Restart Session" button
+   *  in the top bar. */
+  restartWorkspace: () => void;
 }
 
 // White-label configuration

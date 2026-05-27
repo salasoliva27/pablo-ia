@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { useDashboard, AGENT_REGISTRY } from '../store';
 import type { CenterView } from '../types/dashboard';
 
@@ -5,17 +6,76 @@ const STAGE_ORDER = ['idea', 'dev', 'uat', 'prod'] as const;
 const STAGE_ICONS: Record<string, string> = { idea: '\u2727', dev: '\u2692', uat: '\u2691', prod: '\u2713' };
 const STAGE_LABELS: Record<string, string> = { idea: 'IDEA', dev: 'DEV', uat: 'UAT', prod: 'PROD' };
 
-export function FileHeatmapView() {
-  const { projects, tools, agents, agentCounts, sessionEvents, learnings, centerView, setCenterView } = useDashboard();
+const EVENT_COLORS: Record<string, string> = {
+  edit: '#a78bfa',
+  commit: '#34d399',
+  dispatch: '#5eead4',
+  memory: '#fbbf24',
+  tool: '#60a5fa',
+  push: '#f87171',
+};
 
-  const activeTools = tools.filter(t => t.callCount > 0);
-  const maxCalls = Math.max(...tools.map(t => t.callCount), 1);
+const EVENT_ICONS: Record<string, string> = {
+  edit: 'E',
+  commit: 'C',
+  dispatch: 'D',
+  memory: 'M',
+  tool: 'T',
+  push: 'P',
+};
+
+function timeAgoShort(ts: number): string {
+  const s = Math.floor((Date.now() - ts) / 1000);
+  if (s < 5) return 'now';
+  if (s < 60) return `${s}s`;
+  if (s < 3600) return `${Math.floor(s / 60)}m`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h`;
+  return `${Math.floor(s / 86400)}d`;
+}
+
+function SessionTimeline() {
+  const { sessionEvents } = useDashboard();
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (containerRef.current) {
+      containerRef.current.scrollLeft = containerRef.current.scrollWidth;
+    }
+  }, [sessionEvents.length]);
+
+  if (sessionEvents.length === 0) {
+    return <div style={{ color: 'var(--color-text-muted)', fontSize: 11, fontFamily: 'var(--font-family-mono)', padding: 8 }}>waiting for session events...</div>;
+  }
+
+  return (
+    <div ref={containerRef} className="session-timeline">
+      {sessionEvents.slice(0, 50).map(ev => {
+        const color = EVENT_COLORS[ev.type] || '#888';
+        return (
+          <div key={ev.id} className="session-timeline__card" style={{ borderLeftColor: color }} title={ev.detail || ev.label}>
+            <div className="session-timeline__card-header">
+              <span className="session-timeline__card-icon" style={{ background: color }}>{EVENT_ICONS[ev.type] || '?'}</span>
+              <span className="session-timeline__card-type">{ev.type}</span>
+              <span className="session-timeline__card-time">{timeAgoShort(ev.timestamp)}</span>
+            </div>
+            <div className="session-timeline__card-label">{ev.label}</div>
+            {ev.detail && <div className="session-timeline__card-detail">{ev.detail}</div>}
+            {ev.project && <div className="session-timeline__card-project">{ev.project}</div>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+export function FileHeatmapView() {
+  const { projects, agents, agentCounts, centerView, setCenterView } = useDashboard();
 
   const views: { id: CenterView; label: string }[] = [
     { id: 'constellation', label: 'Projects' },
     { id: 'brain', label: 'Brain' },
     { id: 'procedures', label: 'Procedures' },
-    { id: 'files', label: 'Activity' },
+    { id: 'files', label: 'Live' },
   ];
 
   return (
@@ -60,33 +120,6 @@ export function FileHeatmapView() {
         })}
       </div>
 
-      {/* Tool activity grid */}
-      <div className="activity-view__tools-section">
-        <div className="activity-view__section-title">Tool Activity</div>
-        <div className="activity-view__tools-grid">
-          {tools.map(t => {
-            const fill = t.callCount / maxCalls;
-            return (
-              <div key={t.id} className={`activity-view__tool ${t.active ? 'activity-view__tool--active' : ''}`}>
-                <div className="activity-view__tool-ring" style={{ '--fill': fill, '--tool-color': t.configured === 'ready' ? 'var(--color-accent)' : 'var(--color-text-muted)' } as React.CSSProperties}>
-                  <svg viewBox="0 0 36 36" className="activity-view__tool-svg">
-                    <circle cx="18" cy="18" r="15.5" fill="none" stroke="var(--border-color)" strokeWidth="3" />
-                    <circle cx="18" cy="18" r="15.5" fill="none" stroke="var(--tool-color)" strokeWidth="3"
-                      strokeDasharray={`${fill * 97.4} ${97.4 - fill * 97.4}`}
-                      strokeDashoffset="24.35"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                  <span className="activity-view__tool-short">{t.shortName}</span>
-                </div>
-                <span className="activity-view__tool-name">{t.name.replace(' MCP', '')}</span>
-                <span className="activity-view__tool-count">{t.callCount}</span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
       {/* Agent Monitor */}
       <div className="agent-monitor">
         <div className="agent-monitor__title">Agents</div>
@@ -118,21 +151,11 @@ export function FileHeatmapView() {
         </div>
       </div>
 
-      {/* Recent session events feed */}
-      {sessionEvents.length > 0 && (
-        <div className="activity-view__feed-section">
-          <div className="activity-view__section-title">Session Feed</div>
-          <div className="activity-view__feed">
-            {sessionEvents.slice(0, 8).map(ev => (
-              <div key={ev.id} className="activity-view__feed-item">
-                <span className={`activity-view__feed-dot activity-view__feed-dot--${ev.type}`} />
-                <span className="activity-view__feed-label">{ev.label}</span>
-                <span className="activity-view__feed-time">{formatAge(ev.timestamp)}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Full session timeline — relocated from the bottom Tools window */}
+      <div className="activity-view__feed-section">
+        <div className="activity-view__section-title">Timeline</div>
+        <SessionTimeline />
+      </div>
 
       </div>
 
@@ -149,11 +172,4 @@ export function FileHeatmapView() {
       </div>
     </div>
   );
-}
-
-function formatAge(ts: number): string {
-  const s = Math.floor((Date.now() - ts) / 1000);
-  if (s < 60) return `${s}s`;
-  if (s < 3600) return `${Math.floor(s / 60)}m`;
-  return `${Math.floor(s / 3600)}h`;
 }

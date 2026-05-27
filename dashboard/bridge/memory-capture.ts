@@ -211,36 +211,68 @@ export async function memoryHealthSnapshot(workspace: string): Promise<{
   if (!cfg) {
     return { configured: false, reachable: false, totalMemories: null, lastWriteAt: null, daysSinceLastWrite: null, voyageConfigured: false, error: "Supabase env vars missing" };
   }
+  // Two independent probes — a timeout on one no longer flips the badge to
+  // "down" if the other succeeds. Timeout bumped 8s → 20s because the
+  // Janus AI Supabase project regularly takes >8s for HEAD count(*) when
+  // the data plane is degraded; the old behaviour kept showing
+  //   memory: down (the operation was aborted due to timeout)
+  // when memory was actually fine.
+  const HEAD_TIMEOUT_MS = 20_000;
+  const LAST_TIMEOUT_MS = 20_000;
+
+  let total: number | null = null;
+  let headOk = false;
+  let headError: string | null = null;
   try {
-    // Two separate calls: count via HEAD with Prefer: count=exact, and last_ts via single-row select.
     const head = await fetch(`${cfg.supabaseUrl}/rest/v1/memories?select=id&workspace=eq.${encodeURIComponent(workspace)}`, {
       method: "HEAD",
       headers: { apikey: cfg.supabaseKey, Authorization: `Bearer ${cfg.supabaseKey}`, Prefer: "count=exact" },
-      signal: AbortSignal.timeout(8_000),
+      signal: AbortSignal.timeout(HEAD_TIMEOUT_MS),
     });
-    const range = head.headers.get("content-range") ?? "";
-    const total = parseInt(range.split("/").pop() ?? "0", 10);
+    headOk = head.ok;
+    if (head.ok) {
+      const range = head.headers.get("content-range") ?? "";
+      const parsed = parseInt(range.split("/").pop() ?? "0", 10);
+      total = Number.isFinite(parsed) ? parsed : null;
+    } else {
+      headError = `HTTP ${head.status}`;
+    }
+  } catch (e) {
+    headError = String(e instanceof Error ? e.message : e);
+  }
 
+  let lastAt: string | null = null;
+  let lastError: string | null = null;
+  try {
     const lastResp = await fetch(`${cfg.supabaseUrl}/rest/v1/memories?select=created_at&workspace=eq.${encodeURIComponent(workspace)}&order=created_at.desc&limit=1`, {
       headers: { apikey: cfg.supabaseKey, Authorization: `Bearer ${cfg.supabaseKey}` },
-      signal: AbortSignal.timeout(8_000),
+      signal: AbortSignal.timeout(LAST_TIMEOUT_MS),
     });
-    let lastAt: string | null = null;
     if (lastResp.ok) {
       const arr = (await lastResp.json()) as Array<{ created_at?: string }>;
       lastAt = arr[0]?.created_at ?? null;
+    } else {
+      lastError = `HTTP ${lastResp.status}`;
     }
-    const daysSince = lastAt ? Math.floor((Date.now() - new Date(lastAt).getTime()) / (24 * 60 * 60 * 1000)) : null;
-    return {
-      configured: true,
-      reachable: head.ok,
-      totalMemories: Number.isFinite(total) ? total : null,
-      lastWriteAt: lastAt,
-      daysSinceLastWrite: daysSince,
-      voyageConfigured: !!cfg.voyageKey,
-      error: head.ok ? null : `HTTP ${head.status}`,
-    };
-  } catch (err) {
-    return { configured: true, reachable: false, totalMemories: null, lastWriteAt: null, daysSinceLastWrite: null, voyageConfigured: !!cfg.voyageKey, error: String(err instanceof Error ? err.message : err) };
+  } catch (e) {
+    lastError = String(e instanceof Error ? e.message : e);
   }
+
+  // Reachable if EITHER probe came back — partial success keeps the badge
+  // out of the red zone. Both must fail to count as "down".
+  const reachable = headOk || lastAt !== null;
+  const error = reachable
+    ? (headError || lastError ? `partial: ${headError ?? lastError}` : null)
+    : (headError ?? lastError ?? "unreachable");
+
+  const daysSince = lastAt ? Math.floor((Date.now() - new Date(lastAt).getTime()) / (24 * 60 * 60 * 1000)) : null;
+  return {
+    configured: true,
+    reachable,
+    totalMemories: total,
+    lastWriteAt: lastAt,
+    daysSinceLastWrite: daysSince,
+    voyageConfigured: !!cfg.voyageKey,
+    error,
+  };
 }

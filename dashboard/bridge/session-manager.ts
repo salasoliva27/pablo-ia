@@ -3,7 +3,11 @@ import { ClaudeSession } from "./claude-session.js";
 import { PermissionManager } from "./permissions.js";
 import type { ServerMessage } from "./types.js";
 
-const MAX_CONCURRENT = 4;
+// 4 was too tight — three active chats already start hitting CPU/memory limits
+// because each session spawns its own claude CLI subprocess during streaming.
+// 8 gives breathing room without uncapping into "user opens 50 tabs by accident"
+// territory. The real limiter beyond this is OS resources, not this gate.
+const MAX_CONCURRENT = 8;
 
 interface SessionEntry {
   session: ClaudeSession;
